@@ -1,4 +1,4 @@
-﻿# Aquí configuro el enrutador principal de URLs de Camplink, conectando los endpoints de la API REST,
+# Aquí configuro el enrutador principal de URLs de Camplink, conectando los endpoints de la API REST,
 # el panel de administración, la gestión de archivos multimedia y los archivos sitemap.xml y robots.txt para SEO.
 
 from django.contrib import admin

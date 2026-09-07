@@ -1,4 +1,4 @@
-﻿# Aquí configuro las rutas URL para la gestión de Lugares de pernocta,
+# Aquí configuro las rutas URL para la gestión de Lugares de pernocta,
 # valoraciones camper, descargas .ics y radar geográfico de proximidad.
 
 from django.urls import path, include

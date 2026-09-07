@@ -1,4 +1,4 @@
-﻿# Aquí defino los serializers para la Guía del Nómada (artículos técnicos del administrador)
+# Aquí defino los serializers para la Guía del Nómada (artículos técnicos del administrador)
 # y el Taller Nómada (foro comunitario con soporte de archivos 3D .stl).
 
 from rest_framework import serializers

@@ -9,7 +9,7 @@ from django.db.models import Q
 from rest_framework import status, viewsets, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from .models import Explorador, GrupoPrivacidad, RelacionSeguimiento
+from .models import Explorador, GrupoPrivacidad, RelacionSeguimiento, Notificacion
 from .serializers import (
     ExploradorRegistroSerializer,
     ExploradorPerfilSerializer,
@@ -182,6 +182,14 @@ def solicitar_seguimiento_vista(request, usuario_id):
     RelacionSeguimiento.objects.update_or_create(
         seguidor=seguido, seguido=request.user, defaults={'estado': 'aceptada'}
     )
+    crear_notificacion(
+        usuario_destino=seguido,
+        usuario_origen=request.user,
+        tipo='seguimiento',
+        titulo='¡Nuevo Compañero de Ruta!',
+        mensaje=f'{request.user.username.capitalize()} ha comenzado a seguirte y ahora sois compañeros de ruta.',
+        enlace=f'/explorador/{request.user.id}'
+    )
     return Response({'mensaje': f'¡Ahora {seguido.username} y tú sois Compañeros de Ruta! 🤝', 'estado': 'aceptada'})
 
 
@@ -216,3 +224,62 @@ def companeros_vista(request):
     companeros = Explorador.objects.filter(id__in=seguidos_ids)
     serializer = ExploradorPerfilSerializer(companeros, many=True, context={'request': request})
     return Response(serializer.data)
+
+
+def crear_notificacion(usuario_destino, usuario_origen, tipo, titulo, mensaje, enlace=''):
+    try:
+        if usuario_destino and (not usuario_origen or usuario_destino.id != usuario_origen.id):
+            return Notificacion.objects.create(
+                usuario_destino=usuario_destino,
+                usuario_origen=usuario_origen,
+                tipo=tipo,
+                titulo=titulo,
+                mensaje=mensaje,
+                enlace=enlace
+            )
+    except Exception as e:
+        print(f"Error creando notificacion: {e}")
+    return None
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def seguidores_y_siguiendo_vista(request):
+    usuario = request.user
+    
+    # Seguidores: quién sigue a este usuario
+    seguidores_ids = RelacionSeguimiento.objects.filter(seguido=usuario, estado='aceptada').values_list('seguidor_id', flat=True)
+    seguidores = Explorador.objects.filter(id__in=seguidores_ids)
+    
+    # Siguiendo: a quién sigue este usuario
+    siguiendo_ids = RelacionSeguimiento.objects.filter(seguidor=usuario, estado='aceptada').values_list('seguido_id', flat=True)
+    siguiendo = Explorador.objects.filter(id__in=siguiendo_ids)
+    
+    context = {'request': request}
+    return Response({
+        'seguidores': ExploradorPerfilSerializer(seguidores, many=True, context=context).data,
+        'siguiendo': ExploradorPerfilSerializer(siguiendo, many=True, context=context).data,
+        'total_seguidores': seguidores.count(),
+        'total_siguiendo': siguiendo.count(),
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.IsAuthenticated])
+def notificaciones_vista(request):
+    usuario = request.user
+    if request.method == 'GET':
+        notifs = Notificacion.objects.filter(usuario_destino=usuario).order_by('-fecha_creacion')[:50]
+        no_leidas = Notificacion.objects.filter(usuario_destino=usuario, leida=False).count()
+        serializer = NotificacionSerializer(notifs, many=True, context={'request': request})
+        return Response({
+            'notificaciones': serializer.data,
+            'no_leidas': no_leidas
+        })
+    elif request.method == 'POST':
+        notif_id = request.data.get('notificacion_id')
+        if notif_id:
+            Notificacion.objects.filter(id=notif_id, usuario_destino=usuario).update(leida=True)
+        else:
+            Notificacion.objects.filter(usuario_destino=usuario, leida=False).update(leida=True)
+        return Response({'mensaje': 'Notificaciones actualizadas con éxito.', 'no_leidas': 0})

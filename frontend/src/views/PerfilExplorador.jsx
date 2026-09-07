@@ -45,6 +45,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [trofeos, setTrofeos] = useState([]);
   const [platinoData, setPlatinoData] = useState(null);
   const [companeros, setCompaneros] = useState([]);
+  const [seguidores, setSeguidores] = useState([]);
+  const [siguiendo, setSiguiendo] = useState([]);
+  const [tabComunidad, setTabComunidad] = useState('seguidores'); // 'seguidores', 'siguiendo', 'grupos'
   const [grupos, setGrupos] = useState([]);
   const [lugaresGuardados, setLugaresGuardados] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -125,10 +128,17 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         console.warn('Trofeos no disponibles:', e);
       }
 
-      // 4. Compañeros
+      // 4. Compañeros, Seguidores y Siguiendo
       try {
-        const companerosRes = await peticionApi('/api/exploradores/companeros/');
-        setCompaneros(companerosRes.results || companerosRes || []);
+        const segRes = await peticionApi('/api/exploradores/seguidores-siguiendo/');
+        if (segRes) {
+          setSeguidores(segRes.seguidores || []);
+          setSiguiendo(segRes.siguiendo || []);
+          setCompaneros(segRes.siguiendo || []);
+        } else {
+          const companerosRes = await peticionApi('/api/exploradores/companeros/');
+          setCompaneros(companerosRes.results || companerosRes || []);
+        }
       } catch (e) {
         console.warn('Compañeros no disponibles:', e);
       }
@@ -429,6 +439,22 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
       setGrupos(grupos.filter(g => g.id !== grupoId));
     } catch {
       alert('No se pudo eliminar el grupo.');
+    }
+  };
+
+  const alternarSeguirCompanero = async (companeroId) => {
+    try {
+      const res = await peticionApi(`/api/exploradores/seguir/${companeroId}/`, { method: 'POST' });
+      if (res?.mensaje) alert(res.mensaje);
+      // Recargar seguidores y siguiendo
+      const segRes = await peticionApi('/api/exploradores/seguidores-siguiendo/');
+      if (segRes) {
+        setSeguidores(segRes.seguidores || []);
+        setSiguiendo(segRes.siguiendo || []);
+        setCompaneros(segRes.siguiendo || []);
+      }
+    } catch (e) {
+      alert('Error al gestionar el seguimiento.');
     }
   };
 
@@ -950,99 +976,287 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   </div>
 )}
 
-      {/* PESTAÑA 2: COMPAÑEROS Y GRUPOS (CLIC EN COMPAÑERO ABRE PERFIL DETALLE) */}
+      {/* PESTAÑA 2: COMPAÑEROS, SEGUIDORES, SIGUIENDO Y GRUPOS */}
       {pestañaActiva === 'comunidad' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
-          {/* Subsección 1: Compañeros de Ruta Clicables */}
-          <div className="camper-card" style={{ padding: '26px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <UserCheck size={18} color="var(--accent-forest)" /> Compañeros de Ruta (Haz clic para ver su perfil)
-                </h3>
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                  Exploradores con quienes compartes el lore y las publicaciones del Diario de Ruta.
-                </p>
-              </div>
-              <span className="badge-camper badge-forest">
-                {companeros.length} Compañeros
-              </span>
-            </div>
-
-            {companeros.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic', margin: 0 }}>
-                Aún no tienes compañeros de ruta conectados. Puedes buscar exploradores en el Diario de Ruta.
-              </p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                {companeros.map((comp) => (
-                  <div
-                    key={comp.id}
-                    style={{
-                      padding: '14px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--bg-primary)',
-                      border: '1px solid var(--border-color)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}
-                  >
-                    <div 
-                      onClick={() => irAlPerfilCompanero(comp.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}
-                      title={`Ver perfil completo de ${comp.username}`}
-                    >
-                      <div
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '50%',
-                          background: 'var(--accent-forest)',
-                          color: '#fff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700
-                        }}
-                      >
-                        {comp.username?.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                          {comp.username}
-                        </div>
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                          {comp.tipo_viajero_display || comp.tipo_viajero} {comp.poblacion ? `• ${comp.poblacion}` : ''}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '4px 8px', fontSize: '0.76rem' }}
-                        onClick={() => irAlPerfilCompanero(comp.id)}
-                      >
-                        Ver Perfil
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '4px 8px', fontSize: '0.76rem', color: '#D93838' }}
-                        onClick={() => dejarDeSeguir(comp.id)}
-                        title="Dejar de seguir"
-                      >
-                        <UserMinus size={13} />
-                      </button>
-                    </div>
+          
+          {/* BANNER DE ADMINISTRACIÓN DJANGO (Solo Administradores) */}
+          {(usuario?.es_admin || usuario?.is_staff || usuario?.is_superuser || usuario?.username === 'admin') && (
+            <div className="camper-card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(35, 83, 52, 0.25) 0%, rgba(15, 23, 42, 0.4) 100%)', border: '1px solid var(--accent-forest)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--accent-forest)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>
+                    🛡️
                   </div>
-                ))}
+                  <div>
+                    <h3 style={{ fontSize: '1.15rem', margin: 0, fontWeight: 700, color: '#FFFFFF' }}>
+                      Panel de Administración Django & Base de Datos
+                    </h3>
+                    <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.8)', margin: '4px 0 0' }}>
+                      Gestión avanzada de Usuarios, Grupos, Lugares, Pernoctas, Comentarios, Trofeos y Moderación activa.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <a
+                    href="http://localhost:8000/admin/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    Abrir Django Admin ↗
+                  </a>
+                  <a
+                    href="http://localhost:8000/admin/exploradores/explorador/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', textDecoration: 'none' }}
+                  >
+                    Gestionar Usuarios
+                  </a>
+                  <a
+                    href="http://localhost:8000/admin/lugares/lugar/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 14px', textDecoration: 'none' }}
+                  >
+                    Gestionar Lugares
+                  </a>
+                </div>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Subnavegación de Comunidad: Seguidores | Siguiendo | Grupos */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${tabComunidad === 'seguidores' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTabComunidad('seguidores')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
+            >
+              <Users size={16} /> Te Siguen ({seguidores.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${tabComunidad === 'siguiendo' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTabComunidad('siguiendo')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
+            >
+              <UserCheck size={16} /> Sigues ({siguiendo.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${tabComunidad === 'grupos' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTabComunidad('grupos')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
+            >
+              <Shield size={16} /> Grupos de Privacidad ({grupos.length})
+            </button>
           </div>
 
-          {/* Subsección 2: Grupos de Privacidad con Edición y Gestión de Miembros */}
-          <div className="camper-card" style={{ padding: '26px' }}>
+          {/* SECCIÓN 1: EXPLORADORES QUE TE SIGUEN (SEGUIDORES) */}
+          {tabComunidad === 'seguidores' && (
+            <div className="camper-card" style={{ padding: '26px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={18} color="var(--accent-forest)" /> Exploradores que te Siguen
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                    Nómadas que reciben tus vivencias en su feed del Diario de Ruta.
+                  </p>
+                </div>
+                <span className="badge-camper badge-forest">
+                  {seguidores.length} Seguidores
+                </span>
+              </div>
+
+              {seguidores.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-color)' }}>
+                  <Users size={36} color="var(--text-muted)" style={{ margin: '0 auto 10px', display: 'block', opacity: 0.6 }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: 0 }}>
+                    Aún no tienes seguidores. Comparte vivencias en el Diario de Ruta y descubre nuevos lugares para conectar con la comunidad.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
+                  {seguidores.map((comp) => {
+                    const loSigo = siguiendo.some(s => s.id === comp.id);
+                    return (
+                      <div
+                        key={comp.id}
+                        style={{
+                          padding: '14px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '10px'
+                        }}
+                      >
+                        <div 
+                          onClick={() => irAlPerfilCompanero(comp.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1, minWidth: 0 }}
+                          title={`Ver perfil completo de ${comp.username}`}
+                        >
+                          <div
+                            style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              background: 'var(--accent-forest)',
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              flexShrink: 0
+                            }}
+                          >
+                            {comp.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {comp.username?.charAt(0).toUpperCase() + comp.username?.slice(1)}
+                            </div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {comp.poblacion ? `• ${comp.poblacion}` : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '5px 9px', fontSize: '0.78rem' }}
+                            onClick={() => irAlPerfilCompanero(comp.id)}
+                            title="Ver perfil"
+                          >
+                            Ver Perfil
+                          </button>
+                          <button
+                            className={`btn btn-sm ${loSigo ? 'btn-secondary' : 'btn-primary'}`}
+                            style={{ padding: '5px 9px', fontSize: '0.78rem' }}
+                            onClick={() => alternarSeguirCompanero(comp.id)}
+                            title={loSigo ? "Compañero de Ruta Mutuo" : "Seguir también"}
+                          >
+                            {loSigo ? <UserCheck size={14} /> : <UserPlus size={14} />}
+                            <span style={{ marginLeft: '4px' }}>{loSigo ? 'Siguiendo' : 'Seguir'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECCIÓN 2: EXPLORADORES A LOS QUE SIGUES (SIGUIENDO) */}
+          {tabComunidad === 'siguiendo' && (
+            <div className="camper-card" style={{ padding: '26px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <UserCheck size={18} color="var(--accent-forest)" /> Exploradores a los que Sigues
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                    Tus Compañeros de Ruta con quienes compartes el lore y publicaciones del Diario.
+                  </p>
+                </div>
+                <span className="badge-camper badge-forest">
+                  {siguiendo.length} Siguiendo
+                </span>
+              </div>
+
+              {siguiendo.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-color)' }}>
+                  <UserCheck size={36} color="var(--text-muted)" style={{ margin: '0 auto 10px', display: 'block', opacity: 0.6 }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: 0 }}>
+                    Aún no sigues a ningún explorador. Puedes explorar el Diario de Ruta o buscar nómadas por su vehículo y zona.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
+                  {siguiendo.map((comp) => (
+                    <div
+                      key={comp.id}
+                      style={{
+                        padding: '14px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px'
+                      }}
+                    >
+                      <div 
+                        onClick={() => irAlPerfilCompanero(comp.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1, minWidth: 0 }}
+                        title={`Ver perfil completo de ${comp.username}`}
+                      >
+                        <div
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: 'var(--accent-forest)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}
+                        >
+                          {comp.username?.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {comp.username?.charAt(0).toUpperCase() + comp.username?.slice(1)}
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {comp.poblacion ? `• ${comp.poblacion}` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '5px 9px', fontSize: '0.78rem' }}
+                          onClick={() => irAlPerfilCompanero(comp.id)}
+                          title="Ver perfil"
+                        >
+                          Ver Perfil
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '5px 9px', fontSize: '0.78rem', color: '#D93838' }}
+                          onClick={() => dejarDeSeguir(comp.id)}
+                          title="Dejar de seguir"
+                        >
+                          <UserMinus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECCIÓN 3: GRUPOS DE PRIVACIDAD */}
+          {tabComunidad === 'grupos' && (
+            <div className="camper-card" style={{ padding: '26px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <h3 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1191,7 +1405,8 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 })}
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

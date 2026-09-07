@@ -1,4 +1,4 @@
-﻿# Aquí defino los serializers para el modelo Viaje (agrupación inteligente de pernoctas),
+# Aquí defino los serializers para el modelo Viaje (agrupación inteligente de pernoctas),
 # las rutas punto a punto, las estadísticas globales y la vitrina de Trofeos camper.
 
 from rest_framework import serializers

@@ -1,4 +1,4 @@
-﻿# Aquí defino los sitemaps automáticos para SEO en Django, exponiendo los Lugares y Artículos
+# Aquí defino los sitemaps automáticos para SEO en Django, exponiendo los Lugares y Artículos
 # de la Guía del Nómada para indexación en buscadores.
 
 from django.contrib.sitemaps import Sitemap

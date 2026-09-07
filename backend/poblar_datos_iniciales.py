@@ -1,4 +1,4 @@
-﻿# Aquí implemento el script para poblar la base de datos con exploradores de prueba,
+# Aquí implemento el script para poblar la base de datos con exploradores de prueba,
 # lugares camper reales en España, artículos de la Guía del Nómada y temas del Taller.
 
 import os

@@ -1,4 +1,5 @@
-﻿# Aquí implemento las vistas y controladores del Diario de Ruta (feed social),
+from exploradores.views import crear_notificacion
+# Aquí implemento las vistas y controladores del Diario de Ruta (feed social),
 # publicación de vivencias nómadas, comentarios y registro de Check-ins (pernoctas).
 
 from django.db.models import Q
@@ -92,6 +93,15 @@ class PublicacionViewSet(viewsets.ModelViewSet):
             texto=texto
         )
         serializer = ComentarioPublicacionSerializer(comentario)
+        if pub.autor != request.user:
+            crear_notificacion(
+                usuario_destino=pub.autor,
+                usuario_origen=request.user,
+                tipo='comentario',
+                titulo='¡Nuevo comentario en tu vivencia!',
+                mensaje=f'{request.user.username.capitalize()} comentó: "{comentario.texto[:60]}..."',
+                enlace='/diario'
+            )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

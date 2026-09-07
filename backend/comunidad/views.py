@@ -1,4 +1,4 @@
-﻿# Aquí implemento las vistas para la Guía del Nómada (exclusiva de administradores para redactar)
+# Aquí implemento las vistas para la Guía del Nómada (exclusiva de administradores para redactar)
 # y el Taller Nómada (foro comunitario con intercambio de conocimientos y piezas 3D .stl).
 
 from rest_framework import viewsets, permissions, status

@@ -14,7 +14,9 @@ from .views import (
     GrupoPrivacidadViewSet,
     solicitar_seguimiento_vista,
     responder_seguimiento_vista,
-    companeros_vista
+    companeros_vista,
+    seguidores_y_siguiendo_vista,
+    notificaciones_vista
 )
 
 # Enrutador REST para exploradores y grupos
@@ -30,6 +32,8 @@ urlpatterns = [
     path('logout/', logout_vista, name='explorador-logout'),
     path('perfil/', mi_perfil_vista, name='explorador-perfil'),
     path('companeros/', companeros_vista, name='explorador-companeros'),
+    path('seguidores-siguiendo/', seguidores_y_siguiendo_vista, name='explorador-seguidores-siguiendo'),
+    path('notificaciones/', notificaciones_vista, name='explorador-notificaciones'),
 
     # Seguimiento y amistades entre exploradores
     path('seguir/<int:usuario_id>/', solicitar_seguimiento_vista, name='solicitar-seguimiento'),

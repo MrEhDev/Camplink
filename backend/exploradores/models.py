@@ -1,3 +1,4 @@
+from django.conf import settings
 # Aquí defino los modelos de datos para la gestión de usuarios (Exploradores),
 # sus perfiles camper, relaciones de seguimiento y grupos de privacidad para el Diario de Ruta.
 
@@ -93,3 +94,43 @@ class RelacionSeguimiento(models.Model):
     def __str__(self):
         # Aquí muestro una descripción legible de la relación entre ambos exploradores
         return f'{self.seguidor.username} -> {self.seguido.username} [{self.estado}]'
+
+
+class Notificacion(models.Model):
+    TIPOS = [
+        ('seguimiento', '🤝 Nuevo Compañero de Ruta / Seguidor'),
+        ('comentario', '💬 Comentario en tu publicación'),
+        ('reaccion', '🔥 Reacción a tu vivencia'),
+        ('trofeo', '🏆 Trofeo Desbloqueado'),
+        ('grupo', '🏕️ Grupo / Comunidad'),
+        ('sistema', 'ℹ️ Notificación del Sistema'),
+    ]
+
+    usuario_destino = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notificaciones_recibidas',
+        verbose_name='Destinatario'
+    )
+    usuario_origen = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notificaciones_enviadas',
+        verbose_name='Emisor'
+    )
+    tipo = models.CharField(max_length=30, choices=TIPOS, default='sistema')
+    titulo = models.CharField(max_length=200)
+    mensaje = models.TextField()
+    leida = models.BooleanField(default=False)
+    enlace = models.CharField(max_length=255, blank=True, default='')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Notificación'
+        verbose_name_plural = 'Notificaciones'
+
+    def __str__(self):
+        return f'Notificación [{self.tipo}] para {self.usuario_destino.username}: {self.titulo}'

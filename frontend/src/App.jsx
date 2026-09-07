@@ -96,6 +96,7 @@ export default function App() {
         setVistaActiva={setVistaActiva}
         abrirRadar={() => abrirRadarConUbicacion(null)}
         abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+        alVerPerfilUsuario={abrirPerfilUsuario}
         abrirLoginModal={() => {
           setVistaActiva('landing');
           setTimeout(() => {

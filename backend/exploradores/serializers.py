@@ -3,7 +3,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import Explorador, GrupoPrivacidad, RelacionSeguimiento
+from .models import Explorador, GrupoPrivacidad, RelacionSeguimiento, Notificacion
 from viajes.models import TrofeoExplorador, Trofeo
 
 class ExploradorRegistroSerializer(serializers.ModelSerializer):
@@ -151,3 +151,15 @@ class RelacionSeguimientoSerializer(serializers.ModelSerializer):
         model = RelacionSeguimiento
         fields = ['id', 'seguidor', 'seguido', 'seguidor_info', 'seguido_info', 'estado', 'fecha_creacion']
         read_only_fields = ['seguidor', 'fecha_creacion']
+
+class NotificacionSerializer(serializers.ModelSerializer):
+    usuario_origen_nombre = serializers.CharField(source='usuario_origen.username', read_only=True)
+    usuario_origen_avatar = serializers.ImageField(source='usuario_origen.avatar', read_only=True)
+
+    class Meta:
+        model = Notificacion
+        fields = [
+            'id', 'usuario_destino', 'usuario_origen', 'usuario_origen_nombre', 
+            'usuario_origen_avatar', 'tipo', 'titulo', 'mensaje', 'leida', 
+            'enlace', 'fecha_creacion'
+        ]

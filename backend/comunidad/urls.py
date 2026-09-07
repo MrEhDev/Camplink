@@ -1,4 +1,4 @@
-﻿# Aquí configuro las rutas URL para la Guía del Nómada (artículos) y el Taller Nómada (foro comunitario).
+# Aquí configuro las rutas URL para la Guía del Nómada (artículos) y el Taller Nómada (foro comunitario).
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter

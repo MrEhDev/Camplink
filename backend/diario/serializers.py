@@ -1,4 +1,4 @@
-﻿# Aquí defino los serializers para el Diario de Ruta (feed social), comentarios
+# Aquí defino los serializers para el Diario de Ruta (feed social), comentarios
 # y los Check-ins de pernocta con protección de privacidad en las notas personales.
 
 from rest_framework import serializers

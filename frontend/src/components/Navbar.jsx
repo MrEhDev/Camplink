@@ -9,8 +9,9 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { 
   Compass, Map, Wrench, BookOpen, Route, Calendar, 
   Sun, Moon, Sunset, PlusCircle, LogIn, LogOut, 
-  User, Radar, Menu, X, Sparkles, Navigation 
+  User, Radar, Menu, X, Sparkles, Navigation, Bell, Check, Heart, MessageSquare, UserPlus, Trophy, Info, Shield 
 } from 'lucide-react';
+import { peticionApi } from '../services/api';
 
 const formatearUsuario = (u) => {
   if (!u) return '';
@@ -23,8 +24,12 @@ export default function Navbar({
   setVistaActiva, 
   abrirRadar, 
   abrirNuevoLugar, 
-  abrirLoginModal 
+  abrirLoginModal, 
+  alVerPerfilUsuario 
 }) {
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [noLeidas, setNoLeidas] = useState(0);
+  const [panelNotifsAbierto, setPanelNotifsAbierto] = useState(false);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const { usuario, logout } = useAuth();
   const { tema, cambiarTema } = useTheme();
@@ -38,6 +43,65 @@ export default function Navbar({
 
   const alternarIdioma = () => {
     cambiarIdioma(idioma === 'es' ? 'en' : 'es');
+  };
+
+  const cargarNotificaciones = async () => {
+    if (!usuario) return;
+    try {
+      const res = await peticionApi('/api/exploradores/notificaciones/');
+      if (res) {
+        setNotificaciones(res.notificaciones || []);
+        setNoLeidas(res.no_leidas || 0);
+      }
+    } catch (e) {
+      console.warn('Error al cargar notificaciones:', e);
+    }
+  };
+
+  React.useEffect(() => {
+    cargarNotificaciones();
+    if (usuario) {
+      const interval = setInterval(cargarNotificaciones, 25000);
+      return () => clearInterval(interval);
+    }
+  }, [usuario]);
+
+  const marcarNotificacionesLeidas = async (notifId = null) => {
+    try {
+      await peticionApi('/api/exploradores/notificaciones/', {
+        method: 'POST',
+        data: notifId ? { notificacion_id: notifId } : {}
+      });
+      if (notifId) {
+        setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+        setNoLeidas(prev => Math.max(0, prev - 1));
+      } else {
+        setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+        setNoLeidas(0);
+      }
+    } catch (e) {
+      console.warn('Error al marcar notificaciones:', e);
+    }
+  };
+
+  const manejarClickNotificacion = (notif) => {
+    marcarNotificacionesLeidas(notif.id);
+    setPanelNotifsAbierto(false);
+    if (notif.enlace?.startsWith('/explorador/')) {
+      const userId = parseInt(notif.enlace.replace('/explorador/', ''));
+      if (alVerPerfilUsuario && userId) {
+        alVerPerfilUsuario(userId);
+        return;
+      }
+    }
+    if (notif.enlace === '/diario' || notif.tipo === 'comentario' || notif.tipo === 'reaccion') {
+      setVistaActiva('diario');
+      return;
+    }
+    if (notif.tipo === 'trofeo') {
+      setVistaActiva('perfil');
+      return;
+    }
   };
 
   const navegar = (vista) => {
@@ -194,6 +258,174 @@ export default function Navbar({
             >
               {idioma.toUpperCase()}
             </button>
+
+            {/* CAMPANA DE NOTIFICACIONES */}
+            {usuario && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="btn-icon notif-bell-btn"
+                  onClick={() => setPanelNotifsAbierto(!panelNotifsAbierto)}
+                  title={noLeidas > 0 ? `${noLeidas} notificaciones nuevas` : "Notificaciones nómadas"}
+                  style={{
+                    height: '38px',
+                    width: '38px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    background: noLeidas > 0 ? 'rgba(35, 83, 52, 0.25)' : 'var(--bg-surface)',
+                    border: noLeidas > 0 ? '1.5px solid var(--accent-forest)' : '1.5px solid var(--border-color)',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  <Bell size={18} color={noLeidas > 0 ? 'var(--accent-forest)' : 'var(--text-primary)'} />
+                  {noLeidas > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-3px',
+                        right: '-3px',
+                        background: '#EF4444',
+                        color: '#FFFFFF',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        minWidth: '18px',
+                        height: '18px',
+                        borderRadius: '9px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 4px',
+                        boxShadow: '0 0 8px rgba(239, 68, 68, 0.6)'
+                      }}
+                    >
+                      {noLeidas > 99 ? '99+' : noLeidas}
+                    </span>
+                  )}
+                </button>
+
+                {/* PANEL FLOTANTE DE NOTIFICACIONES */}
+                {panelNotifsAbierto && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '48px',
+                      right: '0',
+                      width: '330px',
+                      maxHeight: '440px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: '0 12px 35px rgba(0,0,0,0.3)',
+                      zIndex: 1000,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      backdropFilter: 'blur(16px)'
+                    }}
+                  >
+                    {/* Header de Notificaciones */}
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Bell size={15} color="var(--accent-forest)" />
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Notificaciones</span>
+                        {noLeidas > 0 && (
+                          <span className="badge-camper badge-forest" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                            {noLeidas} nuevas
+                          </span>
+                        )}
+                      </div>
+                      {noLeidas > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => marcarNotificacionesLeidas()}
+                          style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                        >
+                          Marcar leídas
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Lista de Notificaciones */}
+                    <div style={{ overflowY: 'auto', flex: 1, maxHeight: '360px' }}>
+                      {notificaciones.length === 0 ? (
+                        <div style={{ padding: '30px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          <Bell size={28} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                          <p style={{ margin: 0, fontSize: '0.84rem' }}>No tienes notificaciones aún.</p>
+                        </div>
+                      ) : (
+                        notificaciones.map((n) => {
+                          const esSeguidor = n.tipo === 'seguimiento';
+                          const esComentario = n.tipo === 'comentario';
+                          const esReaccion = n.tipo === 'reaccion';
+                          const esTrofeo = n.tipo === 'trofeo';
+
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => manejarClickNotificacion(n)}
+                              style={{
+                                padding: '12px 14px',
+                                borderBottom: '1px solid var(--border-color)',
+                                background: n.leida ? 'transparent' : 'rgba(35, 83, 52, 0.08)',
+                                cursor: 'pointer',
+                                transition: 'background 0.2s',
+                                display: 'flex',
+                                gap: '10px',
+                                alignItems: 'flex-start'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                              onMouseLeave={e => e.currentTarget.style.background = n.leida ? 'transparent' : 'rgba(35, 83, 52, 0.08)'}
+                            >
+                              <div
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  background: esSeguidor ? 'rgba(59, 130, 246, 0.2)' : esComentario ? 'rgba(16, 185, 129, 0.2)' : esReaccion ? 'rgba(239, 68, 68, 0.2)' : esTrofeo ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.1)',
+                                  color: esSeguidor ? '#3B82F6' : esComentario ? '#10B981' : esReaccion ? '#EF4444' : esTrofeo ? '#F59E0B' : 'var(--text-primary)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  marginTop: '2px'
+                                }}
+                              >
+                                {esSeguidor && <UserPlus size={15} />}
+                                {esComentario && <MessageSquare size={15} />}
+                                {esReaccion && <Heart size={15} fill="#EF4444" />}
+                                {esTrofeo && <Trophy size={15} />}
+                                {!esSeguidor && !esComentario && !esReaccion && !esTrofeo && <Info size={15} />}
+                              </div>
+
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.84rem', fontWeight: n.leida ? 600 : 700, color: 'var(--text-primary)', marginBottom: '2px' }}>
+                                  {n.titulo}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.35', wordBreak: 'break-word' }}>
+                                  {n.mensaje}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                  {new Date(n.fecha_creacion).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </div>
+
+                              {!n.leida && (
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-forest)', flexShrink: 0, marginTop: '6px' }} />
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ACCIONES DE ESCRITORIO (RADAR Y AÑADIR LUGAR) */}
             {usuario && (

@@ -1,4 +1,4 @@
-﻿# Aquí implemento las pruebas unitarias para validar la lógica de agrupación de viajes,
+# Aquí implemento las pruebas unitarias para validar la lógica de agrupación de viajes,
 # el cálculo de distancias y el sistema automático de desbloqueo de trofeos.
 
 from django.test import TestCase

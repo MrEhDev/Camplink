@@ -1,5 +1,6 @@
 // Aquí implemento la vista Descubre Lista: listado completo de lugares y pernoctas camper en formato tarjetas,
-// con buscador inteligente por ubicación, filtros por servicios y rango de puntuación camper,
+// con filtro principal obligatorio por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
+// buscador inteligente por ubicación, filtros estructurados por categorías (Servicios, Entorno/Ocio, Terreno/Acceso, Puntuación),
 // botón para alternar a vista mapa, y acciones directas de guardado, añadido a viaje planificado y navegación GPS.
 
 import React, { useState, useEffect } from 'react';
@@ -9,8 +10,19 @@ import CamperIconRating from '../components/CamperIconRating';
 import { 
   Search, Filter, MapPin, Map, Route, Bookmark, 
   Check, Navigation, Sparkles, Plus, X, Star,
-  Droplets, Zap, Users, Dog, Sun, ArrowRight, Eye
+  Droplets, Zap, Users, Dog, Sun, ArrowRight, Eye,
+  Trash2, SlidersHorizontal
 } from 'lucide-react';
+
+export const TIPOS_LUGAR_LISTA = [
+  { id: 'todos', label: 'Todos', emoji: '🌍' },
+  { id: 'pernocta_libre', label: 'Pernocta Libre', emoji: '🌲' },
+  { id: 'area_autocaravanas', label: 'Área Autocaravanas', emoji: '🚐' },
+  { id: 'camping', label: 'Camping', emoji: '⛺' },
+  { id: 'parking_urbano', label: 'Parking Urbano', emoji: '🅿️' },
+  { id: 'area_recreativa', label: 'Área Recreativa', emoji: '🏞️' },
+  { id: 'solo_servicios', label: 'Solo Servicios', emoji: '💧' },
+];
 
 export default function DescubreLista({ 
   alSeleccionarLugar, 
@@ -22,22 +34,44 @@ export default function DescubreLista({
   const [lugares, setLugares] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  const [filtroPuntuacion, setFiltroPuntuacion] = useState('todos');
-  const [filtroTipoLugar, setFiltroTipoLugar] = useState('todos'); // 'todos' | 'oro' | 'plata' | 'bronce' | 'verde' | 'rojo' | 'sin_puntuacion'
-  const [lugaresGuardados, setLugaresGuardados] = useState([]);
+  
+  // FILTRO PRINCIPAL: Tipo de Lugar
+  const [filtroTipoLugar, setFiltroTipoLugar] = useState('todos');
 
-  // Filtros de servicios
+  // FILTROS AVANZADOS
+  const [panelFiltrosAbierto, setPanelFiltrosAbierto] = useState(false);
   const [filtros, setFiltros] = useState({
-    gratuito: false,
-    agua: false,
+    // 🚰 Servicios
+    es_gratuito: false,
+    agua_potable: false,
+    lavabos: false,
     electricidad: false,
-    vaciado_aguas: false,
-    mascotas: false,
-    familias: false,
-    toldo: false,
-    zona_recreativa: false,
-    senderos: false,
+    wifi: false,
+    basuras: false,
+    duchas: false,
+    vaciado_aguas_grises: false,
+    vaciado_aguas_negras: false,
+
+    // 🌳 Entorno y Ocio
+    ideal_ninos_10_anos: false,
+    senderismo_cercano: false,
+    playa_cercana: false,
+    rutas_bici: false,
+    admite_mascotas: false,
+
+    // 🛣️ Terreno y Acceso
+    acceso_asfaltado: false,
+    mucha_sombra: false,
+    muy_soleado_placas: false,
+    terreno_nivelado: false,
+    apto_autocaravanas_grandes: false,
+    permitido_sacar_toldo: false,
+
+    // ⭐ Puntuación
+    puntuacion_minima: 0,
   });
+
+  const [lugaresGuardados, setLugaresGuardados] = useState([]);
 
   // Modal para añadir a viaje planificado
   const [modalAnadirViajeAbierto, setModalAnadirViajeAbierto] = useState(false);
@@ -84,6 +118,35 @@ export default function DescubreLista({
     setPaginaActual(1);
   };
 
+  const limpiarFiltros = () => {
+    setFiltroTipoLugar('todos');
+    setFiltros({
+      es_gratuito: false,
+      agua_potable: false,
+      lavabos: false,
+      electricidad: false,
+      wifi: false,
+      basuras: false,
+      duchas: false,
+      vaciado_aguas_grises: false,
+      vaciado_aguas_negras: false,
+      ideal_ninos_10_anos: false,
+      senderismo_cercano: false,
+      playa_cercana: false,
+      rutas_bici: false,
+      admite_mascotas: false,
+      acceso_asfaltado: false,
+      mucha_sombra: false,
+      muy_soleado_placas: false,
+      terreno_nivelado: false,
+      apto_autocaravanas_grandes: false,
+      permitido_sacar_toldo: false,
+      puntuacion_minima: 0,
+    });
+    setBusqueda('');
+    setPaginaActual(1);
+  };
+
   const alternarGuardado = (lugar) => {
     try {
       let favs = JSON.parse(localStorage.getItem('camplink_lugares_guardados') || '[]');
@@ -99,37 +162,40 @@ export default function DescubreLista({
           latitud: lugar.latitud,
           longitud: lugar.longitud,
           descripcion: lugar.descripcion,
+          tipo_lugar: lugar.tipo_lugar,
+          tipo_lugar_display: lugar.tipo_lugar_display,
+          origen: 'descubre_lista',
           fecha_guardado: new Date().toISOString()
         }, ...favs];
       }
-      setLugaresGuardados(favs);
       localStorage.setItem('camplink_lugares_guardados', JSON.stringify(favs));
+      setLugaresGuardados(favs);
     } catch (e) {
-      console.warn('Error actualizando favoritos:', e);
+      console.warn('Error al guardar lugar:', e);
     }
   };
 
   const abrirModalAnadirViaje = async (lugar) => {
     if (!usuario) {
-      alert('Debes iniciar sesión para añadir lugares a tus viajes planificados.');
+      alert('Inicia sesión para añadir lugares a tus viajes planificados.');
       return;
     }
     setLugarParaViaje(lugar);
     setMensajeExitoViaje('');
     setModalAnadirViajeAbierto(true);
+
     try {
       const data = await peticionApi('/api/viajes/viajes/?mis_viajes=true');
-      const lista = data.results || data || [];
-      const noCerrados = lista.filter(v => !v.esta_cerrado);
-      setMisViajesPlanificados(noCerrados);
-      if (noCerrados.length > 0) {
-        setViajeSeleccionadoId(noCerrados[0].id);
-        setFechaParada(noCerrados[0].fecha_inicio || new Date().toISOString().split('T')[0]);
+      const lista = (data.results || data || []).filter(v => !v.esta_cerrado);
+      setMisViajesPlanificados(lista);
+      if (lista.length > 0) {
+        setViajeSeleccionadoId(lista[0].id);
+        setFechaParada(lista[0].fecha_inicio || new Date().toISOString().split('T')[0]);
       } else {
         setCreandoNuevoViajeInline(true);
       }
     } catch (e) {
-      console.error('Error cargando viajes:', e);
+      console.error('Error al cargar viajes:', e);
     }
   };
 
@@ -144,448 +210,682 @@ export default function DescubreLista({
 
       if (creandoNuevoViajeInline) {
         if (!nuevoViajeTitulo.trim()) {
-          alert('Por favor ingresa un título para el nuevo viaje.');
+          alert('Introduce un título para el viaje.');
           setGuardandoEnViaje(false);
           return;
         }
-        const nuevoViaje = await peticionApi('/api/viajes/viajes/', {
+        const viajeCreado = await peticionApi('/api/viajes/viajes/', {
           method: 'POST',
           body: {
             titulo: nuevoViajeTitulo.trim(),
-            fecha_inicio: nuevoViajeFecha
+            fecha_inicio: nuevoViajeFecha,
+            esta_cerrado: false
           }
         });
-        targetViajeId = nuevoViaje.id;
+        targetViajeId = viajeCreado.id;
       }
 
       await peticionApi(`/api/viajes/viajes/${targetViajeId}/anadir-parada/`, {
         method: 'POST',
         body: {
           lugar_id: lugarParaViaje.id,
-          fecha_llegada: fechaParada,
-          dias_estancia: parseInt(diasParada, 10) || 1,
-          notas: notasParada.trim()
+          fecha: fechaParada,
+          dias_previstos: diasParada,
+          notas_privadas: notasParada
         }
       });
 
-      setMensajeExitoViaje(`¡"${lugarParaViaje.nombre}" añadido a tu viaje planificado con éxito!`);
+      setMensajeExitoViaje(`¡${lugarParaViaje.nombre} añadido a tu viaje!`);
       setTimeout(() => {
         setModalAnadirViajeAbierto(false);
-        setLugarParaViaje(null);
+        setMensajeExitoViaje('');
         setCreandoNuevoViajeInline(false);
-        setNuevoViajeTitulo('');
       }, 1500);
     } catch (err) {
-      alert(err.message || 'No se pudo añadir la parada al viaje.');
+      alert(err.message || 'No se pudo añadir al viaje.');
     } finally {
       setGuardandoEnViaje(false);
     }
   };
 
-  // Filtrado de lugares
+  const totalFiltrosActivos = Object.entries(filtros).filter(([k, v]) => k !== 'puntuacion_minima' ? v : v > 0).length + (filtroTipoLugar !== 'todos' ? 1 : 0);
+
+  // FILTRADO
   const lugaresFiltrados = lugares.filter(l => {
-    // 1. Filtro de búsqueda por texto
+    // 1. Tipo de Lugar Principal
+    if (filtroTipoLugar !== 'todos' && l.tipo_lugar !== filtroTipoLugar) return false;
+
+    // 2. Buscador
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase().trim();
-      const match = (
-        (l.nombre && l.nombre.toLowerCase().includes(q)) ||
-        (l.poblacion && l.poblacion.toLowerCase().includes(q)) ||
-        (l.provincia && l.provincia.toLowerCase().includes(q)) ||
-        (l.pais && l.pais.toLowerCase().includes(q)) ||
-        (l.descripcion && l.descripcion.toLowerCase().includes(q))
-      );
-      if (!match) return false;
+      const q = busqueda.toLowerCase();
+      const coincideNombre = l.nombre?.toLowerCase().includes(q);
+      const coincidePoblacion = l.poblacion?.toLowerCase().includes(q);
+      const coincideProvincia = l.provincia?.toLowerCase().includes(q);
+      if (!coincideNombre && !coincidePoblacion && !coincideProvincia) return false;
     }
 
-    // 2. Filtro de puntuación con los nuevos umbrales exactos
-    const totalVals = l.total_valoraciones !== undefined ? l.total_valoraciones : (l.valoraciones?.length || 0);
-    const val = parseFloat(l.valoracion_media) || 0;
+    // 3. Puntuación
+    if (filtros.puntuacion_minima > 0) {
+      const val = parseFloat(l.valoracion_media) || 0;
+      if (val < filtros.puntuacion_minima) return false;
+    }
 
-    if (filtroPuntuacion === 'oro' && (totalVals === 0 || val <= 4.0)) return false; // 4.1 - 5.0
-    if (filtroPuntuacion === 'plata' && (totalVals === 0 || val <= 3.0 || val > 4.0)) return false; // 3.1 - 4.0
-    if (filtroPuntuacion === 'bronce' && (totalVals === 0 || val <= 2.0 || val > 3.0)) return false; // 2.1 - 3.0
-    if (filtroPuntuacion === 'verde' && (totalVals === 0 || val <= 1.0 || val > 2.0)) return false; // 1.1 - 2.0
-    if (filtroPuntuacion === 'rojo' && (totalVals === 0 || val > 1.0)) return false; // <= 1.0
-    if (filtroPuntuacion === 'sin_puntuacion' && totalVals > 0) return false;
+    // 4. Servicios
+    if (filtros.es_gratuito && !l.es_gratuito) return false;
+    if (filtros.agua_potable && !l.agua_potable && !l.tiene_agua) return false;
+    if (filtros.lavabos && !l.lavabos) return false;
+    if (filtros.electricidad && !l.electricidad && !l.tiene_electricidad) return false;
+    if (filtros.wifi && !l.wifi) return false;
+    if (filtros.basuras && !l.basuras) return false;
+    if (filtros.duchas && !l.duchas) return false;
+    if (filtros.vaciado_aguas_grises && !l.vaciado_aguas_grises && !l.vaciado_aguas) return false;
+    if (filtros.vaciado_aguas_negras && !l.vaciado_aguas_negras && !l.vaciado_aguas) return false;
 
-    // 3. Filtros booleanos de servicios
-    if (filtros.gratuito && !l.es_gratuito) return false;
-    if (filtros.agua && !l.tiene_agua && !l.agua_potable) return false;
-    if (filtros.electricidad && !l.tiene_electricidad && !l.electricidad) return false;
-    if (filtros.vaciado_aguas && !l.vaciado_aguas && !l.vaciado_aguas_negras && !l.vaciado_aguas_grises) return false;
-    if (filtros.mascotas && !l.admite_mascotas && !l.mascotas) return false;
-    if (filtros.familias && !l.ideal_ninos_10_anos) return false;
-    if (filtros.toldo && !l.permitido_sacar_toldo && !l.toldo) return false;
-    if (filtros.zona_recreativa && !l.es_zona_recreativa) return false;
-    if (filtros.senderos && !l.tiene_senderos_sencillos) return false;
+    // 5. Entorno / Ocio
+    if (filtros.ideal_ninos_10_anos && !l.ideal_ninos_10_anos) return false;
+    if (filtros.senderismo_cercano && !l.senderismo_cercano) return false;
+    if (filtros.playa_cercana && !l.playa_cercana) return false;
+    if (filtros.rutas_bici && !l.rutas_bici) return false;
+    if (filtros.admite_mascotas && !l.admite_mascotas && !l.mascotas) return false;
+
+    // 6. Terreno / Acceso
+    if (filtros.acceso_asfaltado && !l.acceso_asfaltado) return false;
+    if (filtros.mucha_sombra && !l.mucha_sombra) return false;
+    if (filtros.muy_soleado_placas && !l.muy_soleado_placas) return false;
+    if (filtros.terreno_nivelado && !l.terreno_nivelado) return false;
+    if (filtros.apto_autocaravanas_grandes && !l.apto_autocaravanas_grandes) return false;
+    if (filtros.permitido_sacar_toldo && !l.permitido_sacar_toldo && !l.toldo) return false;
 
     return true;
   });
 
+  // Paginación
   const totalPaginas = Math.ceil(lugaresFiltrados.length / lugaresPorPagina) || 1;
-  const lugaresPaginados = lugaresFiltrados.slice((paginaActual - 1) * lugaresPorPagina, paginaActual * lugaresPorPagina);
-
-  const chipsRapidos = [
-    { clave: 'gratuito', etiqueta: '💸 Gratuito' },
-    { clave: 'agua', etiqueta: '💧 Agua Potable' },
-    { clave: 'electricidad', etiqueta: '⚡ Electricidad' },
-    { clave: 'vaciado_aguas', etiqueta: '♻️ Vaciado Aguas' },
-    { clave: 'mascotas', etiqueta: '🐕 Mascotas' },
-    { clave: 'familias', etiqueta: '👨‍👩‍👧 Familias' },
-    { clave: 'toldo', etiqueta: '⛱️ Toldo' },
-    { clave: 'zona_recreativa', etiqueta: '🏞️ Recreativa' },
-    { clave: 'senderos', etiqueta: '🥾 Senderos' }
-  ];
-
-  // Helper para badge de color según puntuación
-  const renderBadgePuntuacion = (lugar) => {
-    const total = lugar.total_valoraciones !== undefined ? lugar.total_valoraciones : (lugar.valoraciones?.length || 0);
-    if (total === 0) {
-      return (
-        <span style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px',
-          background: 'rgba(100, 116, 139, 0.18)',
-          color: '#94A3B8',
-          border: '1px solid #64748B',
-          borderRadius: 'var(--radius-full)',
-          padding: '3px 10px',
-          fontSize: '0.78rem',
-          fontWeight: 700
-        }}>
-          ⛺ Sin puntuar (0 exp.)
-        </span>
-      );
-    }
-
-    const val = parseFloat(lugar.valoracion_media) || 0;
-    let bg = '#10B981';
-    let text = '#FFFFFF';
-    let label = `${val.toFixed(1)} / 5`;
-
-    if (val > 4.0) { bg = '#F59E0B'; label += ' ⭐ Oro'; }
-    else if (val > 3.0) { bg = '#94A3B8'; label += ' ⭐ Plata'; }
-    else if (val > 2.0) { bg = '#D97706'; label += ' ⭐ Bronce'; }
-    else if (val > 1.0) { bg = '#10B981'; label += ' ⭐ Verde'; }
-    else { bg = '#EF4444'; label += ' ⚠️ No recomendado'; }
-
-    return (
-      <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        background: bg,
-        color: text,
-        borderRadius: 'var(--radius-full)',
-        padding: '3px 10px',
-        fontSize: '0.78rem',
-        fontWeight: 800,
-        boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-      }}>
-        {label} ({total})
-      </span>
-    );
-  };
+  const indiceInicio = (paginaActual - 1) * lugaresPorPagina;
+  const lugaresPaginados = lugaresFiltrados.slice(indiceInicio, indiceInicio + lugaresPorPagina);
 
   return (
-    <div className="camplink-container" style={{ padding: '24px 16px 80px', maxWidth: '1150px', margin: '0 auto', width: '100%' }}>
+    <div className="container" style={{ padding: '24px 16px', maxWidth: '1240px', margin: '0 auto' }}>
       
-      {/* CABECERA CON CONMUTADOR MAPA / LISTA */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '20px'
-      }}>
-        <div>
-          <h1 style={{ fontSize: '1.85rem', fontWeight: 900, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>📋</span> Descubre Lugares (Vista Lista)
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-            Explora {lugares.length} áreas de pernocta, campings y puntos camper con filtros detallados.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {/* BOTÓN CONMUTAR A MAPA */}
-          <button
-            className="btn btn-secondary"
-            onClick={alCambiarAMapa}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-          >
-            <Map size={16} color="var(--accent-forest)" /> <span>🗺️ Ver en Mapa</span>
-          </button>
-
-          {alAbrirNuevoLugar && (
-            <button
-              className="btn btn-primary"
-              onClick={alAbrirNuevoLugar}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-            >
-              <Plus size={16} /> <span>Añadir Lugar</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* BARRA DE BÚSQUEDA Y FILTROS */}
-      <div className="camper-card" style={{ padding: '20px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Buscar por nombre, población, provincia o país..."
-              value={busqueda}
-              onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
-              style={{ paddingLeft: '38px', height: '42px', borderRadius: 'var(--radius-full)' }}
-            />
-            <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+      {/* CABECERA PRINCIPAL CON CONTROLES */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Explorar Lugares & Pernoctas</span>
+            </h1>
+            <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              Encuentra pernoctas libres, áreas de autocaravanas y campings filtrados por servicios y puntuación camper.
+            </p>
           </div>
 
-          {/* SELECTOR DE PUNTUACIÓN */}
-          <select
-            className="form-control"
-            value={filtroPuntuacion}
-            onChange={(e) => { setFiltroPuntuacion(e.target.value); setPaginaActual(1); }}
-            style={{ width: 'auto', minWidth: '190px', height: '42px', borderRadius: 'var(--radius-full)', fontWeight: 600, fontSize: '0.86rem' }}
-          >
-            <option value="todos">⭐ Todas las puntuaciones</option>
-            <option value="oro">⭐ 4.1 - 5.0 (Oro / Top)</option>
-            <option value="plata">⭐ 3.1 - 4.0 (Plata)</option>
-            <option value="bronce">⭐ 2.1 - 3.0 (Bronce)</option>
-            <option value="verde">⭐ 1.1 - 2.0 (Básico / Verde)</option>
-            <option value="rojo">⚠️ ≤ 1.0 (No recomendado)</option>
-            <option value="sin_puntuacion">⛺ Sin puntuación aún (0 exp.)</option>
-          </select>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {alCambiarAMapa && (
+              <button
+                onClick={alCambiarAMapa}
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', fontWeight: 700 }}
+              >
+                <Map size={16} color="var(--accent-forest)" />
+                <span>Ver en Mapa</span>
+              </button>
+            )}
+
+            {alAbrirNuevoLugar && (
+              <button
+                onClick={alAbrirNuevoLugar}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', fontWeight: 700 }}
+              >
+                <Plus size={16} />
+                <span>Publicar Lugar</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* CHIPS RÁPIDOS DE SERVICIOS */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '4px' }}>Servicios:</span>
-          {chipsRapidos.map((chip) => {
-            const activo = filtros[chip.clave];
+        {/* BARRA DE BÚSQUEDA Y BOTÓN DE FILTROS AVANZADOS */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, población o provincia (ej: Pirineos, Cabo de Gata, Llanes)..."
+              value={busqueda}
+              onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
+              className="input"
+              style={{ paddingLeft: '40px', height: '44px', fontSize: '0.90rem' }}
+            />
+            <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+          </div>
+
+          <button
+            onClick={() => setPanelFiltrosAbierto(true)}
+            className={`btn ${totalFiltrosActivos > 0 ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '44px', padding: '0 16px', fontSize: '0.88rem', fontWeight: 700 }}
+          >
+            <SlidersHorizontal size={16} />
+            <span>Filtros</span>
+            {totalFiltrosActivos > 0 && (
+              <span style={{
+                background: '#FFFFFF',
+                color: 'var(--accent-forest)',
+                fontSize: '0.72rem',
+                fontWeight: 900,
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {totalFiltrosActivos}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* FILTRO PRINCIPAL: TIPO DE LUGAR (PESTAÑAS GRANDES) */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          overflowX: 'auto',
+          paddingBottom: '4px',
+          scrollbarWidth: 'thin'
+        }}>
+          {TIPOS_LUGAR_LISTA.map(tipo => {
+            const activo = filtroTipoLugar === tipo.id;
+            const cantidad = tipo.id === 'todos'
+              ? lugares.length
+              : lugares.filter(l => l.tipo_lugar === tipo.id).length;
             return (
               <button
-                key={chip.clave}
-                type="button"
-                onClick={() => toggleFiltro(chip.clave)}
+                key={tipo.id}
+                onClick={() => { setFiltroTipoLugar(tipo.id); setPaginaActual(1); }}
                 style={{
-                  padding: '5px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
                   borderRadius: 'var(--radius-full)',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  border: activo ? '1.5px solid var(--accent-forest)' : '1px solid var(--border-color)',
-                  background: activo ? 'var(--accent-forest)' : 'var(--bg-glass)',
+                  border: activo ? '2px solid var(--accent-forest)' : '1px solid var(--border-color)',
+                  background: activo ? 'var(--accent-forest)' : 'var(--bg-surface)',
                   color: activo ? '#FFFFFF' : 'var(--text-primary)',
-                  transition: 'all 0.2s ease'
+                  fontWeight: activo ? 800 : 600,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: activo ? '0 2px 10px rgba(35,83,52,0.3)' : 'none',
+                  transition: 'all 0.15s ease'
                 }}
               >
-                {chip.etiqueta}
+                <span>{tipo.emoji}</span>
+                <span>{tipo.label}</span>
+                <span style={{
+                  fontSize: '0.72rem',
+                  background: activo ? 'rgba(255,255,255,0.25)' : 'var(--bg-secondary)',
+                  color: activo ? '#FFFFFF' : 'var(--text-secondary)',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontWeight: 800
+                }}>
+                  {cantidad}
+                </span>
               </button>
             );
           })}
         </div>
+
       </div>
 
-      {/* LISTADO DE TARJETAS */}
-      {cargando ? (
-        <div className="camper-card" style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <span style={{ fontSize: '2.5rem' }}>🚐</span>
-          <p style={{ marginTop: '12px', color: 'var(--text-secondary)' }}>Cargando catálogo de lugares...</p>
+      {/* MODAL DE FILTROS AVANZADOS CATEGORIZADOS */}
+      {panelFiltrosAbierto && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.72)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '16px'
+        }}>
+          <div className="camper-card" style={{
+            maxWidth: '680px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '24px',
+            border: '2px solid var(--accent-forest)',
+            background: 'var(--bg-surface-elevated)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+            borderRadius: 'var(--radius-lg)'
+          }}>
+            {/* Cabecera */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Filter size={20} color="var(--accent-forest)" />
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900 }}>Filtros Categorizados</h3>
+              </div>
+              <button className="btn-icon" onClick={() => setPanelFiltrosAbierto(false)} style={{ width: '32px', height: '32px' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div style={{ overflowY: 'auto', paddingRight: '6px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* 1. SERVICIOS BÁSICOS Y CAMPER */}
+              <div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
+                  🚰 Servicios Básicos y Camper
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                  {[
+                    { key: 'es_gratuito', label: '💸 100% Gratuito' },
+                    { key: 'agua_potable', label: '💧 Agua Potable' },
+                    { key: 'lavabos', label: '🚻 Lavabos / WC' },
+                    { key: 'electricidad', label: '⚡ Electricidad' },
+                    { key: 'wifi', label: '📶 Wi-Fi' },
+                    { key: 'basuras', label: '🗑️ Cubos de Basura' },
+                    { key: 'duchas', label: '🚿 Duchas' },
+                    { key: 'vaciado_aguas_grises', label: '🔘 Vaciado Grises' },
+                    { key: 'vaciado_aguas_negras', label: '🚽 Vaciado Negras (WC)' },
+                  ].map(s => (
+                    <label
+                      key={s.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: 'var(--radius-md)',
+                        background: filtros[s.key] ? 'rgba(35, 83, 52, 0.12)' : 'var(--bg-primary)',
+                        border: filtros[s.key] ? '1.5px solid var(--accent-forest)' : '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        fontWeight: filtros[s.key] ? 700 : 500
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filtros[s.key]}
+                        onChange={() => toggleFiltro(s.key)}
+                        style={{ accentColor: 'var(--accent-forest)' }}
+                      />
+                      <span>{s.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. ENTORNO Y OCIO */}
+              <div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
+                  🌳 Entorno y Ocio
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                  {[
+                    { key: 'ideal_ninos_10_anos', label: '👨‍👩‍👧 Familias (Niños ~10a)' },
+                    { key: 'senderismo_cercano', label: '🥾 Senderismo Cercano' },
+                    { key: 'playa_cercana', label: '🏖️ Playa / Lago / Río' },
+                    { key: 'rutas_bici', label: '🚴 Rutas en Bicicleta' },
+                    { key: 'admite_mascotas', label: '🐕 Admite Mascotas' },
+                  ].map(s => (
+                    <label
+                      key={s.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: 'var(--radius-md)',
+                        background: filtros[s.key] ? 'rgba(35, 83, 52, 0.12)' : 'var(--bg-primary)',
+                        border: filtros[s.key] ? '1.5px solid var(--accent-forest)' : '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        fontWeight: filtros[s.key] ? 700 : 500
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filtros[s.key]}
+                        onChange={() => toggleFiltro(s.key)}
+                        style={{ accentColor: 'var(--accent-forest)' }}
+                      />
+                      <span>{s.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. TERRENO Y ACCESO */}
+              <div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
+                  🛣️ Terreno y Acceso
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                  {[
+                    { key: 'acceso_asfaltado', label: '🛣️ Acceso Asfaltado' },
+                    { key: 'mucha_sombra', label: '🌲 Mucha Sombra' },
+                    { key: 'muy_soleado_placas', label: '☀️ Soleado (Placas)' },
+                    { key: 'terreno_nivelado', label: '📐 Terreno Nivelado' },
+                    { key: 'apto_autocaravanas_grandes', label: '🚍 Apto >7 metros' },
+                    { key: 'permitido_sacar_toldo', label: '⛱️ Permite Toldo / Mesas' },
+                  ].map(s => (
+                    <label
+                      key={s.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: 'var(--radius-md)',
+                        background: filtros[s.key] ? 'rgba(35, 83, 52, 0.12)' : 'var(--bg-primary)',
+                        border: filtros[s.key] ? '1.5px solid var(--accent-forest)' : '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        fontWeight: filtros[s.key] ? 700 : 500
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filtros[s.key]}
+                        onChange={() => toggleFiltro(s.key)}
+                        style={{ accentColor: 'var(--accent-forest)' }}
+                      />
+                      <span>{s.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. PUNTUACIÓN */}
+              <div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
+                  ⭐ Puntuación Camper Mínima
+                </h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { valor: 0, label: 'Cualquiera' },
+                    { valor: 4.1, label: '4.1+ ⭐ Oro (Top)' },
+                    { valor: 3.1, label: '3.1+ ⭐ Plata' },
+                    { valor: 2.1, label: '2.1+ ⭐ Bronce' },
+                  ].map(p => (
+                    <button
+                      key={p.valor}
+                      type="button"
+                      onClick={() => setFiltros(prev => ({ ...prev, puntuacion_minima: p.valor }))}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.80rem',
+                        fontWeight: filtros.puntuacion_minima === p.valor ? 800 : 500,
+                        border: filtros.puntuacion_minima === p.valor ? '2px solid var(--accent-forest)' : '1px solid var(--border-color)',
+                        background: filtros.puntuacion_minima === p.valor ? 'var(--accent-forest)' : 'var(--bg-primary)',
+                        color: filtros.puntuacion_minima === p.valor ? '#FFFFFF' : 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Pie */}
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px', marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={limpiarFiltros}
+                style={{ fontSize: '0.84rem' }}
+              >
+                <Trash2 size={14} /> Restablecer
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  {lugaresFiltrados.length} lugares encontrados
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setPanelFiltrosAbierto(false)}
+                  style={{ fontSize: '0.86rem', padding: '8px 18px' }}
+                >
+                  <Check size={16} /> Aplicar Filtros
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
-      ) : lugaresPaginados.length === 0 ? (
-        <div className="camper-card" style={{ padding: '50px 20px', textAlign: 'center' }}>
-          <span style={{ fontSize: '2.5rem' }}>🔍</span>
-          <h3 style={{ margin: '14px 0 6px' }}>No se encontraron lugares con estos filtros</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Prueba ajustando el texto de búsqueda o desactivando algunos servicios.</p>
+      )}
+
+      {/* LISTA DE LUGARES */}
+      {cargando ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
+          <div className="spinner" style={{ margin: '0 auto 16px auto', width: '36px', height: '36px', border: '3px solid var(--border-color)', borderTopColor: 'var(--accent-forest)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <p>Cargando pernoctas y lugares camper...</p>
+        </div>
+      ) : lugaresFiltrados.length === 0 ? (
+        <div className="camper-card" style={{ textAlign: 'center', padding: '48px 24px', margin: '24px 0' }}>
+          <p style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 8px 0' }}>No se encontraron lugares con estos filtros</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: '0 0 16px 0' }}>
+            Prueba a seleccionar otro tipo de lugar o limpiar los servicios requeridos.
+          </p>
+          <button className="btn btn-primary" onClick={limpiarFiltros}>
+            Restablecer todos los filtros
+          </button>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '22px'
-        }}>
-          {lugaresPaginados.map((lugar) => {
-            const esGuardado = lugaresGuardados.some(g => g.id === lugar.id);
-            const total = lugar.total_valoraciones !== undefined ? lugar.total_valoraciones : (lugar.valoraciones?.length || 0);
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <span>Mostrando {lugaresPaginados.length} de {lugaresFiltrados.length} lugares</span>
+            <span>Página {paginaActual} de {totalPaginas}</span>
+          </div>
 
-            return (
-              <div key={lugar.id} className="camper-card" style={{ display: 'flex', flexDirection: 'column', padding: '18px', gap: '12px' }}>
-                
-                {/* FOTO O BANNER PANORÁMICO */}
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
-                  {lugar.foto_principal ? (
-                    <img 
-                      src={lugar.foto_principal} 
-                      alt={lugar.nombre} 
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                    />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle, rgba(35,83,52,0.3) 0%, rgba(20,28,22,0.8) 100%)', color: '#FFFFFF', fontSize: '2.5rem' }}>
-                      🌲
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '20px',
+            marginBottom: '32px'
+          }}>
+            {lugaresPaginados.map(lugar => {
+              const guardado = lugaresGuardados.some(g => g.id === lugar.id);
+              const tipoInfo = TIPOS_LUGAR_LISTA.find(t => t.id === lugar.tipo_lugar) || { emoji: '🚐', label: lugar.tipo_lugar_display || 'Lugar Camper' };
+              const val = parseFloat(lugar.valoracion_media) || 0;
+
+              return (
+                <div
+                  key={lugar.id}
+                  className="camper-card"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    padding: '18px',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-lg)'
+                  }}
+                >
+                  <div>
+                    {/* Fila superior: Tipo de Lugar + Precio + Favorito */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        background: 'rgba(35, 83, 52, 0.12)',
+                        color: 'var(--accent-forest)',
+                        border: '1px solid var(--accent-forest)',
+                        borderRadius: 'var(--radius-full)',
+                        padding: '3px 10px',
+                        fontSize: '0.74rem',
+                        fontWeight: 800
+                      }}>
+                        <span>{tipoInfo.emoji}</span>
+                        <span>{lugar.tipo_lugar_display || tipoInfo.label}</span>
+                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          fontSize: '0.76rem',
+                          fontWeight: 800,
+                          color: lugar.es_gratuito ? '#059669' : '#D97706',
+                          background: lugar.es_gratuito ? 'rgba(5,150,105,0.1)' : 'rgba(217,119,6,0.1)',
+                          padding: '3px 8px',
+                          borderRadius: '4px'
+                        }}>
+                          {lugar.es_gratuito ? 'Gratis' : `${lugar.precio_noche || '0'} €/n`}
+                        </span>
+
+                        <button
+                          onClick={() => alternarGuardado(lugar)}
+                          title={guardado ? 'Quitar de guardados' : 'Guardar lugar para ir'}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: guardado ? 'var(--accent-forest)' : 'var(--text-secondary)',
+                            padding: '4px'
+                          }}
+                        >
+                          <Bookmark size={18} fill={guardado ? 'currentColor' : 'none'} />
+                        </button>
+                      </div>
                     </div>
-                  )}
 
-                  {/* PRECIO / GRATUITO BADGE */}
-                  <div style={{ position: 'absolute', top: '10px', left: '10px' }}>
-                    {lugar.es_gratuito ? (
-                      <span className="badge-camper badge-forest" style={{ fontSize: '0.74rem', padding: '3px 8px' }}>💸 Gratuito</span>
-                    ) : (
-                      <span className="badge-camper badge-earth" style={{ fontSize: '0.74rem', padding: '3px 8px' }}>{lugar.precio ? `${lugar.precio} €/noche` : 'De pago'}</span>
-                    )}
-                  </div>
-
-                  {/* BOTÓN GUARDAR FAVORITO */}
-                  <button
-                    type="button"
-                    onClick={() => alternarGuardado(lugar)}
-                    title={esGuardado ? "Guardado en mis lugares para ir" : "Guardar para ir"}
-                    style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: '50%',
-                      background: esGuardado ? 'var(--accent-forest)' : 'rgba(0,0,0,0.6)',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      backdropFilter: 'blur(6px)'
-                    }}
-                  >
-                    <Bookmark size={16} fill={esGuardado ? '#FFFFFF' : 'none'} />
-                  </button>
-                </div>
-
-                {/* CONTENIDO DE LA TARJETA */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-                    <h3 
+                    {/* Nombre y Población */}
+                    <h3
                       onClick={() => alSeleccionarLugar(lugar.id)}
-                      style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', cursor: 'pointer', lineHeight: '1.3' }}
+                      style={{
+                        margin: '0 0 4px 0',
+                        fontSize: '1.15rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        color: 'var(--text-primary)'
+                      }}
                     >
                       {lugar.nombre}
                     </h3>
+
+                    <p style={{ margin: '0 0 10px 0', fontSize: '0.80rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <MapPin size={13} /> {lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}
+                    </p>
+
+                    {/* Puntuación Camper */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <CamperIconRating rating={val} maxIcons={5} size={15} />
+                      <span style={{ fontWeight: 800, fontSize: '0.84rem' }}>
+                        {val > 0 ? val.toFixed(1) : 'Sin valoraciones'}
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                        ({lugar.total_valoraciones || 0} reviews)
+                      </span>
+                    </div>
+
+                    {/* Descripción breve */}
+                    {lugar.descripcion && (
+                      <p style={{
+                        margin: '0 0 12px 0',
+                        fontSize: '0.82rem',
+                        color: 'var(--text-secondary)',
+                        lineHeight: 1.4,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {lugar.descripcion}
+                      </p>
+                    )}
+
+                    {/* Etiquetas y servicios */}
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '16px', fontSize: '0.72rem' }}>
+                      {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>💧 Agua</span>}
+                      {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>⚡ Luz</span>}
+                      {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>🔘 Vaciado</span>}
+                      {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>🐕 Mascotas</span>}
+                      {lugar.ideal_ninos_10_anos && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
+                      {lugar.mucha_sombra && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>🌲 Sombra</span>}
+                      {lugar.muy_soleado_placas && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>☀️ Placas</span>}
+                    </div>
                   </div>
 
-                  {/* PUNTUACIÓN Y CONTADOR */}
-                  <div style={{ marginBottom: '8px' }}>
-                    {renderBadgePuntuacion(lugar)}
+                  {/* Acciones */}
+                  <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                    <button
+                      onClick={() => alSeleccionarLugar(lugar.id)}
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.80rem' }}
+                    >
+                      <Eye size={13} /> Ver Detalle
+                    </button>
+
+                    <button
+                      onClick={() => abrirModalAnadirViaje(lugar)}
+                      className="btn btn-secondary btn-sm"
+                      title="Añadir a ruta o viaje planificado"
+                      style={{ fontSize: '0.80rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Plus size={13} /> Viaje
+                    </button>
+
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      title="Navegar con Google Maps"
+                      style={{ fontSize: '0.80rem', padding: '6px 10px', display: 'flex', alignItems: 'center' }}
+                    >
+                      <Navigation size={13} />
+                    </a>
                   </div>
 
-                  {/* UBICACIÓN */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                    <MapPin size={14} color="var(--accent-forest)" style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {lugar.poblacion} {lugar.provincia ? `(${lugar.provincia})` : ''} • {lugar.pais || 'España'}
-                    </span>
-                  </div>
-
-                  {/* DESCRIPCIÓN BREVE */}
-                  <p style={{
-                    fontSize: '0.84rem',
-                    color: 'var(--text-secondary)',
-                    lineHeight: '1.45',
-                    margin: '0 0 12px',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}>
-                    {lugar.descripcion || 'Punto de pernocta verificado por la comunidad nómada.'}
-                  </p>
-
-                  {/* CHIPS DE SERVICIOS */}
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                    {lugar.tiene_agua && <span className="badge-camper" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>💧 Agua</span>}
-                    {lugar.tiene_electricidad && <span className="badge-camper" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>⚡ Luz</span>}
-                    {(lugar.tiene_vaciado_aguas_grises || lugar.tiene_vaciado_aguas_negras) && <span className="badge-camper" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>♻️ Vaciado</span>}
-                    {lugar.admite_mascotas && <span className="badge-camper" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>🐕 Mascotas</span>}
-                    {lugar.ideal_ninos_10_anos && <span className="badge-camper" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>👨‍👩‍👧 Familias</span>}
-                  </div>
                 </div>
-
-                {/* ACCIONES DE LA TARJETA */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  marginTop: 'auto',
-                  borderTop: '1px solid var(--border-color)',
-                  paddingTop: '12px'
-                }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => alSeleccionarLugar(lugar.id)}
-                    style={{ fontSize: '0.8rem', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                  >
-                    <Eye size={14} /> <span>Ver Ficha</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => abrirModalAnadirViaje(lugar)}
-                    style={{ fontSize: '0.8rem', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                  >
-                    <Route size={14} /> <span>Añadir a Viaje</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* PAGINACIÓN DE LISTADO */}
-      {totalPaginas > 1 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '14px 18px',
-          background: 'var(--bg-glass)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-color)',
-          marginTop: '28px',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => { setPaginaActual(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            disabled={paginaActual === 1}
-          >
-            ◀ Anteriores
-          </button>
-
-          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-            Página {paginaActual} de {totalPaginas} ({lugaresFiltrados.length} lugares encontrados)
+              );
+            })}
           </div>
 
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => { setPaginaActual(prev => Math.min(totalPaginas, prev + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            disabled={paginaActual === totalPaginas}
-          >
-            Siguientes ▶
-          </button>
-        </div>
+          {/* PAGINACIÓN */}
+          {totalPaginas > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled={paginaActual === 1}
+                onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+              >
+                ← Anterior
+              </button>
+
+              <span style={{ fontSize: '0.86rem', fontWeight: 700, padding: '0 8px' }}>
+                Página {paginaActual} de {totalPaginas}
+              </span>
+
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled={paginaActual === totalPaginas}
+                onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {/* MODAL PARA AÑADIR LUGAR A VIAJE PLANIFICADO */}
+      {/* MODAL PARA AÑADIR A VIAJE */}
       {modalAnadirViajeAbierto && lugarParaViaje && (
         <div style={{
           position: 'fixed',
@@ -598,10 +898,10 @@ export default function DescubreLista({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 10000,
+          zIndex: 10001,
           padding: '16px'
         }}>
-          <div className="camper-card" style={{ maxWidth: '460px', width: '100%', padding: '24px', border: '2px solid var(--accent-forest)' }}>
+          <div className="camper-card" style={{ maxWidth: '460px', width: '100%', padding: '24px', border: '2px solid var(--accent-forest)', background: 'var(--bg-surface-elevated)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Route size={18} color="var(--accent-forest)" />
@@ -612,89 +912,115 @@ export default function DescubreLista({
               </button>
             </div>
 
-            <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Parada: <strong style={{ color: 'var(--text-primary)' }}>{lugarParaViaje.nombre}</strong> {lugarParaViaje.poblacion ? `(${lugarParaViaje.poblacion})` : ''}
-            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Añade <strong>{lugarParaViaje.nombre}</strong> a una de tus rutas camper en curso o crea una nueva.
+            </p>
 
             {mensajeExitoViaje ? (
-              <div style={{ padding: '14px', background: 'rgba(35, 83, 52, 0.2)', border: '1px solid var(--accent-forest)', color: 'var(--accent-forest)', borderRadius: 'var(--radius-sm)', textAlign: 'center', fontWeight: 700 }}>
-                {mensajeExitoViaje}
+              <div style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'rgba(16, 185, 129, 0.15)', color: '#059669', fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <Check size={20} />
+                <span>{mensajeExitoViaje}</span>
               </div>
             ) : (
-              <form onSubmit={guardarLugarEnViaje} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {misViajesPlanificados.length > 0 && !creandoNuevoViajeInline ? (
+              <form onSubmit={guardarLugarEnViaje} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {!creandoNuevoViajeInline && misViajesPlanificados.length > 0 ? (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <label style={{ fontSize: '0.84rem', fontWeight: 700 }}>Selecciona tu viaje:</label>
-                      <span onClick={() => setCreandoNuevoViajeInline(true)} style={{ fontSize: '0.78rem', color: 'var(--accent-forest)', cursor: 'pointer', textDecoration: 'underline' }}>
-                        + Crear viaje nuevo
-                      </span>
-                    </div>
+                    <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Selecciona tu viaje:</label>
                     <select
-                      className="form-control"
+                      className="input"
                       value={viajeSeleccionadoId}
                       onChange={(e) => setViajeSeleccionadoId(e.target.value)}
+                      required
                     >
                       {misViajesPlanificados.map(v => (
                         <option key={v.id} value={v.id}>{v.titulo} ({v.fecha_inicio})</option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      onClick={() => setCreandoNuevoViajeInline(true)}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', marginTop: '6px', padding: 0 }}
+                    >
+                      + Crear un nuevo viaje en su lugar
+                    </button>
                   </div>
                 ) : (
-                  <div>
-                    <label style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', display: 'block' }}>Nombre del nuevo viaje:</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Ej: Ruta Pirineos 2026"
-                      value={nuevoViajeTitulo}
-                      onChange={(e) => setNuevoViajeTitulo(e.target.value)}
-                      required
-                    />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Título del nuevo viaje:</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Ej: Ruta Costa Norte en Camper"
+                        value={nuevoViajeTitulo}
+                        onChange={(e) => setNuevoViajeTitulo(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Fecha de inicio:</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={nuevoViajeFecha}
+                        onChange={(e) => setNuevoViajeFecha(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {misViajesPlanificados.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCreandoNuevoViajeInline(false)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                      >
+                        ← Volver a elegir viaje existente
+                      </button>
+                    )}
                   </div>
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', display: 'block' }}>Fecha:</label>
+                    <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Fecha parada:</label>
                     <input
                       type="date"
-                      className="form-control"
+                      className="input"
                       value={fechaParada}
                       onChange={(e) => setFechaParada(e.target.value)}
                       required
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', display: 'block' }}>Días prevista:</label>
+                    <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Noches / Días:</label>
                     <input
                       type="number"
                       min="1"
-                      className="form-control"
+                      max="30"
+                      className="input"
                       value={diasParada}
-                      onChange={(e) => setDiasParada(e.target.value)}
+                      onChange={(e) => setDiasParada(parseInt(e.target.value) || 1)}
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', display: 'block' }}>Notas (opcional):</label>
+                  <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Notas de la parada (opcional):</label>
                   <input
                     type="text"
-                    className="form-control"
-                    placeholder="Ej: Llegar antes de anochecer"
+                    className="input"
+                    placeholder="Ej: Cargar agua limpia y dormir bajo los pinos"
                     value={notasParada}
                     onChange={(e) => setNotasParada(e.target.value)}
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setModalAnadirViajeAbierto(false)}>
                     Cancelar
                   </button>
-                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={guardandoEnViaje}>
-                    {guardandoEnViaje ? 'Guardando...' : 'Confirmar Parada'}
+                  <button type="submit" className="btn btn-primary" disabled={guardandoEnViaje}>
+                    {guardandoEnViaje ? 'Guardando...' : 'Añadir al Viaje'}
                   </button>
                 </div>
               </form>
@@ -702,6 +1028,7 @@ export default function DescubreLista({
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -454,6 +454,25 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
         {/* COLUMNA IZQUIERDA: INFORMACIÓN, NOTAS PRIVADAS Y SERVICIOS */}
         <div>
+          {/* BADGE TIPO DE LUGAR */}
+          <div style={{ marginBottom: '8px' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(35, 83, 52, 0.12)',
+              color: 'var(--accent-forest)',
+              border: '1.5px solid var(--accent-forest)',
+              borderRadius: 'var(--radius-full)',
+              padding: '4px 12px',
+              fontSize: '0.84rem',
+              fontWeight: 800
+            }}>
+              <span>{lugar.tipo_lugar === 'pernocta_libre' ? '🌲' : lugar.tipo_lugar === 'area_autocaravanas' ? '🚐' : lugar.tipo_lugar === 'camping' ? '⛺' : lugar.tipo_lugar === 'parking_urbano' ? '🅿️' : lugar.tipo_lugar === 'area_recreativa' ? '🏞️' : '💧'}</span>
+              <span>{lugar.tipo_lugar_display || 'Lugar Camper'}</span>
+            </span>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <span style={{ fontSize: '2.2rem' }}>📍</span>
             <div>
@@ -569,23 +588,62 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
             )}
           </div>
 
-          {/* Servicios y Normativa */}
-          <div className="camper-card" style={{ padding: '20px', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '1.05rem', margin: '0 0 12px' }}>Servicios y Normativa</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {lugar.es_gratuito && <span className="badge-camper badge-forest">🆓 Pernocta Gratuita</span>}
-              {!lugar.es_gratuito && lugar.precio_noche && (
-                <span className="badge-camper badge-earth">💶 {lugar.precio_noche} €/noche</span>
-              )}
-              {lugar.ideal_ninos_10_anos && <span className="badge-camper badge-forest">👨‍👩‍👧‍👦 Ideal para Familias</span>}
-              {lugar.permite_sacar_toldo && <span className="badge-camper badge-forest">⛱️ Permite Toldo y Sillas</span>}
-              {lugar.es_zona_recreativa && <span className="badge-camper badge-forest">🌲 Zona Recreativa</span>}
-              {lugar.servicios && lugar.servicios.map((s, idx) => (
-                <span key={idx} className="badge-camper badge-forest">
-                  ✔ {s.nombre || s}
-                </span>
-              ))}
+          {/* Servicios, Entorno y Terreno Categorizados */}
+          <div className="camper-card" style={{ padding: '20px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '1.15rem', margin: 0, fontWeight: 900, color: 'var(--text-primary)' }}>
+              Equipamiento, Entorno y Acceso
+            </h3>
+
+            {/* 1. Servicios Básicos */}
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-forest)', marginBottom: '8px' }}>
+                🚰 Servicios Básicos y Camper
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {lugar.es_gratuito && <span className="badge-camper badge-forest">💸 100% Gratuito</span>}
+                {!lugar.es_gratuito && lugar.precio_noche && (
+                  <span className="badge-camper badge-earth">💶 {lugar.precio_noche} €/noche</span>
+                )}
+                {(lugar.agua_potable || lugar.tiene_agua) && <span className="badge-camper badge-forest">💧 Agua Potable</span>}
+                {lugar.lavabos && <span className="badge-camper badge-forest">🚻 Lavabos / WC</span>}
+                {(lugar.electricidad || lugar.tiene_electricidad) && <span className="badge-camper badge-forest">⚡ Electricidad</span>}
+                {lugar.wifi && <span className="badge-camper badge-forest">📶 Wi-Fi</span>}
+                {lugar.basuras && <span className="badge-camper badge-forest">🗑️ Cubos de Basura</span>}
+                {lugar.duchas && <span className="badge-camper badge-forest">🚿 Duchas</span>}
+                {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas) && <span className="badge-camper badge-forest">🔘 Vaciado de Grises</span>}
+                {(lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span className="badge-camper badge-forest">🚽 Vaciado de Negras (WC)</span>}
+              </div>
             </div>
+
+            {/* 2. Entorno y Ocio */}
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-forest)', marginBottom: '8px' }}>
+                🌳 Entorno y Ocio
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {lugar.ideal_ninos_10_anos && <span className="badge-camper badge-forest">👨‍👩‍👧 Ideal Familias (Niños ~10 años)</span>}
+                {lugar.senderismo_cercano && <span className="badge-camper badge-forest">🥾 Senderismo Cercano</span>}
+                {lugar.playa_cercana && <span className="badge-camper badge-forest">🏖️ Playa / Lago / Río</span>}
+                {lugar.rutas_bici && <span className="badge-camper badge-forest">🚴 Rutas en Bicicleta</span>}
+                {(lugar.admite_mascotas || lugar.mascotas) && <span className="badge-camper badge-forest">🐕 Admite Mascotas</span>}
+              </div>
+            </div>
+
+            {/* 3. Terreno y Acceso */}
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-forest)', marginBottom: '8px' }}>
+                🛣️ Terreno y Acceso
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {lugar.acceso_asfaltado && <span className="badge-camper badge-forest">🛣️ Acceso Asfaltado</span>}
+                {lugar.mucha_sombra && <span className="badge-camper badge-forest">🌲 Mucha Sombra</span>}
+                {lugar.muy_soleado_placas && <span className="badge-camper badge-forest">☀️ Muy Soleado (Placas)</span>}
+                {lugar.terreno_nivelado && <span className="badge-camper badge-forest">📐 Terreno Nivelado</span>}
+                {lugar.apto_autocaravanas_grandes && <span className="badge-camper badge-forest">🚍 Apto Autocaravanas &gt;7m</span>}
+                {(lugar.permitido_sacar_toldo || lugar.permite_sacar_toldo || lugar.toldo) && <span className="badge-camper badge-forest">⛱️ Permite Sacar Toldo y Sillas</span>}
+              </div>
+            </div>
+
           </div>
 
           {/* Descripción del Lugar */}

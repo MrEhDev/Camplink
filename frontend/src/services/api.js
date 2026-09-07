@@ -49,6 +49,11 @@ export async function peticionApi(endpoint, opciones = {}) {
     headers['X-CSRFToken'] = token;
   }
 
+  // Soporte tanto para opciones.body como opciones.data
+  if (opciones.data && !opciones.body) {
+    opciones.body = opciones.data;
+  }
+
   // Si enviamos JSON y no es FormData
   if (opciones.body && !(opciones.body instanceof FormData) && typeof opciones.body === 'object') {
     headers['Content-Type'] = 'application/json';

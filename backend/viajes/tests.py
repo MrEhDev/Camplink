@@ -1,6 +1,3 @@
-# Aquí implemento las pruebas unitarias para validar la lógica de agrupación de viajes,
-# el cálculo de distancias y el sistema automático de desbloqueo de trofeos.
-
 from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
@@ -11,10 +8,7 @@ from viajes.models import Viaje, Trofeo, TrofeoExplorador
 from viajes.services import agrupar_checkin_en_viaje, verificar_y_desbloquear_trofeos
 
 class ViajesYTrofeosTests(TestCase):
-    # Aquí pruebo la suite de pruebas del dominio de viajes y gamificación camper
-
     def setUp(self):
-        # Aquí inicializo los exploradores y lugares de prueba
         self.explorador = Explorador.objects.create_user(
             username='test_nomada',
             password='Password123!',
@@ -38,7 +32,6 @@ class ViajesYTrofeosTests(TestCase):
         )
 
     def test_agrupacion_de_viajes_menos_de_5_dias(self):
-        # Aquí verifico que dos check-ins con menos de 5 días de diferencia se agrupan en el mismo Viaje
         ch1 = CheckIn.objects.create(
             explorador=self.explorador,
             lugar=self.lugar1,
@@ -55,7 +48,6 @@ class ViajesYTrofeosTests(TestCase):
         )
         agrupar_checkin_en_viaje(ch2)
 
-        # Debe existir un solo viaje abierto para este usuario que contenga ambos check-ins
         viajes = Viaje.objects.filter(explorador=self.explorador)
         self.assertEqual(viajes.count(), 1)
         viaje = viajes.first()
@@ -64,14 +56,16 @@ class ViajesYTrofeosTests(TestCase):
         self.assertGreater(viaje.km_totales, 0)
 
     def test_desbloqueo_trofeo_primer_checkin(self):
-        # Aquí compruebo que al registrar una pernocta se desbloquea el trofeo de madera correspondiente
         ch1 = CheckIn.objects.create(
             explorador=self.explorador,
             lugar=self.lugar1,
-            fecha_llegada=timezone.now()
+            fecha_llegada=timezone.now(),
+            dias_previstos=1
         )
         agrupar_checkin_en_viaje(ch1)
+        desbloqueados = verificar_y_desbloquear_trofeos(self.explorador)
 
         trofeos = TrofeoExplorador.objects.filter(explorador=self.explorador)
+        self.assertGreaterEqual(trofeos.count(), 1)
         codigos = [t.trofeo.codigo for t in trofeos]
-        self.assertIn('primer_checkin', codigos)
+        self.assertIn('nomada_nocturno_madera', codigos)

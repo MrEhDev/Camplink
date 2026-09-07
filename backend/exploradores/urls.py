@@ -16,7 +16,8 @@ from .views import (
     responder_seguimiento_vista,
     companeros_vista,
     seguidores_y_siguiendo_vista,
-    notificaciones_vista
+    notificaciones_vista,
+    forzar_notificacion_prueba_vista
 )
 
 # Enrutador REST para exploradores y grupos
@@ -34,6 +35,7 @@ urlpatterns = [
     path('companeros/', companeros_vista, name='explorador-companeros'),
     path('seguidores-siguiendo/', seguidores_y_siguiendo_vista, name='explorador-seguidores-siguiendo'),
     path('notificaciones/', notificaciones_vista, name='explorador-notificaciones'),
+    path('notificaciones/probar/', forzar_notificacion_prueba_vista, name='explorador-notificaciones-probar'),
 
     # Seguimiento y amistades entre exploradores
     path('seguir/<int:usuario_id>/', solicitar_seguimiento_vista, name='solicitar-seguimiento'),

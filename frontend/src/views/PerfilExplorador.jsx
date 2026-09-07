@@ -462,6 +462,21 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
     }
   };
 
+    const forzarNotificacionPerfil = async (tipo) => {
+    try {
+      const res = await peticionApi('/api/exploradores/notificaciones/probar/', {
+        method: 'POST',
+        data: { tipo }
+      });
+      if (res?.notificacion) {
+        alert(`¡Notificación (${res.notificacion.titulo}) generada con éxito!`);
+        cargarNotificacionesPerfil();
+      }
+    } catch (e) {
+      alert('Error al generar notificación de prueba.');
+    }
+  };
+
   const cargarNotificacionesPerfil = async () => {
     try {
       const res = await peticionApi('/api/exploradores/notificaciones/');
@@ -1444,6 +1459,17 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                   <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                     Avisos en vivo de seguidores, comentarios en tus vivencias del Diario, likes y trofeos.
                   </p>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => forzarNotificacionPerfil('reaccion')} style={{ fontSize: '0.76rem' }}>
+                    🔥 Probar Like
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => forzarNotificacionPerfil('comentario')} style={{ fontSize: '0.76rem' }}>
+                    💬 Probar Comentario
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => forzarNotificacionPerfil('seguimiento')} style={{ fontSize: '0.76rem' }}>
+                    🤝 Probar Seguidor
+                  </button>
                 </div>
               </div>
 

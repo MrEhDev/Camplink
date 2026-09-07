@@ -81,6 +81,22 @@ export default function Navbar({
     }
   }, [usuario]);
 
+    const forzarNotificacionPrueba = async (tipo = 'reaccion') => {
+    try {
+      const res = await peticionApi('/api/exploradores/notificaciones/probar/', {
+        method: 'POST',
+        data: { tipo }
+      });
+      if (res?.notificacion) {
+        setToastNotif(res.notificacion);
+        setTimeout(() => setToastNotif(null), 6000);
+        cargarNotificaciones();
+      }
+    } catch (e) {
+      console.warn('Error al forzar notificacion:', e);
+    }
+  };
+
   const marcarNotificacionesLeidas = async (notifId = null) => {
     try {
       await peticionApi('/api/exploradores/notificaciones/', {
@@ -356,15 +372,25 @@ export default function Navbar({
                           </span>
                         )}
                       </div>
-                      {noLeidas > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button
                           type="button"
-                          onClick={() => marcarNotificacionesLeidas()}
-                          style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                          onClick={() => forzarNotificacionPrueba('reaccion')}
+                          style={{ background: 'rgba(35, 83, 52, 0.2)', border: '1px solid var(--accent-forest)', color: 'var(--accent-forest)', fontSize: '0.72rem', fontWeight: 700, borderRadius: '4px', padding: '2px 6px', cursor: 'pointer' }}
+                          title="Enviar una notificación simulada de prueba para comprobar en vivo"
                         >
-                          Marcar leídas
+                          ⚡ Probar
                         </button>
-                      )}
+                        {noLeidas > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => marcarNotificacionesLeidas()}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                          >
+                            Marcar leídas
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Lista de Notificaciones */}

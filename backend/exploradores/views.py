@@ -300,3 +300,35 @@ def notificaciones_vista(request):
         else:
             Notificacion.objects.filter(usuario_destino=usuario, leida=False).update(leida=True)
         return Response({'mensaje': 'Notificaciones actualizadas con éxito.', 'no_leidas': 0})
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def forzar_notificacion_prueba_vista(request):
+    usuario = request.user
+    tipo = request.data.get('tipo', 'reaccion')
+    
+    ejemplos = {
+        'reaccion': ('¡Reacción a tu vivencia!', 'A Marta le ha gustado (🔥 Buena ruta) tu publicación en el Diario de Ruta.', '/diario'),
+        'comentario': ('¡Nuevo comentario en tu vivencia!', 'Carlos comentó: "¡Qué rincón tan increíble para ver las estrellas! ⛺"', '/diario'),
+        'seguimiento': ('¡Nuevo Compañero de Ruta!', 'Elena ha comenzado a seguirte y ahora sois compañeros de ruta.', f'/explorador/{usuario.id}'),
+        'trofeo': ('🏆 ¡Trofeo Desbloqueado!', '¡Has conseguido la medalla de Madera: Primer Paso Nómada!', '/perfil')
+    }
+    
+    titulo, mensaje, enlace = ejemplos.get(tipo, ejemplos['reaccion'])
+    
+    notif = Notificacion.objects.create(
+        usuario_destino=usuario,
+        tipo=tipo,
+        titulo=titulo,
+        mensaje=mensaje,
+        enlace=enlace
+    )
+    
+    no_leidas = Notificacion.objects.filter(usuario_destino=usuario, leida=False).count()
+    serializer = NotificacionSerializer(notif, context={'request': request})
+    return Response({
+        'mensaje': 'Notificación de prueba enviada con éxito.',
+        'notificacion': serializer.data,
+        'no_leidas': no_leidas
+    }, status=status.HTTP_201_CREATED)

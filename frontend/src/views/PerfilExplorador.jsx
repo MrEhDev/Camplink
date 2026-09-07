@@ -1083,71 +1083,77 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                   {seguidores.map((comp) => {
                     const loSigo = siguiendo.some(s => s.id === comp.id);
                     return (
                       <div
                         key={comp.id}
+                        className="camper-explorer-card"
                         style={{
-                          padding: '14px',
-                          borderRadius: 'var(--radius-sm)',
+                          padding: '18px',
+                          borderRadius: 'var(--radius-md)',
                           background: 'var(--bg-primary)',
                           border: '1px solid var(--border-color)',
                           display: 'flex',
-                          alignItems: 'center',
+                          flexDirection: 'column',
                           justifyContent: 'space-between',
-                          gap: '10px'
+                          gap: '14px',
+                          transition: 'transform 0.2s, box-shadow 0.2s'
                         }}
                       >
+                        {/* Parte superior: Avatar, Nombre completo y Detalles */}
                         <div 
                           onClick={() => irAlPerfilCompanero(comp.id)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1, minWidth: 0 }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                           title={`Ver perfil completo de ${comp.username}`}
                         >
                           <div
                             style={{
-                              width: '42px',
-                              height: '42px',
+                              width: '46px',
+                              height: '46px',
                               borderRadius: '50%',
                               background: 'var(--accent-forest)',
                               color: '#fff',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontWeight: 700,
-                              flexShrink: 0
+                              fontWeight: 800,
+                              fontSize: '1.1rem',
+                              flexShrink: 0,
+                              boxShadow: '0 2px 8px rgba(35, 83, 52, 0.3)'
                             }}
                           >
                             {comp.username?.charAt(0).toUpperCase()}
                           </div>
-                          <div style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {comp.username?.charAt(0).toUpperCase() + comp.username?.slice(1)}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', textTransform: 'capitalize', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                              {comp.username}
                             </div>
-                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                               {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {comp.poblacion ? `• ${comp.poblacion}` : ''}
                             </div>
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        {/* Parte inferior: Botones de Acción Debajo del Nombre */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
                           <button
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '5px 9px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '7px 8px', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                             onClick={() => irAlPerfilCompanero(comp.id)}
                             title="Ver perfil"
                           >
-                            Ver Perfil
+                            <User size={14} /> Ver Perfil
                           </button>
                           <button
                             className={`btn btn-sm ${loSigo ? 'btn-secondary' : 'btn-primary'}`}
-                            style={{ padding: '5px 9px', fontSize: '0.78rem' }}
+                            style={{ width: '100%', padding: '7px 8px', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                             onClick={() => alternarSeguirCompanero(comp.id)}
                             title={loSigo ? "Compañero de Ruta Mutuo" : "Seguir también"}
                           >
-                            {loSigo ? <UserCheck size={14} /> : <UserPlus size={14} />}
-                            <span style={{ marginLeft: '4px' }}>{loSigo ? 'Siguiendo' : 'Seguir'}</span>
+                            {loSigo ? <UserCheck size={14} color="var(--accent-forest)" /> : <UserPlus size={14} />}
+                            <span>{loSigo ? 'Siguiendo' : 'Seguir'}</span>
                           </button>
                         </div>
                       </div>
@@ -1183,68 +1189,74 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                   {siguiendo.map((comp) => (
                     <div
                       key={comp.id}
+                      className="camper-explorer-card"
                       style={{
-                        padding: '14px',
-                        borderRadius: 'var(--radius-sm)',
+                        padding: '18px',
+                        borderRadius: 'var(--radius-md)',
                         background: 'var(--bg-primary)',
                         border: '1px solid var(--border-color)',
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: 'column',
                         justifyContent: 'space-between',
-                        gap: '10px'
+                        gap: '14px',
+                        transition: 'transform 0.2s, box-shadow 0.2s'
                       }}
                     >
+                      {/* Parte superior: Avatar, Nombre completo y Detalles */}
                       <div 
                         onClick={() => irAlPerfilCompanero(comp.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1, minWidth: 0 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                         title={`Ver perfil completo de ${comp.username}`}
                       >
                         <div
                           style={{
-                            width: '42px',
-                            height: '42px',
+                            width: '46px',
+                            height: '46px',
                             borderRadius: '50%',
                             background: 'var(--accent-forest)',
                             color: '#fff',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontWeight: 700,
-                            flexShrink: 0
+                            fontWeight: 800,
+                            fontSize: '1.1rem',
+                            flexShrink: 0,
+                            boxShadow: '0 2px 8px rgba(35, 83, 52, 0.3)'
                           }}
                         >
                           {comp.username?.charAt(0).toUpperCase()}
                         </div>
-                        <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {comp.username?.charAt(0).toUpperCase() + comp.username?.slice(1)}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', textTransform: 'capitalize', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                            {comp.username}
                           </div>
-                          <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {comp.poblacion ? `• ${comp.poblacion}` : ''}
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      {/* Parte inferior: Botones de Acción Debajo del Nombre */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
                         <button
                           className="btn btn-secondary btn-sm"
-                          style={{ padding: '5px 9px', fontSize: '0.78rem' }}
+                          style={{ width: '100%', padding: '7px 8px', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                           onClick={() => irAlPerfilCompanero(comp.id)}
                           title="Ver perfil"
                         >
-                          Ver Perfil
+                          <User size={14} /> Ver Perfil
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
-                          style={{ padding: '5px 9px', fontSize: '0.78rem', color: '#D93838' }}
+                          style={{ width: '100%', padding: '7px 8px', fontSize: '0.8rem', fontWeight: 600, color: '#D93838', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                           onClick={() => dejarDeSeguir(comp.id)}
                           title="Dejar de seguir"
                         >
-                          <UserMinus size={14} />
+                          <UserMinus size={14} /> <span>Dejar de seguir</span>
                         </button>
                       </div>
                     </div>

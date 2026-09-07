@@ -93,9 +93,9 @@ class PublicacionViewSet(viewsets.ModelViewSet):
             texto=texto
         )
         serializer = ComentarioPublicacionSerializer(comentario)
-        if pub.autor != request.user:
+        if publicacion.autor != request.user:
             crear_notificacion(
-                usuario_destino=pub.autor,
+                usuario_destino=publicacion.autor,
                 usuario_origen=request.user,
                 tipo='comentario',
                 titulo='¡Nuevo comentario en tu vivencia!',
@@ -120,6 +120,17 @@ class PublicacionViewSet(viewsets.ModelViewSet):
         else:
             ReaccionPublicacion.objects.create(publicacion=publicacion, usuario=request.user, tipo=tipo)
             accion = 'agregada'
+            if publicacion.autor != request.user:
+                iconos_tipo = {'fuego': '🔥 Buena ruta', 'pino': '🌲 Guardado', 'alerta': '⚠️ Alerta'}
+                icono_texto = iconos_tipo.get(tipo, '🔥 Reacción')
+                crear_notificacion(
+                    usuario_destino=publicacion.autor,
+                    usuario_origen=request.user,
+                    tipo='reaccion',
+                    titulo='¡Reacción a tu vivencia!',
+                    mensaje=f'A {request.user.username.capitalize()} le ha gustado ({icono_texto}) tu publicación en el Diario.',
+                    enlace='/diario'
+                )
 
         from django.db.models import Count
         conteos = publicacion.reacciones.values('tipo').annotate(total=Count('tipo'))

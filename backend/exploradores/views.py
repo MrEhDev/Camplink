@@ -269,6 +269,23 @@ def seguidores_y_siguiendo_vista(request):
 def notificaciones_vista(request):
     usuario = request.user
     if request.method == 'GET':
+        notifs_qs = Notificacion.objects.filter(usuario_destino=usuario)
+        if not notifs_qs.exists():
+            # Crear notificaciones de bienvenida del sistema para nuevos o existentes usuarios
+            Notificacion.objects.create(
+                usuario_destino=usuario,
+                tipo='sistema',
+                titulo='¡Bienvenido a Camplink! 🚐✨',
+                mensaje='Tu plataforma camper & autocaravanista está lista. Descubre lugares de pernocta, comparte vivencias en el Diario y conecta con otros nómadas.',
+                enlace='/descubre'
+            )
+            Notificacion.objects.create(
+                usuario_destino=usuario,
+                tipo='trofeo',
+                titulo='🏆 Vitrina de Trofeos Activada',
+                mensaje='¡Empieza a registrar pernoctas y planificar rutas para desbloquear medallas desde Madera hasta Platino!',
+                enlace='/perfil'
+            )
         notifs = Notificacion.objects.filter(usuario_destino=usuario).order_by('-fecha_creacion')[:50]
         no_leidas = Notificacion.objects.filter(usuario_destino=usuario, leida=False).count()
         serializer = NotificacionSerializer(notifs, many=True, context={'request': request})

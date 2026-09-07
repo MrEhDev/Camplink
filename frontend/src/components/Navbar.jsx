@@ -261,7 +261,7 @@ export default function Navbar({
 
             {/* CAMPANA DE NOTIFICACIONES */}
             {usuario && (
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative' }} className="notif-wrapper">
                 <button
                   type="button"
                   className="btn-icon notif-bell-btn"
@@ -311,11 +311,13 @@ export default function Navbar({
                 {/* PANEL FLOTANTE DE NOTIFICACIONES */}
                 {panelNotifsAbierto && (
                   <div
+                    className="notif-dropdown-panel"
                     style={{
                       position: 'absolute',
                       top: '48px',
                       right: '0',
-                      width: '330px',
+                      width: '350px',
+                      maxWidth: '90vw',
                       maxHeight: '440px',
                       background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',

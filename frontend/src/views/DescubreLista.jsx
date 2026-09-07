@@ -22,7 +22,8 @@ export default function DescubreLista({
   const [lugares, setLugares] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  const [filtroPuntuacion, setFiltroPuntuacion] = useState('todos'); // 'todos' | 'oro' | 'plata' | 'bronce' | 'verde' | 'rojo' | 'sin_puntuacion'
+  const [filtroPuntuacion, setFiltroPuntuacion] = useState('todos');
+  const [filtroTipoLugar, setFiltroTipoLugar] = useState('todos'); // 'todos' | 'oro' | 'plata' | 'bronce' | 'verde' | 'rojo' | 'sin_puntuacion'
   const [lugaresGuardados, setLugaresGuardados] = useState([]);
 
   // Filtros de servicios

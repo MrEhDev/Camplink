@@ -1,6 +1,3 @@
-# Aquí implemento las vistas y controladores del catálogo de Lugares, valoraciones camper,
-# filtros temáticos (incluyendo Ideal para Familias), búsqueda geográfica y exportación al calendario con GPS clicable.
-
 import math
 from datetime import datetime, timedelta
 from django.http import HttpResponse
@@ -12,13 +9,11 @@ from .models import Lugar, FotoLugar, ValoracionLugar
 from .serializers import LugarSerializer, ValoracionLugarSerializer, FotoLugarSerializer
 
 class LugarViewSet(viewsets.ModelViewSet):
-    # Aquí configuro el ViewSet para listar, crear y filtrar los puntos de pernocta
     queryset = Lugar.objects.all()
     serializer_class = LugarSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        # Aquí aplico los filtros dinámicos según los parámetros recibidos en la URL
         qs = Lugar.objects.all()
         q = self.request.query_params.get('q', None)
         if q:
@@ -29,23 +24,54 @@ class LugarViewSet(viewsets.ModelViewSet):
                 Q(descripcion__icontains=q)
             )
 
-        # Filtros de servicios camper
+        # Filtro por tipo_lugar
+        tipo_lugar = self.request.query_params.get('tipo_lugar', None)
+        if tipo_lugar:
+            qs = qs.filter(tipo_lugar=tipo_lugar)
+
+        # Filtros de Servicios
         if self.request.query_params.get('agua') == 'true':
             qs = qs.filter(tiene_agua=True)
-        if self.request.query_params.get('electricidad') == 'true':
-            qs = qs.filter(tiene_electricidad=True)
         if self.request.query_params.get('lavabo') == 'true':
             qs = qs.filter(tiene_lavabo=True)
+        if self.request.query_params.get('electricidad') == 'true':
+            qs = qs.filter(tiene_electricidad=True)
+        if self.request.query_params.get('wifi') == 'true':
+            qs = qs.filter(tiene_wifi=True)
+        if self.request.query_params.get('basuras') == 'true':
+            qs = qs.filter(tiene_basuras=True)
+        if self.request.query_params.get('duchas') == 'true':
+            qs = qs.filter(tiene_duchas=True)
+        if self.request.query_params.get('vaciado_grises') == 'true':
+            qs = qs.filter(tiene_vaciado_aguas_grises=True)
+        if self.request.query_params.get('vaciado_negras') == 'true':
+            qs = qs.filter(tiene_vaciado_aguas_negras=True)
         if self.request.query_params.get('gratuito') == 'true':
             qs = qs.filter(es_gratuito=True)
 
-        # Filtros temáticos camper (incluye ideal para familias)
-        if self.request.query_params.get('zona_recreativa') == 'true':
-            qs = qs.filter(es_zona_recreativa=True)
-        if self.request.query_params.get('senderos') == 'true':
-            qs = qs.filter(tiene_senderos_sencillos=True)
+        # Filtros de Entorno y Ocio
         if self.request.query_params.get('familias') == 'true' or self.request.query_params.get('ninos') == 'true':
-            qs = qs.filter(ideal_ninos_10_anos=True)
+            qs = qs.filter(Q(ideal_familias=True) | Q(ideal_ninos_10_anos=True))
+        if self.request.query_params.get('senderismo') == 'true' or self.request.query_params.get('senderos') == 'true':
+            qs = qs.filter(Q(tiene_senderismo=True) | Q(tiene_senderos_sencillos=True))
+        if self.request.query_params.get('playa') == 'true':
+            qs = qs.filter(playa_cercana=True)
+        if self.request.query_params.get('bici') == 'true':
+            qs = qs.filter(rutas_en_bici=True)
+        if self.request.query_params.get('mascotas') == 'true':
+            qs = qs.filter(admite_mascotas=True)
+        if self.request.query_params.get('zona_recreativa') == 'true':
+            qs = qs.filter(Q(tipo_lugar='area_recreativa') | Q(es_zona_recreativa=True))
+
+        # Filtros de Terreno y Acceso
+        if self.request.query_params.get('asfaltado') == 'true':
+            qs = qs.filter(acceso_asfaltado=True)
+        if self.request.query_params.get('sombra') == 'true':
+            qs = qs.filter(mucha_sombra=True)
+        if self.request.query_params.get('soleado') == 'true':
+            qs = qs.filter(muy_soleado=True)
+        if self.request.query_params.get('nivelado') == 'true':
+            qs = qs.filter(terreno_nivelado=True)
         if self.request.query_params.get('toldo') == 'true':
             qs = qs.filter(permite_sacar_toldo=True)
         if self.request.query_params.get('gran_autocaravana') == 'true':
@@ -54,13 +80,11 @@ class LugarViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        # Aquí asigno al explorador autenticado como creador del nuevo Lugar
         usuario = self.request.user if self.request.user.is_authenticated else None
         serializer.save(creador=usuario)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def valorar(self, request, pk=None):
-        # Aquí permito a un explorador publicar una valoración camper (1-5 🚐) con su opinión
         lugar = self.get_object()
         puntuacion = int(request.data.get('puntuacion_camper', 5))
         comentario = request.data.get('comentario', '')
@@ -81,7 +105,6 @@ class LugarViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
     def exportar_calendario(self, request, pk=None):
-        # Aquí genero y descargo un archivo .ics estándar con enlace GPS directo en la dirección para navegación a 1 clic
         lugar = self.get_object()
         fecha_str = request.query_params.get('fecha', datetime.now().strftime('%Y-%m-%d'))
         dias = int(request.query_params.get('dias', 1))
@@ -97,7 +120,6 @@ class LugarViewSet(viewsets.ModelViewSet):
         dtend = fin.strftime('%Y%m%dT120000Z')
         dtstamp = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
 
-        # Dirección clicable directa para que Google Maps / Apple Maps inicie la navegación en 1 clic
         enlace_maps = f"https://www.google.com/maps/search/?api=1&query={lugar.latitud},{lugar.longitud}"
         ubicacion_limpia = f"{lugar.latitud},{lugar.longitud}"
 
@@ -113,12 +135,10 @@ class LugarViewSet(viewsets.ModelViewSet):
             f'DTSTART:{dtstart}',
             f'DTEND:{dtend}',
             f'SUMMARY:Pernocta Camper en {lugar.nombre}',
-            f'DESCRIPTION:Pernocta planificada en {lugar.nombre}. Pulsa en la ubicacion para iniciar la ruta GPS directa: {enlace_maps}',
+            f'DESCRIPTION:Pernocta planificada en {lugar.nombre} ({lugar.get_tipo_lugar_display()}). Pulsa en la ubicacion para iniciar la ruta GPS directa: {enlace_maps}',
             f'LOCATION:{ubicacion_limpia}',
             f'GEO:{lugar.latitud};{lugar.longitud}',
             f'URL:{enlace_maps}',
-            f'URL:{enlace_maps}',
-            f'GEO:{lugar.latitud};{lugar.longitud}',
             'STATUS:CONFIRMED',
             'END:VEVENT',
             'END:VCALENDAR'
@@ -133,7 +153,6 @@ class LugarViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def lugares_cercanos_vista(request):
-    # Aquí calculo por fórmula de Haversine los lugares de pernocta más próximos a unas coordenadas GPS dadas
     try:
         lat = float(request.query_params.get('lat'))
         lng = float(request.query_params.get('lng'))

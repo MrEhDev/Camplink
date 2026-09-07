@@ -21,7 +21,7 @@ import {
   Users, Fuel, AlertTriangle, UserCheck, 
   UserMinus, Globe, Copy, CheckCheck, Bookmark,
   Navigation, Search, ExternalLink, Sliders, 
-  ChevronDown, ChevronUp, UserPlus, Save, User
+  ChevronDown, ChevronUp, UserPlus, Save, User, Bell
 } from 'lucide-react';
 
 // Icono pequeño de pernocta para el mini mapa de ruta
@@ -47,7 +47,11 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [companeros, setCompaneros] = useState([]);
   const [seguidores, setSeguidores] = useState([]);
   const [siguiendo, setSiguiendo] = useState([]);
-  const [tabComunidad, setTabComunidad] = useState('seguidores'); // 'seguidores', 'siguiendo', 'grupos'
+  const [tabComunidad, setTabComunidad] = useState('seguidores'); // 'seguidores', 'siguiendo', 'descubrir', 'grupos', 'notificaciones'
+  const [todosLosExploradores, setTodosLosExploradores] = useState([]);
+  const [busquedaNomada, setBusquedaNomada] = useState('');
+  const [cargandoNomadas, setCargandoNomadas] = useState(false);
+  const [notificacionesPerfil, setNotificacionesPerfil] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [lugaresGuardados, setLugaresGuardados] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -139,6 +143,8 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
           const companerosRes = await peticionApi('/api/exploradores/companeros/');
           setCompaneros(companerosRes.results || companerosRes || []);
         }
+        cargarTodosLosExploradores();
+        cargarNotificacionesPerfil();
       } catch (e) {
         console.warn('Compañeros no disponibles:', e);
       }
@@ -439,6 +445,31 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
       setGrupos(grupos.filter(g => g.id !== grupoId));
     } catch {
       alert('No se pudo eliminar el grupo.');
+    }
+  };
+
+    const cargarTodosLosExploradores = async (query = '') => {
+    try {
+      setCargandoNomadas(true);
+      const url = query ? `/api/exploradores/lista/?q=${encodeURIComponent(query)}` : '/api/exploradores/lista/';
+      const res = await peticionApi(url);
+      const lista = res.results || res || [];
+      setTodosLosExploradores(lista.filter(u => u.id !== usuario?.id));
+    } catch (e) {
+      console.warn('Error al cargar exploradores:', e);
+    } finally {
+      setCargandoNomadas(false);
+    }
+  };
+
+  const cargarNotificacionesPerfil = async () => {
+    try {
+      const res = await peticionApi('/api/exploradores/notificaciones/');
+      if (res) {
+        setNotificacionesPerfil(res.notificaciones || []);
+      }
+    } catch (e) {
+      console.warn('Error al cargar notificaciones en perfil:', e);
     }
   };
 
@@ -1030,7 +1061,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
           )}
 
-          {/* Subnavegación de Comunidad: Seguidores | Siguiendo | Grupos */}
+          {/* Subnavegación de Comunidad: Seguidores | Siguiendo | Descubrir Nómadas | Grupos | Notificaciones */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -1050,11 +1081,27 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </button>
             <button
               type="button"
+              className={`btn btn-sm ${tabComunidad === 'descubrir' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => { setTabComunidad('descubrir'); cargarTodosLosExploradores(); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
+            >
+              <Search size={16} /> Descubrir Nómadas ({todosLosExploradores.length})
+            </button>
+            <button
+              type="button"
               className={`btn btn-sm ${tabComunidad === 'grupos' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setTabComunidad('grupos')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
             >
-              <Shield size={16} /> Grupos de Privacidad ({grupos.length})
+              <Shield size={16} /> Grupos ({grupos.length})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${tabComunidad === 'notificaciones' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => { setTabComunidad('notificaciones'); cargarNotificacionesPerfil(); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
+            >
+              <Bell size={16} /> Centro de Notificaciones ({notificacionesPerfil.length})
             </button>
           </div>
 
@@ -1266,6 +1313,185 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
           )}
 
+                    {/* SECCIÓN DESCUBRIR Y CONECTAR CON OTROS NÓMADAS */}
+          {tabComunidad === 'descubrir' && (
+            <div className="camper-card" style={{ padding: '26px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Search size={20} color="var(--accent-forest)" /> Descubrir y Conectar con Otros Nómadas
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                    Explora toda la comunidad de Camplink, busca por vehículo, ciudad o nombre y conecta en ruta.
+                  </p>
+                </div>
+              </div>
+
+              {/* Barra de Búsqueda y Filtros de Nómadas */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    style={{ paddingLeft: '40px' }}
+                    placeholder="Buscar por nombre, usuario, ciudad o provincia..."
+                    value={busquedaNomada}
+                    onChange={(e) => {
+                      setBusquedaNomada(e.target.value);
+                      cargarTodosLosExploradores(e.target.value);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {cargandoNomadas ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>Cargando exploradores nómadas...</div>
+              ) : todosLosExploradores.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-color)' }}>
+                  <Users size={36} color="var(--text-muted)" style={{ margin: '0 auto 10px', display: 'block', opacity: 0.6 }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: 0 }}>
+                    No se encontraron exploradores con ese criterio de búsqueda.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                  {todosLosExploradores.map((nomada) => {
+                    const loSigo = siguiendo.some(s => s.id === nomada.id);
+                    return (
+                      <div
+                        key={nomada.id}
+                        className="camper-explorer-card"
+                        style={{
+                          padding: '18px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '14px',
+                          transition: 'transform 0.2s, box-shadow 0.2s'
+                        }}
+                      >
+                        <div 
+                          onClick={() => irAlPerfilCompanero(nomada.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                          title={`Ver perfil completo de ${nomada.username}`}
+                        >
+                          <div
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              borderRadius: '50%',
+                              background: 'var(--accent-forest)',
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '1.15rem',
+                              flexShrink: 0
+                            }}
+                          >
+                            {nomada.username?.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', textTransform: 'capitalize', wordBreak: 'break-word' }}>
+                              {nomada.username}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              {nomada.tipo_viajero_display || nomada.tipo_viajero || 'Explorador Nómada'} {nomada.poblacion ? `• ${nomada.poblacion}` : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ width: '100%', padding: '7px 8px', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            onClick={() => irAlPerfilCompanero(nomada.id)}
+                            title="Ver perfil"
+                          >
+                            <User size={14} /> Ver Perfil
+                          </button>
+                          <button
+                            className={`btn btn-sm ${loSigo ? 'btn-secondary' : 'btn-primary'}`}
+                            style={{ width: '100%', padding: '7px 8px', fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            onClick={() => alternarSeguirCompanero(nomada.id)}
+                            title={loSigo ? "Dejar de seguir" : "Seguir"}
+                          >
+                            {loSigo ? <UserCheck size={14} color="var(--accent-forest)" /> : <UserPlus size={14} />}
+                            <span>{loSigo ? 'Siguiendo' : 'Conectar'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECCIÓN CENTRO DE NOTIFICACIONES EN PERFIL */}
+          {tabComunidad === 'notificaciones' && (
+            <div className="camper-card" style={{ padding: '26px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bell size={20} color="var(--accent-forest)" /> Historial de Notificaciones
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                    Avisos en vivo de seguidores, comentarios en tus vivencias del Diario, likes y trofeos.
+                  </p>
+                </div>
+              </div>
+
+              {notificacionesPerfil.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-color)' }}>
+                  <Bell size={36} color="var(--text-muted)" style={{ margin: '0 auto 10px', display: 'block', opacity: 0.6 }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', margin: 0 }}>
+                    No tienes notificaciones registradas todavía.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {notificacionesPerfil.map((notif) => (
+                    <div
+                      key={notif.id}
+                      style={{
+                        padding: '16px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: notif.leida ? 'var(--bg-primary)' : 'rgba(35, 83, 52, 0.12)',
+                        border: notif.leida ? '1px solid var(--border-color)' : '1.5px solid var(--accent-forest)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-forest)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
+                          {notif.tipo === 'seguimiento' ? '🤝' : notif.tipo === 'comentario' ? '💬' : notif.tipo === 'reaccion' ? '🔥' : notif.tipo === 'trofeo' ? '🏆' : 'ℹ️'}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
+                            {notif.titulo}
+                          </div>
+                          <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                            {notif.mensaje}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            {new Date(notif.fecha_creacion).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* SECCIÓN 3: GRUPOS DE PRIVACIDAD */}
           {tabComunidad === 'grupos' && (
             <div className="camper-card" style={{ padding: '26px' }}>

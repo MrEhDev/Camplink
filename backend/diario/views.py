@@ -93,7 +93,7 @@ class PublicacionViewSet(viewsets.ModelViewSet):
             texto=texto
         )
         serializer = ComentarioPublicacionSerializer(comentario)
-        if publicacion.autor != request.user:
+        if publicacion.autor:
             crear_notificacion(
                 usuario_destino=publicacion.autor,
                 usuario_origen=request.user,
@@ -120,7 +120,7 @@ class PublicacionViewSet(viewsets.ModelViewSet):
         else:
             ReaccionPublicacion.objects.create(publicacion=publicacion, usuario=request.user, tipo=tipo)
             accion = 'agregada'
-            if publicacion.autor != request.user:
+            if publicacion.autor:
                 iconos_tipo = {'fuego': '🔥 Buena ruta', 'pino': '🌲 Guardado', 'alerta': '⚠️ Alerta'}
                 icono_texto = iconos_tipo.get(tipo, '🔥 Reacción')
                 crear_notificacion(

@@ -30,6 +30,8 @@ export default function Navbar({
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
   const [panelNotifsAbierto, setPanelNotifsAbierto] = useState(false);
+  const [toastNotif, setToastNotif] = useState(null);
+  const prevNoLeidasRef = React.useRef(0);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const { usuario, logout } = useAuth();
   const { tema, cambiarTema } = useTheme();
@@ -50,8 +52,20 @@ export default function Navbar({
     try {
       const res = await peticionApi('/api/exploradores/notificaciones/');
       if (res) {
-        setNotificaciones(res.notificaciones || []);
-        setNoLeidas(res.no_leidas || 0);
+        const nuevasNotifs = res.notificaciones || [];
+        const nuevoNoLeidas = res.no_leidas || 0;
+        
+        // Si hay una nueva notificación entrante, lanzar Toast emergente en pantalla
+        if (nuevoNoLeidas > prevNoLeidasRef.current && nuevasNotifs.length > 0) {
+          const masReciente = nuevasNotifs[0];
+          if (!masReciente.leida) {
+            setToastNotif(masReciente);
+            setTimeout(() => setToastNotif(null), 6000);
+          }
+        }
+        prevNoLeidasRef.current = nuevoNoLeidas;
+        setNotificaciones(nuevasNotifs);
+        setNoLeidas(nuevoNoLeidas);
       }
     } catch (e) {
       console.warn('Error al cargar notificaciones:', e);
@@ -61,7 +75,8 @@ export default function Navbar({
   React.useEffect(() => {
     cargarNotificaciones();
     if (usuario) {
-      const interval = setInterval(cargarNotificaciones, 25000);
+      // Polling cada 4 segundos para actualización en vivo de comentarios, likes y seguidores
+      const interval = setInterval(cargarNotificaciones, 4000);
       return () => clearInterval(interval);
     }
   }, [usuario]);

@@ -21,7 +21,7 @@ import {
   Users, Fuel, AlertTriangle, UserCheck, 
   UserMinus, Globe, Copy, CheckCheck, Bookmark,
   Navigation, Search, ExternalLink, Sliders, 
-  ChevronDown, ChevronUp, UserPlus, Save
+  ChevronDown, ChevronUp, UserPlus, Save, User
 } from 'lucide-react';
 
 // Icono pequeño de pernocta para el mini mapa de ruta

@@ -1,0 +1,36 @@
+# Aquí orquesto los servicios del ecosistema Camplink: Backend en Django REST Framework
+# y Frontend en React SPA, con volúmenes persistentes para base de datos y archivos multimedia.
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: camplink_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SECRET_KEY=produccion-segura-camplink-2026-secret
+      - DJANGO_DEBUG=False
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+    volumes:
+      - backend_media:/app/media
+      - backend_db:/app/db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: camplink_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend_media:
+  backend_db:

@@ -1,0 +1,1251 @@
+// Aquí implemento la vista Organizar Viaje en Camplink:
+// gestión de viajes futuros y planificados con reordenación táctil y Drag & Drop a la izquierda,
+// cálculo de distancias reales por tramo por carretera, trazado OSRM real en el mapa,
+// diferenciación visual de Salida y Vuelta a Base, y aviso de repostaje al 80% de autonomía.
+
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import { peticionApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { buscarGasolinerasCercanas } from '../services/gasolineras';
+import { 
+  Calendar, MapPin, Plus, Route, 
+  Map, Compass, Trash2, Edit3, 
+  Check, X, ChevronDown, ChevronUp, 
+  Sparkles, Fuel, ArrowRight, Eye,
+  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag
+} from 'lucide-react';
+
+// Icono de pernocta para el trazado de paradas en el mapa
+const miniIconoPlan = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [22, 34],
+  iconAnchor: [11, 34],
+  popupAnchor: [1, -28],
+  shadowSize: [32, 32]
+});
+
+// Icono de gasolinera para paradas de repostaje
+const miniIconoGasolinera = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [22, 34],
+  iconAnchor: [11, 34],
+  popupAnchor: [1, -28],
+  shadowSize: [32, 32]
+});
+
+// Icono de base camper para inicio y fin
+const miniIconoBase = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [22, 34],
+  iconAnchor: [11, 34],
+  popupAnchor: [1, -28],
+  shadowSize: [32, 32]
+});
+
+// Función matemática de cálculo de distancia real por carretera (Haversine + 22% de sinuosidad media en España/Europa)
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return Math.round(R * c * 1.22);
+}
+
+export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abrirRadar }) {
+  const { usuario } = useAuth();
+  const [viajes, setViajes] = useState([]);
+  const [cargando, setCargando] = useState(true);
+
+  // Estados del modal de creación de viaje
+  const [modalNuevoViajeAbierto, setModalNuevoViajeAbierto] = useState(false);
+  const [nuevoTitulo, setNuevoTitulo] = useState('');
+  const [nuevaFechaInicio, setNuevaFechaInicio] = useState(new Date().toISOString().split('T')[0]);
+  const [nuevaFechaFin, setNuevaFechaFin] = useState('');
+  const [nuevaDescripcion, setNuevaDescripcion] = useState('');
+  const [guardandoViaje, setGuardandoViaje] = useState(false);
+
+  // Estados de expansión y edición en línea
+  const [viajesExpandidos, setViajesExpandidos] = useState({});
+  const [editandoId, setEditandoId] = useState(null);
+  const [tituloEditado, setTituloEditado] = useState('');
+
+  // Reordenación y gasolineras
+  const [arrastrandoIdx, setArrastrandoIdx] = useState(null);
+  const [panelGasolineras, setPanelGasolineras] = useState(null);
+
+  // Geometría de carreteras OSRM en tiempo real para mapa
+  const [geometriasRutas, setGeometriasRutas] = useState({});
+
+  const cargarViajes = async () => {
+    setCargando(true);
+    try {
+      const data = await peticionApi('/api/viajes/viajes/?mis_viajes=true');
+      const lista = data.results || data || [];
+      setViajes(lista);
+      const exp = {};
+      lista.forEach(v => { exp[v.id] = true; });
+      setViajesExpandidos(exp);
+    } catch (err) {
+      console.error('Error al cargar viajes en organizador:', err);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarViajes();
+  }, [usuario]);
+
+  // Carga el trazado real por carretera desde OSRM cuando hay paradas con coordenadas
+  useEffect(() => {
+    viajes.forEach(v => {
+      const paradas = obtenerParadasViaje(v).filter(p => p.latitud != null && p.longitud != null);
+      if (paradas.length >= 2 && !geometriasRutas[v.id]) {
+        const coordStr = paradas.map(p => `${p.longitud},${p.latitud}`).join(';');
+        fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.routes && data.routes[0] && data.routes[0].geometry) {
+              const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+              const distanceKm = Math.round(data.routes[0].distance / 1000);
+              setGeometriasRutas(prev => ({ ...prev, [v.id]: { coords, distanceKm } }));
+            }
+          })
+          .catch(err => console.warn('OSRM fallback to straight line:', err));
+      }
+    });
+  }, [viajes]);
+
+  const toggleExpansion = (id) => {
+    setViajesExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const crearNuevoViaje = async (e) => {
+    e.preventDefault();
+    if (!nuevoTitulo.trim()) return;
+    setGuardandoViaje(true);
+    try {
+      await peticionApi('/api/viajes/viajes/', {
+        method: 'POST',
+        body: {
+          titulo: nuevoTitulo.trim(),
+          fecha_inicio: nuevaFechaInicio,
+          fecha_fin: nuevaFechaFin || null,
+          descripcion: nuevaDescripcion,
+          esta_cerrado: false
+        }
+      });
+      setModalNuevoViajeAbierto(false);
+      setNuevoTitulo('');
+      setNuevaDescripcion('');
+      setNuevaFechaFin('');
+      await cargarViajes();
+    } catch (err) {
+      alert(err.message || 'No se pudo crear el viaje planificado.');
+    } finally {
+      setGuardandoViaje(false);
+    }
+  };
+
+  const guardarEdicionTitulo = async (viajeId) => {
+    if (!tituloEditado.trim()) return;
+    try {
+      await peticionApi(`/api/viajes/viajes/${viajeId}/`, {
+        method: 'PATCH',
+        body: { titulo: tituloEditado.trim() }
+      });
+      setViajes(prev => prev.map(v => v.id === viajeId ? { ...v, titulo: tituloEditado.trim() } : v));
+      setEditandoId(null);
+    } catch (err) {
+      alert('Error al actualizar el nombre del viaje.');
+    }
+  };
+
+  const eliminarViaje = async (viajeId) => {
+    if (!window.confirm('¿Seguro que deseas eliminar este viaje planificado?')) return;
+    try {
+      await peticionApi(`/api/viajes/viajes/${viajeId}/`, { method: 'DELETE' });
+      setViajes(prev => prev.filter(v => v.id !== viajeId));
+    } catch (err) {
+      alert('No se pudo eliminar el viaje.');
+    }
+  };
+
+  // REORDENACIÓN DE PARADAS (solo paradas intermedias, la base de salida y vuelta quedan fijas)
+  const moverParada = async (viajeId, desdeIdx, haciaIdx) => {
+    if (desdeIdx === haciaIdx || desdeIdx === null) return;
+    const viaje = viajes.find(v => v.id === viajeId);
+    if (!viaje) return;
+
+    const listaActual = obtenerParadasViaje(viaje);
+    if (desdeIdx < 0 || desdeIdx >= listaActual.length || haciaIdx < 0 || haciaIdx >= listaActual.length) return;
+
+    // No permitir mover los puntos base
+    if (listaActual[desdeIdx]?.es_base || listaActual[haciaIdx]?.es_base) return;
+
+    const nuevaLista = [...listaActual];
+    const elemento = nuevaLista.splice(desdeIdx, 1)[0];
+    nuevaLista.splice(haciaIdx, 0, elemento);
+
+    // Actualización optimista
+    setViajes(prev => prev.map(v => v.id === viajeId ? { ...v, resumen_ruta: nuevaLista } : v));
+    // Limpiar caché OSRM para que recalcule con el nuevo orden
+    setGeometriasRutas(prev => {
+      const copy = { ...prev };
+      delete copy[viajeId];
+      return copy;
+    });
+
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/reordenar-paradas/`, {
+        method: 'POST',
+        body: { orden: nuevaLista }
+      });
+      if (res.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+    } catch (err) {
+      console.error('Error al guardar el nuevo orden de paradas:', err);
+    }
+  };
+
+  // BUSCADOR DE GASOLINERAS EN RUTA
+  const abrirBuscadorGasolineras = async (viajeId, tramoIdx, lat, lng, paradaNombre) => {
+    if (!lat || !lng) {
+      alert('Coordenadas no disponibles en este punto para buscar gasolineras.');
+      return;
+    }
+    setPanelGasolineras({
+      viajeId,
+      tramoIdx,
+      lat,
+      lng,
+      paradaNombre,
+      cargando: true,
+      lista: []
+    });
+
+    try {
+      const resultados = await buscarGasolinerasCercanas({
+        lat,
+        lng,
+        radioKm: 25,
+        tipoCombustible: usuario?.tipo_combustible || 'gasoleo_a'
+      });
+      setPanelGasolineras(prev => prev ? { ...prev, cargando: false, lista: resultados } : null);
+    } catch (err) {
+      console.error('Error buscando gasolineras en tramo:', err);
+      setPanelGasolineras(prev => prev ? { ...prev, cargando: false, lista: [] } : null);
+    }
+  };
+
+  const anadirGasolineraARuta = async (viajeId, gasolinera, tramoIdx) => {
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/anadir-gasolinera/`, {
+        method: 'POST',
+        body: {
+          nombre: gasolinera.rotulo || 'Gasolinera',
+          lat: gasolinera.lat,
+          lng: gasolinera.lng,
+          precio: gasolinera.precioLitro,
+          direccion: gasolinera.direccion || `${gasolinera.municipio || ''}`,
+          tipo_combustible: usuario?.tipo_combustible || 'gasoleo_a',
+          despues_de_indice: tramoIdx
+        }
+      });
+      if (res.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+      setPanelGasolineras(null);
+    } catch (err) {
+      alert(err.message || 'No se pudo añadir la gasolinera al itinerario.');
+    }
+  };
+
+  const alternarRepostaje = async (viajeId, idx) => {
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/marcar-repostaje/`, {
+        method: 'POST',
+        body: { indice: idx }
+      });
+      if (res.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+    } catch (err) {
+      console.error('Error al alternar repostaje:', err);
+    }
+  };
+
+  const eliminarParada = async (viajeId, idx, parada) => {
+    if (parada.es_base) return;
+    if (!window.confirm(`¿Seguro que deseas eliminar la parada "${parada.nombre}" de este viaje?`)) return;
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/eliminar-parada/`, {
+        method: 'POST',
+        body: {
+          indice: idx,
+          checkin_id: parada.id && typeof parada.id === 'number' ? parada.id : null
+        }
+      });
+      if (res.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+    } catch (err) {
+      alert('No se pudo eliminar la parada del viaje.');
+    }
+  };
+
+  // Normalización de paradas con anclaje de Salida desde base y Vuelta a base
+  const obtenerParadasViaje = (viaje) => {
+    let lista = [];
+    if (viaje.resumen_ruta && viaje.resumen_ruta.length > 0) {
+      lista = viaje.resumen_ruta.map((p, i) => ({
+        id: p.id || `r-${i}`,
+        lugar_id: p.lugar_id,
+        nombre: p.nombre || p.lugar_nombre || 'Parada',
+        latitud: p.lat != null ? p.lat : p.latitud,
+        longitud: p.lng != null ? p.lng : p.longitud,
+        poblacion: p.poblacion || '',
+        provincia: p.provincia || '',
+        fecha_llegada: p.fecha || p.fecha_llegada || '',
+        dias_previstos: p.dias || p.dias_previstos || 1,
+        notas_privadas: p.notas_privadas || '',
+        tipo: p.tipo || 'parada',
+        es_repostaje: p.es_repostaje || false,
+        es_base: p.es_base || p.tipo === 'base' || p.tipo === 'base_salida' || p.tipo === 'base_vuelta',
+        precio: p.precio,
+        direccion: p.direccion
+      }));
+    } else {
+      lista = (viaje.checkins_resumen || []).map((ch, i) => ({
+        id: ch.id || `ch-${i}`,
+        lugar_id: ch.lugar_id,
+        nombre: ch.lugar_nombre || 'Punto de Pernocta',
+        latitud: ch.latitud,
+        longitud: ch.longitud,
+        poblacion: ch.poblacion || '',
+        provincia: ch.provincia || '',
+        fecha_llegada: ch.fecha_llegada || '',
+        dias_previstos: ch.dias_previstos || 1,
+        notas_privadas: ch.notas_privadas || '',
+        tipo: 'parada',
+        es_repostaje: false,
+        es_base: false
+      }));
+    }
+
+    const baseTexto = usuario?.direccion_base || usuario?.poblacion || 'Tu Base Camper';
+    const tieneSalida = lista.length > 0 && (lista[0].es_base || lista[0].tipo === 'base_salida' || lista[0].tipo === 'base');
+    const tieneVuelta = lista.length > 1 && (lista[lista.length - 1].es_base || lista[lista.length - 1].tipo === 'base_vuelta');
+
+    if (usuario?.lat_base && usuario?.lng_base && lista.length > 0) {
+      if (!tieneSalida) {
+        lista.unshift({
+          id: 'base-salida',
+          nombre: `Salida: ${baseTexto}`,
+          latitud: usuario.lat_base,
+          longitud: usuario.lng_base,
+          poblacion: usuario.poblacion || '',
+          tipo: 'base_salida',
+          es_base: true
+        });
+      }
+      if (!tieneVuelta && lista.length > 1) {
+        lista.push({
+          id: 'base-vuelta',
+          nombre: `Vuelta: ${baseTexto}`,
+          latitud: usuario.lat_base,
+          longitud: usuario.lng_base,
+          poblacion: usuario.poblacion || '',
+          tipo: 'base_vuelta',
+          es_base: true
+        });
+      }
+    }
+
+    return lista;
+  };
+
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const viajesFuturos = viajes.filter(v => !v.esta_cerrado && (v.tipo_estado === 'futuro' || v.fecha_inicio >= hoyStr));
+  const otrosViajesAbiertos = viajes.filter(v => !v.esta_cerrado && !viajesFuturos.some(f => f.id === v.id));
+
+  return (
+    <div className="camplink-container" style={{ padding: '30px 20px 80px', maxWidth: '1000px', width: '100%', margin: '0 auto' }}>
+      {/* CABECERA PRINCIPAL */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '28px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div>
+          <h1 style={{ fontSize: '2.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Route size={28} color="var(--accent-earth)" />
+            <span>Organizar Viaje</span>
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.92rem' }}>
+            Planifica tus rutas futuras, reordena tus paradas, visualiza la carretera en mapa y controla las paradas de combustible.
+          </p>
+        </div>
+
+        <button
+          className="btn btn-primary"
+          onClick={() => setModalNuevoViajeAbierto(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(35, 83, 52, 0.35)' }}
+        >
+          <Plus size={18} />
+          <span>Crear Nuevo Viaje</span>
+        </button>
+      </div>
+
+      {/* MODAL PARA CREAR NUEVO VIAJE */}
+      {modalNuevoViajeAbierto && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div className="camper-card" style={{ maxWidth: '520px', width: '100%', padding: '28px', border: '2px solid var(--accent-forest)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '1.3rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Compass size={20} color="var(--accent-forest)" />
+                <span>Nuevo Viaje Planificado</span>
+              </h2>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setModalNuevoViajeAbierto(false)}
+                style={{ width: '32px', height: '32px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={crearNuevoViaje} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.88rem' }}>Título del Viaje *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ej: Ruta Picos de Europa y Costa Cantábrica"
+                  value={nuevoTitulo}
+                  onChange={(e) => setNuevoTitulo(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.88rem' }}>Fecha de Salida *</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={nuevaFechaInicio}
+                    onChange={(e) => setNuevaFechaInicio(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.88rem' }}>Fecha de Regreso (Opcional)</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={nuevaFechaFin}
+                    min={nuevaFechaInicio}
+                    onChange={(e) => setNuevaFechaFin(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.88rem' }}>Notas o Propósito del Viaje</label>
+                <textarea
+                  className="form-control"
+                  rows="3"
+                  placeholder="Ej: Pernoctas libres en montaña, paradas gastronómicas y deportes de aventura..."
+                  value={nuevaDescripcion}
+                  onChange={(e) => setNuevaDescripcion(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setModalNuevoViajeAbierto(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={guardandoViaje}
+                >
+                  {guardandoViaje ? 'Creando...' : 'Crear Viaje y Empezar Itinerario'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BANNER INFORMATIVO */}
+      <div className="camper-card" style={{
+        padding: '16px 20px',
+        marginBottom: '24px',
+        background: 'rgba(35, 83, 52, 0.08)',
+        border: '1px solid rgba(35, 83, 52, 0.25)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px'
+      }}>
+        <Sparkles size={24} color="var(--accent-forest)" style={{ flexShrink: 0 }} />
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+            ¿Cómo añadir lugares a tu viaje?
+          </div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+            Navega al <strong>Mapa</strong> o <strong>Diario</strong>, abre la ficha de cualquier lugar de pernocta y pulsa <strong>"➕ Añadir a Viaje Planificado"</strong>.
+          </div>
+        </div>
+      </div>
+
+      {/* LISTADO DE VIAJES FUTUROS Y PLANIFICADOS */}
+      {cargando ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: '2rem' }}>🚐</span>
+          <p style={{ marginTop: '10px' }}>Cargando viajes planificados...</p>
+        </div>
+      ) : viajesFuturos.length === 0 && otrosViajesAbiertos.length === 0 ? (
+        <div className="camper-card" style={{ textAlign: 'center', padding: '50px 20px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '14px' }}>🗺️</div>
+          <h3 style={{ fontSize: '1.3rem', marginBottom: '8px' }}>No tienes viajes futuros planificados</h3>
+          <p style={{ color: 'var(--text-secondary)', maxWidth: '480px', margin: '0 auto 20px', fontSize: '0.92rem' }}>
+            Empieza a planificar tu próxima aventura sobre ruedas creando tu primer viaje nómada.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => setModalNuevoViajeAbierto(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Plus size={17} /> Planificar mi primer viaje
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {[...viajesFuturos, ...otrosViajesAbiertos].map((viaje) => {
+            const expandido = viajesExpandidos[viaje.id] !== false;
+            const paradas = obtenerParadasViaje(viaje);
+            const coordsRuta = paradas
+              .filter(p => p.latitud != null && p.longitud != null)
+              .map(p => [p.latitud, p.longitud]);
+
+            const centroMapa = coordsRuta.length > 0 ? coordsRuta[0] : [40.4168, -3.7038];
+
+            // Trazado de carretera OSRM si está disponible, o coordenadas de paradas
+            const coordsTrazadoOSRM = geometriasRutas[viaje.id]?.coords || coordsRuta;
+
+            // Cálculo de distancias reales acumuladas
+            let distanciaTotalCalculada = 0;
+            const distanciasPorTramo = [];
+            for (let i = 0; i < paradas.length; i++) {
+              if (i === 0) {
+                distanciasPorTramo.push(0);
+              } else {
+                const dist = calcularDistanciaKm(
+                  paradas[i-1].latitud, paradas[i-1].longitud,
+                  paradas[i].latitud, paradas[i].longitud
+                );
+                distanciasPorTramo.push(dist);
+                distanciaTotalCalculada += dist;
+              }
+            }
+
+            // Distancia total OSRM o estimada
+            const kmTotalesViaje = geometriasRutas[viaje.id]?.distanceKm || distanciaTotalCalculada || viaje.km_totales || 0;
+
+            // Autonomía y combustible según datos del vehículo del usuario (L / 100km)
+            const capDeposito = parseFloat(usuario?.capacidad_deposito_l || usuario?.capacidad_deposito || 60);
+            const consMedio = parseFloat(usuario?.consumo_medio_l_100km || usuario?.consumo_medio || usuario?.consumo_medio_l_km || 6.5);
+            const autonomiaEstimada = Math.round((capDeposito / consMedio) * 100);
+
+            // Identificar índices de inicio y fin para bloquear reordenación fuera de límites
+            const primerIndiceMovible = paradas.findIndex(p => !p.es_base);
+            const ultimoIndiceMovible = paradas.length - 1 - [...paradas].reverse().findIndex(p => !p.es_base);
+
+            // Contador de etapas intermedias regulares (excluyendo bases)
+            let contadorEtapas = 0;
+
+            return (
+              <div key={viaje.id} className="camper-card" style={{ padding: '24px' }}>
+                {/* Cabecera del Viaje */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  marginBottom: expandido ? '18px' : '0'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
+                    <div style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      background: 'rgba(217, 119, 54, 0.15)',
+                      border: '1px solid var(--accent-earth)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.2rem',
+                      flexShrink: 0
+                    }}>
+                      🗺️
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      {editandoId === viaje.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={tituloEditado}
+                            onChange={(e) => setTituloEditado(e.target.value)}
+                            style={{ padding: '4px 10px', fontSize: '1.05rem', fontWeight: 700 }}
+                            autoFocus
+                          />
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => guardarEdicionTitulo(viaje.id)}
+                            title="Guardar título"
+                            style={{ padding: '6px 10px' }}
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setEditandoId(null)}
+                            title="Cancelar"
+                            style={{ padding: '6px 10px' }}
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>{viaje.titulo}</h3>
+                          <button
+                            onClick={() => { setEditandoId(viaje.id); setTituloEditado(viaje.titulo); }}
+                            style={{ opacity: 0.7, padding: '2px', background: 'none', border: 'none', cursor: 'pointer' }}
+                            title="Editar nombre del viaje"
+                          >
+                            <Edit3 size={15} color="var(--accent-forest)" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', flexWrap: 'wrap' }}>
+                        <span>📅 Salida: {new Date(viaje.fecha_inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        {viaje.fecha_fin && (
+                          <span>🏁 Regreso: {new Date(viaje.fecha_fin).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        )}
+                        <span style={{ fontWeight: 700, color: 'var(--accent-forest)' }}>
+                          🛣️ {kmTotalesViaje} km de ruta estimados
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => toggleExpansion(viaje.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
+                    >
+                      {expandido ? (
+                        <><span>Ocultar Mapa e Itinerario</span> <ChevronUp size={15} /></>
+                      ) : (
+                        <><span>Ver Mapa e Itinerario</span> <ChevronDown size={15} /></>
+                      )}
+                    </button>
+
+                    <button
+                      className="btn-icon"
+                      onClick={() => eliminarViaje(viaje.id)}
+                      title="Eliminar este viaje planificado"
+                      style={{ width: '34px', height: '34px', color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONTENIDO EXPANDIDO: ITINERARIO, MAPA POR CARRETERA Y REPOSTAJES */}
+                {expandido && (
+                  <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                    {viaje.descripcion && (
+                      <div style={{
+                        background: 'var(--bg-glass)',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.88rem',
+                        color: 'var(--text-secondary)',
+                        marginBottom: '16px',
+                        fontStyle: 'italic'
+                      }}>
+                        "{viaje.descripcion}"
+                      </div>
+                    )}
+
+                    {/* MINI MAPA INTERACTIVO DE LA RUTA PLANIFICADA */}
+                    {coordsRuta.length > 0 && (
+                      <div style={{
+                        height: '260px',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        marginBottom: '20px',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <MapContainer
+                          center={centroMapa}
+                          zoom={coordsRuta.length > 1 ? 7 : 10}
+                          scrollWheelZoom={false}
+                          style={{ height: '100%', width: '100%' }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution="&copy; OpenStreetMap"
+                          />
+                          {coordsTrazadoOSRM.length > 1 && (
+                            <Polyline
+                              positions={coordsTrazadoOSRM}
+                              color="#10B981"
+                              weight={5}
+                              opacity={0.85}
+                            />
+                          )}
+                          {paradas.map((p, idx) => (
+                            p.latitud != null && p.longitud != null && (
+                              <Marker
+                                key={p.id || idx}
+                                position={[p.latitud, p.longitud]}
+                                icon={p.es_base ? miniIconoBase : (p.tipo === 'gasolinera' || p.es_repostaje ? miniIconoGasolinera : miniIconoPlan)}
+                              >
+                                <Popup>
+                                  <div style={{ padding: '4px', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                      {p.es_base ? (p.tipo === 'base_salida' ? '🏠 Salida Base' : '🏁 Vuelta Base') : (p.tipo === 'gasolinera' ? '⛽ Gasolinera' : p.nombre)}
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#666' }}>
+                                      {p.poblacion || p.direccion}
+                                    </div>
+                                    {alSeleccionarLugar && p.lugar_id && (
+                                      <button
+                                        className="btn btn-primary btn-sm"
+                                        onClick={() => alSeleccionarLugar(p.lugar_id)}
+                                        style={{ marginTop: '6px', fontSize: '0.72rem', padding: '3px 8px' }}
+                                      >
+                                        Ver Ficha del Lugar
+                                      </button>
+                                    )}
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            )
+                          ))}
+                        </MapContainer>
+                      </div>
+                    )}
+
+                    {/* LISTA DE PARADAS E ITINERARIO CON REORDENACIÓN A LA IZQUIERDA Y CÁLCULO DE KM */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Route size={16} color="var(--accent-earth)" />
+                          <span>Itinerario de Etapas ({paradas.filter(p => !p.es_base).length} paradas planificadas):</span>
+                        </div>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          Usa las flechas ⬆⬇ a la izquierda de cada etapa para ordenar tu ruta
+                        </span>
+                      </div>
+
+                      {paradas.length === 0 ? (
+                        <div style={{
+                          padding: '16px',
+                          background: 'var(--bg-surface)',
+                          borderRadius: 'var(--radius-md)',
+                          textAlign: 'center',
+                          border: '1px dashed var(--border-color)'
+                        }}>
+                          <p style={{ margin: '0 0 10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                            Este viaje todavía no tiene paradas registradas.
+                          </p>
+                          {alExplorarMapa && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={alExplorarMapa}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <MapPin size={14} /> Explorar mapa para añadir pernoctas a este viaje
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {(() => {
+                            let kmAcumulados = 0;
+                            const umbral80 = Math.round(autonomiaEstimada * 0.8);
+
+                            return paradas.map((parada, idx) => {
+                              const distTramo = distanciasPorTramo[idx] || 0;
+                              const kmHastaEstaParada = kmAcumulados + distTramo;
+                              
+                              // La advertencia se evalúa y muestra ANTES de la etapa donde se supera el 80% de autonomía
+                              const supera80 = idx > 0 && kmHastaEstaParada >= umbral80 && !parada.es_repostaje;
+
+                              // Actualizamos km acumulados para el siguiente tramo
+                              if (parada.es_repostaje) {
+                                kmAcumulados = 0;
+                              } else {
+                                kmAcumulados = kmHastaEstaParada;
+                              }
+
+                              // Distinción visual para Salida Base y Vuelta Base
+                              if (parada.es_base) {
+                                const esSalida = parada.tipo === 'base_salida' || idx === 0;
+                                return (
+                                  <div key={parada.id || `base-${idx}`}>
+                                    {/* Advertencia antes del punto de retorno a base si supera el 80% */}
+                                    {supera80 && (
+                                      <div style={{
+                                        margin: '0 0 10px 0',
+                                        padding: '12px 16px',
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1.5px solid #EF4444',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontSize: '0.86rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        gap: '10px'
+                                      }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                          <AlertTriangle size={18} />
+                                          <span>
+                                            <strong>¡Atención Combustible!</strong> Para completar el regreso a base acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu autonomía de {autonomiaEstimada} km). Reposta antes de este tramo.
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="btn btn-primary btn-sm"
+                                          style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
+                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre)}
+                                        >
+                                          <Fuel size={14} /> Buscar Gasolineras Baratas
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '12px 16px',
+                                      borderRadius: 'var(--radius-md)',
+                                      background: esSalida ? 'rgba(35, 83, 52, 0.08)' : 'rgba(217, 119, 6, 0.08)',
+                                      border: `1.5px dashed ${esSalida ? 'var(--accent-forest)' : 'var(--accent-gold)'}`,
+                                      gap: '12px',
+                                      flexWrap: 'wrap'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{
+                                          width: '36px',
+                                          height: '36px',
+                                          borderRadius: '50%',
+                                          background: esSalida ? 'var(--accent-forest)' : 'var(--accent-gold)',
+                                          color: '#fff',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          fontWeight: 800
+                                        }}>
+                                          {esSalida ? <Home size={18} /> : <Flag size={18} />}
+                                        </div>
+                                        <div>
+                                          <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>{parada.nombre}</span>
+                                            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 'var(--radius-full)', background: esSalida ? 'rgba(35,83,52,0.18)' : 'rgba(217,119,6,0.18)', color: esSalida ? 'var(--accent-forest)' : 'var(--accent-gold)' }}>
+                                              {esSalida ? 'Punto de Partida' : 'Retorno a Base'}
+                                            </span>
+                                          </div>
+                                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                            {esSalida ? 'Inicio de ruta (0 km)' : `Tramo final de regreso (+ ${distTramo} km)`}
+                                            {parada.poblacion && ` • ${parada.poblacion}`}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Radar centrado en Base */}
+                                      {parada.latitud != null && parada.longitud != null && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
+                                          style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Radar size={13} color="var(--accent-earth)" />
+                                          <span>Radar Base</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // Etapa intermedia regular
+                              contadorEtapas += 1;
+                              const numEtapa = contadorEtapas;
+                              const puedeSubir = idx > primerIndiceMovible;
+                              const puedeBajar = idx < ultimoIndiceMovible;
+
+                              return (
+                                <div key={parada.id || `parada-${idx}`}>
+                                  {/* ADVERTENCIA DE COMBUSTIBLE ANTES DE LA PARADA DONDE SE SUPERA EL 80% */}
+                                  {supera80 && (
+                                    <div style={{
+                                      margin: '0 0 10px 0',
+                                      padding: '12px 16px',
+                                      background: 'rgba(239, 68, 68, 0.12)',
+                                      border: '1.5px solid #EF4444',
+                                      borderRadius: 'var(--radius-md)',
+                                      fontSize: '0.86rem',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      flexWrap: 'wrap',
+                                      gap: '10px'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                        <AlertTriangle size={18} />
+                                        <span>
+                                          <strong>¡Atención Combustible!</strong> Para llegar a <strong>{parada.nombre}</strong> acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu previsión de {autonomiaEstimada} km). Recomendamos hacer una parada de repostaje aquí.
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
+                                        onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre)}
+                                      >
+                                        <Fuel size={14} /> Buscar Gasolineras Baratas
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  <div
+                                    draggable
+                                    onDragStart={() => setArrastrandoIdx(idx)}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={() => {
+                                      if (arrastrandoIdx !== null && arrastrandoIdx !== idx) {
+                                        moverParada(viaje.id, arrastrandoIdx, idx);
+                                        setArrastrandoIdx(null);
+                                      }
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '12px 14px',
+                                      borderRadius: 'var(--radius-md)',
+                                      background: parada.tipo === 'gasolinera' ? 'rgba(217, 119, 6, 0.08)' : 'var(--bg-surface)',
+                                      border: parada.es_repostaje ? '1.5px solid #D97706' : '1px solid var(--border-color)',
+                                      gap: '12px',
+                                      flexWrap: 'wrap',
+                                      transition: 'background 0.2s'
+                                    }}
+                                  >
+                                    {/* CONTROLES DE REORDENACIÓN A LA IZQUIERDA DEL TODO (FLECHAS ARRIBA / ABAJO) */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <div style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '2px',
+                                        background: 'var(--bg-glass)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid var(--border-color)',
+                                        padding: '2px'
+                                      }}>
+                                        <button
+                                          type="button"
+                                          disabled={!puedeSubir}
+                                          onClick={() => moverParada(viaje.id, idx, idx - 1)}
+                                          title="Mover etapa arriba (adelantar parada)"
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: puedeSubir ? 'pointer' : 'not-allowed',
+                                            padding: '2px 4px',
+                                            color: puedeSubir ? 'var(--text-primary)' : 'var(--text-muted)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            borderRadius: '2px'
+                                          }}
+                                        >
+                                          <ArrowUp size={13} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={!puedeBajar}
+                                          onClick={() => moverParada(viaje.id, idx, idx + 1)}
+                                          title="Mover etapa abajo (retrasar parada)"
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: puedeBajar ? 'pointer' : 'not-allowed',
+                                            padding: '2px 4px',
+                                            color: puedeBajar ? 'var(--text-primary)' : 'var(--text-muted)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            borderRadius: '2px'
+                                          }}
+                                        >
+                                          <ArrowDown size={13} />
+                                        </button>
+                                      </div>
+
+                                      <div style={{ cursor: 'grab', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Arrastrar para ordenar">
+                                        <GripVertical size={16} />
+                                      </div>
+                                    </div>
+
+                                    {/* INFORMACIÓN DE LA ETAPA */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '220px' }}>
+                                      <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        background: parada.tipo === 'gasolinera' ? '#D97706' : 'var(--accent-forest)',
+                                        color: '#fff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontWeight: 800,
+                                        fontSize: '0.85rem',
+                                        flexShrink: 0
+                                      }}>
+                                        {parada.tipo === 'gasolinera' ? '⛽' : numEtapa}
+                                      </div>
+
+                                      <div>
+                                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                          <span
+                                            onClick={() => {
+                                              if (parada.lugar_id && alSeleccionarLugar) {
+                                                alSeleccionarLugar(parada.lugar_id);
+                                              }
+                                            }}
+                                            style={{
+                                              cursor: parada.lugar_id ? 'pointer' : 'default',
+                                              color: parada.lugar_id ? 'var(--accent-forest)' : 'inherit',
+                                              textDecoration: parada.lugar_id ? 'underline' : 'none'
+                                            }}
+                                            title={parada.lugar_id ? `Ver detalles de ${parada.nombre}` : parada.nombre}
+                                          >
+                                            {parada.nombre}
+                                          </span>
+
+                                          {/* Distancia contabilizada de este tramo */}
+                                          <span style={{ fontSize: '0.74rem', background: 'rgba(37, 99, 235, 0.12)', color: '#3B82F6', border: '1px solid rgba(37, 99, 235, 0.3)', padding: '1px 7px', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
+                                            + {distTramo} km
+                                          </span>
+
+                                          {parada.es_repostaje && (
+                                            <span style={{ fontSize: '0.72rem', background: '#D97706', color: '#fff', padding: '1px 6px', borderRadius: 'var(--radius-full)' }}>
+                                              ⛽ Repostado
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                          {parada.poblacion || parada.direccion} • {parada.fecha_llegada ? parada.fecha_llegada.split('T')[0] : 'Sin fecha'}
+                                          {parada.tipo !== 'gasolinera' && ` (${parada.dias_previstos} ${parada.dias_previstos === 1 ? 'noche' : 'noches'})`}
+                                          {parada.precio && ` • ${parada.precio} €/L`}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* ACCIONES DE LA ETAPA: RADAR, REPOSTAJE Y ELIMINAR */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      {/* Radar centrado en este lugar */}
+                                      {parada.latitud != null && parada.longitud != null && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
+                                          title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
+                                          style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Radar size={13} color="var(--accent-earth)" />
+                                          <span>Radar</span>
+                                        </button>
+                                      )}
+
+                                      {/* Marcar/Desmarcar Repostaje */}
+                                      <button
+                                        type="button"
+                                        className={`btn ${parada.es_repostaje ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                        onClick={() => alternarRepostaje(viaje.id, idx)}
+                                        title={parada.es_repostaje ? 'Desmarcar repostaje' : 'Marcar que repostas aquí'}
+                                        style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      >
+                                        <Fuel size={13} />
+                                        <span>{parada.es_repostaje ? 'Repostado ✔' : 'Repostar'}</span>
+                                      </button>
+
+                                      {/* Buscar Gasolineras */}
+                                      {parada.latitud != null && parada.longitud != null && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre)}
+                                          title="Buscar gasolineras baratas cerca de esta etapa"
+                                          style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Search size={13} color="#D97706" />
+                                          <span>Gasolineras</span>
+                                        </button>
+                                      )}
+
+                                      {/* Eliminar Parada */}
+                                      <button
+                                        type="button"
+                                        className="btn btn-danger btn-sm"
+                                        onClick={() => eliminarParada(viaje.id, idx, parada)}
+                                        title="Eliminar esta parada del viaje"
+                                        style={{ padding: '4px 8px', background: 'rgba(239, 68, 68, 0.18)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.45)' }}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* PANEL FLOTANTE DE GASOLINERAS BARATAS EN RUTA */}
+                    {panelGasolineras && panelGasolineras.viajeId === viaje.id && (
+                      <div className="camper-card" style={{
+                        marginTop: '16px',
+                        padding: '18px',
+                        border: '2px solid #D97706',
+                        background: 'var(--bg-glass)',
+                        boxShadow: 'var(--shadow-glass)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#D97706' }}>
+                            <Fuel size={18} />
+                            <span>Gasolineras baratas cerca de: {panelGasolineras.paradaNombre}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() => setPanelGasolineras(null)}
+                            style={{ width: '28px', height: '28px' }}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+
+                        {panelGasolineras.cargando ? (
+                          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                            Buscando precios de gasolineras en tiempo real...
+                          </div>
+                        ) : panelGasolineras.lista.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                            No se encontraron gasolineras cercanas a este punto.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                            {panelGasolineras.lista.slice(0, 8).map((gas, gIdx) => (
+                              <div
+                                key={gas.id || gIdx}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '8px 12px',
+                                  background: 'rgba(255, 255, 255, 0.04)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-color)',
+                                  gap: '10px'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                                    {gas.rotulo}
+                                  </div>
+                                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                                    {gas.direccion} • {gas.distanciaKm != null ? `${gas.distanciaKm.toFixed(1)} km` : ''}
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--accent-forest)' }}>
+                                    {gas.precioLitro ? `${gas.precioLitro.toFixed(3)} €/L` : 'Consultar'}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    style={{ fontSize: '0.74rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
+                                    onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
+                                  >
+                                    ➕ Añadir al viaje
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

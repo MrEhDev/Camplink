@@ -146,11 +146,19 @@ class ViajeViewSet(viewsets.ModelViewSet):
             'fecha': viaje.fecha_inicio.strftime('%Y-%m-%d') if hasattr(viaje.fecha_inicio, 'strftime') else str(viaje.fecha_inicio)
         }
 
+        if not viaje.resumen_ruta:
+            from viajes.services import recalcular_viaje
+            recalcular_viaje(viaje)
+            viaje.refresh_from_db()
+
         ruta = list(viaje.resumen_ruta or [])
         if despues_de is not None and 0 <= int(despues_de) < len(ruta):
             ruta.insert(int(despues_de) + 1, nueva_parada)
         else:
-            ruta.append(nueva_parada)
+            if len(ruta) > 0 and ruta[-1].get('tipo') == 'base_vuelta':
+                ruta.insert(len(ruta) - 1, nueva_parada)
+            else:
+                ruta.append(nueva_parada)
 
         viaje.resumen_ruta = ruta
         from viajes.services import calcular_distancia_carretera

@@ -14,7 +14,7 @@ import {
   Map, Compass, Trash2, Edit3, 
   Check, X, ChevronDown, ChevronUp, 
   Sparkles, Fuel, ArrowRight, Eye,
-  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation
+  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation, Info
 } from 'lucide-react';
 
 // Icono de pernocta para el trazado de paradas en el mapa
@@ -207,6 +207,8 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   const [nuevaFechaFin, setNuevaFechaFin] = useState('');
   const [nuevaDescripcion, setNuevaDescripcion] = useState('');
   const [guardandoViaje, setGuardandoViaje] = useState(false);
+  const [infoAlertasAbiertas, setInfoAlertasAbiertas] = useState({});
+  const toggleInfoAlerta = (key) => setInfoAlertasAbiertas(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Estados de expansión y edición en línea
   const [viajesExpandidos, setViajesExpandidos] = useState({});
@@ -305,13 +307,21 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       const paradas = obtenerParadasViaje(v).filter(p => p.latitud != null && p.longitud != null);
       if (paradas.length >= 2 && !geometriasRutas[v.id]) {
         const coordStr = paradas.map(p => `${p.longitud},${p.latitud}`).join(';');
-        fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`)
+        fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=true`)
           .then(res => res.json())
           .then(data => {
             if (data.routes && data.routes[0] && data.routes[0].geometry) {
               const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
               const distanceKm = Math.round(data.routes[0].distance / 1000);
-              setGeometriasRutas(prev => ({ ...prev, [v.id]: { coords, distanceKm } }));
+              const legs = (data.routes[0].legs || []).map(leg => {
+                const legCoords = (leg.steps || []).flatMap(s => (s.geometry?.coordinates || []).map(c => [c[1], c[0]]));
+                return {
+                  distanceKm: Math.round((leg.distance || 0) / 1000),
+                  durationMin: Math.round((leg.duration || 0) / 60),
+                  coords: legCoords.length > 0 ? legCoords : []
+                };
+              });
+              setGeometriasRutas(prev => ({ ...prev, [v.id]: { coords, distanceKm, legs } }));
             }
           })
           .catch(err => console.warn('OSRM fallback to straight line:', err));
@@ -549,17 +559,20 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
     }
 
     const baseTexto = usuario?.direccion_base || usuario?.poblacion || 'Tu Base Camper';
+    const baseLat = usuario?.lat_base || (lista.length > 0 && lista[0].es_base && lista[0].latitud != null ? lista[0].latitud : null);
+    const baseLng = usuario?.lng_base || (lista.length > 0 && lista[0].es_base && lista[0].longitud != null ? lista[0].longitud : null);
+
     const tieneSalida = lista.length > 0 && (lista[0].es_base || lista[0].tipo === 'base_salida' || lista[0].tipo === 'base');
     const tieneVuelta = lista.length > 1 && (lista[lista.length - 1].es_base || lista[lista.length - 1].tipo === 'base_vuelta');
 
-    if (usuario?.lat_base && usuario?.lng_base && lista.length > 0) {
+    if (baseLat != null && baseLng != null && lista.length > 0) {
       if (!tieneSalida) {
         lista.unshift({
           id: 'base-salida',
           nombre: `Salida: ${baseTexto}`,
-          latitud: usuario.lat_base,
-          longitud: usuario.lng_base,
-          poblacion: usuario.poblacion || '',
+          latitud: baseLat,
+          longitud: baseLng,
+          poblacion: usuario?.poblacion || '',
           tipo: 'base_salida',
           es_base: true
         });
@@ -568,9 +581,9 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         lista.push({
           id: 'base-vuelta',
           nombre: `Vuelta: ${baseTexto}`,
-          latitud: usuario.lat_base,
-          longitud: usuario.lng_base,
-          poblacion: usuario.poblacion || '',
+          latitud: baseLat,
+          longitud: baseLng,
+          poblacion: usuario?.poblacion || '',
           tipo: 'base_vuelta',
           es_base: true
         });
@@ -901,17 +914,21 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
             // Trazado de carretera OSRM si está disponible, o coordenadas de paradas
             const coordsTrazadoOSRM = geometriasRutas[viaje.id]?.coords || coordsRuta;
 
-            // Cálculo de distancias reales acumuladas
+            // Cálculo de distancias reales acumuladas por carretera OSRM
+            const legsOSRM = geometriasRutas[viaje.id]?.legs || [];
             let distanciaTotalCalculada = 0;
             const distanciasPorTramo = [];
             for (let i = 0; i < paradas.length; i++) {
               if (i === 0) {
                 distanciasPorTramo.push(0);
               } else {
-                const dist = calcularDistanciaKm(
-                  paradas[i-1].latitud, paradas[i-1].longitud,
-                  paradas[i].latitud, paradas[i].longitud
-                );
+                const distRealLeg = legsOSRM[i - 1]?.distanceKm;
+                const dist = (distRealLeg != null && distRealLeg > 0)
+                  ? distRealLeg
+                  : calcularDistanciaKm(
+                      paradas[i-1].latitud, paradas[i-1].longitud,
+                      paradas[i].latitud, paradas[i].longitud
+                    );
                 distanciasPorTramo.push(dist);
                 distanciaTotalCalculada += dist;
               }
@@ -1442,8 +1459,15 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                 const fraccion80 = distTramo > 0 ? Math.min(0.92, Math.max(0.08, kmRestantesPara80 / distTramo)) : 0.5;
                                 // Para buscar DESPUÉS del punto donde se supera el 80% en el tramo entre punto y punto:
                                 const fraccionBusqueda = Math.min(0.96, fraccion80 + 0.05);
-                                latPunto80 = paradas[idx - 1].latitud + fraccionBusqueda * (parada.latitud - paradas[idx - 1].latitud);
-                                lngPunto80 = paradas[idx - 1].longitud + fraccionBusqueda * (parada.longitud - paradas[idx - 1].longitud);
+                                const tramoCoords = legsOSRM[idx - 1]?.coords;
+                                if (tramoCoords && tramoCoords.length > 5) {
+                                  const coordIdx = Math.min(tramoCoords.length - 1, Math.max(0, Math.floor(fraccionBusqueda * (tramoCoords.length - 1))));
+                                  latPunto80 = tramoCoords[coordIdx][0];
+                                  lngPunto80 = tramoCoords[coordIdx][1];
+                                } else {
+                                  latPunto80 = paradas[idx - 1].latitud + fraccionBusqueda * (parada.latitud - paradas[idx - 1].latitud);
+                                  lngPunto80 = paradas[idx - 1].longitud + fraccionBusqueda * (parada.longitud - paradas[idx - 1].longitud);
+                                }
                                 kmPunto80 = kmAcumulados + Math.round(fraccionBusqueda * distTramo);
                               }
 
@@ -1464,31 +1488,80 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       <>
                                         <div style={{
                                           margin: '0 0 10px 0',
-                                          padding: '12px 16px',
+                                          padding: '10px 16px',
                                           background: 'rgba(239, 68, 68, 0.12)',
                                           border: '1.5px solid #EF4444',
                                           borderRadius: 'var(--radius-md)',
                                           fontSize: '0.86rem',
                                           display: 'flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'center',
-                                          flexWrap: 'wrap',
-                                          gap: '10px'
+                                          flexDirection: 'column',
+                                          gap: '8px'
                                         }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
-                                            <AlertTriangle size={18} />
-                                            <span>
-                                              <strong>¡Atención Combustible!</strong> Para completar el regreso a base acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu autonomía de {autonomiaEstimada} km). Reposta antes de este tramo.
-                                            </span>
+                                          <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap',
+                                            gap: '10px',
+                                            width: '100%'
+                                          }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                              <AlertTriangle size={18} />
+                                              <strong style={{ fontSize: '0.94rem' }}>¡Atención Combustible!</strong>
+                                              <button
+                                                type="button"
+                                                onClick={() => toggleInfoAlerta(`alerta-${idx}`)}
+                                                title={infoAlertasAbiertas[`alerta-${idx}`] ? 'Ocultar información detallada' : 'Ver información detallada sobre este tramo'}
+                                                style={{
+                                                  width: '22px',
+                                                  height: '22px',
+                                                  borderRadius: '50%',
+                                                  background: infoAlertasAbiertas[`alerta-${idx}`] ? '#EF4444' : 'rgba(239, 68, 68, 0.18)',
+                                                  color: infoAlertasAbiertas[`alerta-${idx}`] ? '#fff' : '#EF4444',
+                                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                  cursor: 'pointer',
+                                                  padding: 0,
+                                                  fontWeight: 800,
+                                                  fontSize: '0.78rem',
+                                                  transition: 'all 0.2s ease'
+                                                }}
+                                              >
+                                                <Info size={13} strokeWidth={2.5} />
+                                              </button>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              className="btn btn-primary btn-sm"
+                                              style={{
+                                                fontSize: '0.8rem',
+                                                padding: '6px 14px',
+                                                background: '#D97706',
+                                                borderColor: '#D97706',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontWeight: 700
+                                              }}
+                                              onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
+                                            >
+                                              <Fuel size={14} /> Buscar gasolineras
+                                            </button>
                                           </div>
-                                          <button
-                                            type="button"
-                                            className="btn btn-primary btn-sm"
-                                            style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
-                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
-                                          >
-                                            <Fuel size={14} /> Buscar Gasolineras Baratas
-                                          </button>
+
+                                          {infoAlertasAbiertas[`alerta-${idx}`] && (
+                                            <div style={{
+                                              paddingTop: '8px',
+                                              borderTop: '1px dashed rgba(239, 68, 68, 0.3)',
+                                              color: 'var(--text-primary)',
+                                              fontSize: '0.84rem',
+                                              lineHeight: 1.45
+                                            }}>
+                                              Para completar el regreso a base acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu autonomía de {autonomiaEstimada} km). Reposta antes de este tramo.
+                                            </div>
+                                          )}
                                         </div>
                                         {renderPanelGasolineras(`alerta-${idx}`)}
                                       </>
@@ -1562,6 +1635,49 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             <span>Radar Base</span>
                                           </button>
                                         )}
+
+                                        {/* Buscar Gasolineras en la ruta de regreso a base */}
+                                        {!esSalida && paradas[idx - 1]?.latitud != null && parada.latitud != null && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const tramoCoords = legsOSRM[idx - 1]?.coords;
+                                              let latBusqueda = latPunto80;
+                                              let lngBusqueda = lngPunto80;
+                                              if (!latBusqueda || !lngBusqueda) {
+                                                if (tramoCoords && tramoCoords.length > 0) {
+                                                  const midIdx = Math.floor(tramoCoords.length * 0.5);
+                                                  latBusqueda = tramoCoords[midIdx][0];
+                                                  lngBusqueda = tramoCoords[midIdx][1];
+                                                } else {
+                                                  latBusqueda = paradas[idx - 1].latitud + 0.5 * (parada.latitud - paradas[idx - 1].latitud);
+                                                  lngBusqueda = paradas[idx - 1].longitud + 0.5 * (parada.longitud - paradas[idx - 1].longitud);
+                                                }
+                                              }
+                                              abrirBuscadorGasolineras(
+                                                viaje.id,
+                                                idx - 1,
+                                                latBusqueda,
+                                                lngBusqueda,
+                                                `Ruta de regreso a ${parada.nombre}`,
+                                                `parada-${idx}`
+                                              );
+                                            }}
+                                            title="Buscar gasolineras en la ruta de regreso a base"
+                                            style={{
+                                              fontSize: '0.76rem',
+                                              padding: '4px 9px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '4px'
+                                            }}
+                                          >
+                                            <Search size={13} color="#D97706" />
+                                            <span>Gasolineras</span>
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                     {renderPanelGasolineras(`parada-${idx}`)}
@@ -1582,31 +1698,80 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                     <>
                                       <div style={{
                                         margin: '0 0 10px 0',
-                                        padding: '12px 16px',
+                                        padding: '10px 16px',
                                         background: 'rgba(239, 68, 68, 0.12)',
                                         border: '1.5px solid #EF4444',
                                         borderRadius: 'var(--radius-md)',
                                         fontSize: '0.86rem',
                                         display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        flexWrap: 'wrap',
-                                        gap: '10px'
+                                        flexDirection: 'column',
+                                        gap: '8px'
                                       }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
-                                          <AlertTriangle size={18} />
-                                          <span>
-                                            <strong>¡Atención Combustible!</strong> Para llegar a <strong>{parada.nombre}</strong> acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu previsión de {autonomiaEstimada} km). Recomendamos hacer una parada de repostaje aquí.
-                                          </span>
+                                        <div style={{
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'center',
+                                          flexWrap: 'wrap',
+                                          gap: '10px',
+                                          width: '100%'
+                                        }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                            <AlertTriangle size={18} />
+                                            <strong style={{ fontSize: '0.94rem' }}>¡Atención Combustible!</strong>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleInfoAlerta(`alerta-${idx}`)}
+                                              title={infoAlertasAbiertas[`alerta-${idx}`] ? 'Ocultar información detallada' : 'Ver información detallada sobre este tramo'}
+                                              style={{
+                                                width: '22px',
+                                                height: '22px',
+                                                borderRadius: '50%',
+                                                background: infoAlertasAbiertas[`alerta-${idx}`] ? '#EF4444' : 'rgba(239, 68, 68, 0.18)',
+                                                color: infoAlertasAbiertas[`alerta-${idx}`] ? '#fff' : '#EF4444',
+                                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                padding: 0,
+                                                fontWeight: 800,
+                                                fontSize: '0.78rem',
+                                                transition: 'all 0.2s ease'
+                                              }}
+                                            >
+                                              <Info size={13} strokeWidth={2.5} />
+                                            </button>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="btn btn-primary btn-sm"
+                                            style={{
+                                              fontSize: '0.8rem',
+                                              padding: '6px 14px',
+                                              background: '#D97706',
+                                              borderColor: '#D97706',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              fontWeight: 700
+                                            }}
+                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
+                                          >
+                                            <Fuel size={14} /> Buscar gasolineras
+                                          </button>
                                         </div>
-                                        <button
-                                          type="button"
-                                          className="btn btn-primary btn-sm"
-                                          style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
-                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
-                                        >
-                                          <Fuel size={14} /> Buscar Gasolineras Baratas
-                                        </button>
+
+                                        {infoAlertasAbiertas[`alerta-${idx}`] && (
+                                          <div style={{
+                                            paddingTop: '8px',
+                                            borderTop: '1px dashed rgba(239, 68, 68, 0.3)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '0.84rem',
+                                            lineHeight: 1.45
+                                          }}>
+                                            Para llegar a <strong>{parada.nombre}</strong> acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu previsión de {autonomiaEstimada} km). Recomendamos hacer una parada de repostaje aquí.
+                                          </div>
+                                        )}
                                       </div>
                                       {renderPanelGasolineras(`alerta-${idx}`)}
                                     </>

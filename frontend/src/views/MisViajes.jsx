@@ -6,6 +6,8 @@ import React, { useState, useEffect } from 'react';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import PosterViajeModal from '../components/PosterViajeModal';
+import ModalViajeDetallePdf from '../components/ModalViajeDetallePdf';
+import { BookOpen, FileText } from 'lucide-react';
 import { 
   Compass, Calendar, MapPin, Award, 
   Download, Navigation, ChevronRight, CheckCircle 
@@ -18,6 +20,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarPosterModal, setMostrarPosterModal] = useState(false);
+  const [viajeSeleccionadoPdf, setViajeSeleccionadoPdf] = useState(null);
 
   const cargarDatos = async () => {
     // Aquí obtengo simultáneamente las estadísticas consolidadas y el histórico de viajes
@@ -68,7 +71,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
         <div>
           <h1 style={{ fontSize: '2.2rem', margin: 0 }}>Mis Viajes y Estadísticas</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Registro cronológico de tus aventuras, kilómetros rodados y pernoctas.
+            Registro cronológico de tus aventuras, kilómetros rodados y lugares visitados.
           </p>
         </div>
 
@@ -109,7 +112,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
               {estadisticas.dias_totales} <span style={{ fontSize: '1rem', fontWeight: 500 }}>días</span>
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              En {estadisticas.total_pernoctas} pernoctas registradas
+              En {estadisticas.total_pernoctas} lugares registrados
             </div>
           </div>
 
@@ -145,7 +148,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
 
         {viajes.length === 0 ? (
           <div className="camper-card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-            <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Aún no has registrado pernoctas.</p>
+            <p style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Aún no has registrado lugares.</p>
             <p style={{ fontSize: '0.9rem' }}>
               Haz tu primer Check-in en cualquier Lugar para que el sistema cree automáticamente tu primer Viaje y empiece a sumar kilómetros.
             </p>
@@ -164,13 +167,22 @@ export default function MisViajes({ alSeleccionarLugar }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className="badge-camper badge-forest" style={{ fontSize: '0.88rem' }}>
-                      {viaje.km_totales} km
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span className="badge-camper badge-forest" style={{ fontSize: '0.88rem', fontWeight: 700 }}>
+                      🛣️ {viaje.km_totales} km (Ida y Vuelta completa)
                     </span>
                     <span className={`badge-camper ${viaje.esta_cerrado ? 'badge-earth' : 'badge-gold'}`}>
                       {viaje.esta_cerrado ? 'Viaje Finalizado' : 'En Curso (Abierto)'}
                     </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setViajeSeleccionadoPdf(viaje)}
+                      style={{ fontSize: '0.8rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}
+                      title="Generar Cuaderno de Bitácora A4 para coleccionar o imprimir"
+                    >
+                      <FileText size={14} /> Generar PDF A4
+                    </button>
                   </div>
                 </div>
 
@@ -178,7 +190,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
                 {viaje.checkins_resumen && viaje.checkins_resumen.length > 0 && (
                   <div style={{ marginTop: '16px' }}>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                      Etapas y Pernoctas de esta Ruta:
+                      Etapas y Lugares de esta Ruta:
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {viaje.checkins_resumen.map((ch, idx) => (
@@ -217,6 +229,31 @@ export default function MisViajes({ alSeleccionarLugar }) {
                     </div>
                   </div>
                 )}
+
+                {/* Crónicas y Diarios de Ruta vinculados a este viaje */}
+                {viaje.publicaciones_diario && viaje.publicaciones_diario.length > 0 && (
+                  <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed var(--border-color)' }}>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--accent-earth)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <BookOpen size={16} /> Diarios de Ruta en Travesía ({viaje.publicaciones_diario.length}):
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+                      {viaje.publicaciones_diario.map(post => (
+                        <div key={post.id} style={{ padding: '12px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.84rem' }}>
+                          {post.imagen && (
+                            <img src={post.imagen} alt="Foto diario" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px' }} />
+                          )}
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                            {post.lugar_nombre ? `📍 ${post.lugar_nombre}` : 'Diario de ruta'}
+                          </div>
+                          <p style={{ margin: '0 0 8px', color: 'var(--text-secondary)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {post.contenido}
+                          </p>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{post.fecha_legible}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -228,6 +265,14 @@ export default function MisViajes({ alSeleccionarLugar }) {
         <PosterViajeModal
           estadisticasData={estadisticasData}
           alCerrar={() => setMostrarPosterModal(false)}
+        />
+      )}
+
+      {/* MODAL DEL CUADERNO DE BITÁCORA EN PDF A4 INDIVIDUAL */}
+      {viajeSeleccionadoPdf && (
+        <ModalViajeDetallePdf
+          viaje={viajeSeleccionadoPdf}
+          alCerrar={() => setViajeSeleccionadoPdf(null)}
         />
       )}
     </div>

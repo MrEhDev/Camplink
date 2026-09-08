@@ -7,6 +7,7 @@ import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
+import { X } from 'lucide-react';
 
 // Vistas con Lazy Loading (Code Splitting dinámico para optimización de rendimiento y bundle inicial ligero)
 const LandingPage = lazy(() => import('./views/LandingPage'));
@@ -95,6 +96,25 @@ export default function App() {
   const [radarUbicacion, setRadarUbicacion] = useState(null);
   const [trofeosCelebracion, setTrofeosCelebracion] = useState(null);
   const [modalTutorialAbierto, setModalTutorialAbierto] = useState(false);
+  const [lugarProgramadoHoy, setLugarProgramadoHoy] = useState(null);
+  const [descartadoLugarHoy, setDescartadoLugarHoy] = useState(false);
+
+  // Comprobar si el explorador tiene un lugar programado para la fecha de hoy
+  useEffect(() => {
+    if (usuario) {
+      import('./services/api').then(({ peticionApi }) => {
+        peticionApi('/api/viajes/rutas/lugar-hoy/')
+          .then(res => {
+            if (res?.lugar) {
+              setLugarProgramadoHoy(res.lugar);
+            }
+          })
+          .catch(err => console.warn('Comprobación de lugar programado para hoy:', err));
+      });
+    } else {
+      setLugarProgramadoHoy(null);
+    }
+  }, [usuario]);
 
   // Lanzar tutorial guiado automáticamente al iniciar sesión por primera vez
   useEffect(() => {
@@ -224,6 +244,94 @@ export default function App() {
           }, 100);
         }}
       />
+
+      {/* NOTIFICACIÓN INTERACTIVA DE LUGAR PROGRAMADO PARA HOY */}
+      {usuario && lugarProgramadoHoy && !descartadoLugarHoy && (
+        <div style={{
+          width: '100%',
+          background: 'linear-gradient(90deg, #1B3826 0%, #2A543A 50%, #1B3826 100%)',
+          borderBottom: '2px solid var(--accent-forest)',
+          color: '#FFFFFF',
+          padding: '10px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+          position: 'relative',
+          zIndex: 100,
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{
+            maxWidth: '1200px',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.4rem' }}>🚐📍</span>
+              <div>
+                <span style={{ fontWeight: 800, fontSize: '0.94rem' }}>
+                  ¿Estás en {lugarProgramadoHoy.nombre}?
+                </span>
+                <span style={{ fontSize: '0.86rem', marginLeft: '6px', opacity: 0.9 }}>
+                  {lugarProgramadoHoy.poblacion && `(${lugarProgramadoHoy.poblacion}) `}Haz check-in al llegar para registrar tu pernocta y sumar kilómetros a tu ruta.
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => abrirDetalleLugar(lugarProgramadoHoy.id)}
+                style={{
+                  background: 'rgba(255,255,255,0.18)',
+                  color: '#FFFFFF',
+                  borderColor: 'rgba(255,255,255,0.35)',
+                  fontSize: '0.82rem',
+                  padding: '5px 12px'
+                }}
+              >
+                Ver Lugar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => abrirCheckIn(lugarProgramadoHoy)}
+                style={{
+                  background: 'var(--accent-earth)',
+                  borderColor: 'var(--accent-earth)',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  padding: '5px 14px'
+                }}
+              >
+                🚐 Hacer Check-in
+              </button>
+              <button
+                type="button"
+                onClick={() => setDescartadoLugarHoy(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title="Cerrar aviso"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contenido Dinámico de la SPA con Error Boundary y Suspense para Lazy Loading */}
       <main style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

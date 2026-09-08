@@ -31,11 +31,15 @@ class ViajeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Viaje
+    publicaciones_diario = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Viaje
         fields = [
             'id', 'explorador', 'explorador_detalle', 'titulo', 'descripcion',
             'fecha_inicio', 'fecha_fin', 'esta_cerrado', 'km_totales',
             'comunidades_visitadas', 'paises_visitados', 'resumen_ruta',
-            'duracion_dias', 'checkins_resumen', 'tipo_estado', 'siguiente_pernocta', 'fecha_creacion'
+            'duracion_dias', 'checkins_resumen', 'publicaciones_diario', 'tipo_estado', 'siguiente_pernocta', 'fecha_creacion'
         ]
         read_only_fields = ['explorador', 'fecha_creacion']
 
@@ -129,4 +133,40 @@ class ViajeSerializer(serializers.ModelSerializer):
                 'acceso': _get_acceso(ch.lugar),
             }
             for ch in obj.checkins_asociados.all().order_by('fecha_llegada')
+        ]
+
+    def get_publicaciones_diario(self, obj):
+        # Aquí obtengo las publicaciones del Diario de Ruta realizadas por el explorador durante este viaje
+        from diario.models import Publicacion
+        from django.db.models import Q
+        lugar_ids = [ch.lugar_id for ch in obj.checkins_asociados.all() if ch.lugar_id]
+        if obj.resumen_ruta:
+            for p in obj.resumen_ruta:
+                if p.get('lugar_id'):
+                    lugar_ids.append(p.get('lugar_id'))
+
+        qs = Publicacion.objects.filter(autor=obj.explorador)
+        filtro = Q(lugar_id__in=lugar_ids) if lugar_ids else Q()
+        if obj.fecha_inicio and obj.fecha_fin:
+            filtro_fecha = Q(fecha_creacion__date__gte=obj.fecha_inicio, fecha_creacion__date__lte=obj.fecha_fin)
+            filtro = filtro | filtro_fecha if filtro else filtro_fecha
+        elif obj.fecha_inicio:
+            filtro_fecha = Q(fecha_creacion__date__gte=obj.fecha_inicio)
+            filtro = filtro | filtro_fecha if filtro else filtro_fecha
+
+        if not filtro:
+            return []
+
+        posts = qs.filter(filtro).distinct().order_by('fecha_creacion')
+        return [
+            {
+                'id': p.id,
+                'contenido': p.contenido,
+                'imagen': p.imagen.url if p.imagen else None,
+                'lugar_nombre': p.lugar.nombre if p.lugar else None,
+                'lugar_id': p.lugar.id if p.lugar else None,
+                'fecha_creacion': p.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+                'fecha_legible': p.fecha_creacion.strftime('%d/%m/%Y'),
+            }
+            for p in posts
         ]

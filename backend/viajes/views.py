@@ -37,6 +37,118 @@ class ViajeViewSet(viewsets.ModelViewSet):
         else:
             raise permissions.PermissionDenied('No tienes permiso para editar este viaje.')
 
+    @action(detail=True, methods=['post'], url_path='modificar-parada')
+    def modificar_parada(self, request, pk=None):
+        # Aquí modifico la fecha y los días/noches previstos de una etapa del viaje
+        viaje = self.get_object()
+        if viaje.explorador != request.user and not request.user.es_admin:
+            return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
+
+        parada_id = request.data.get('parada_id') or request.data.get('checkin_id')
+        nueva_fecha = request.data.get('fecha')
+        nuevas_noches = request.data.get('dias_previstos')
+
+        if not parada_id:
+            return Response({'error': 'Falta parada_id o checkin_id.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Actualizar en CheckIn si es un ID numérico
+        try:
+            ch_id_num = int(parada_id) if str(parada_id).isdigit() else None
+            if ch_id_num:
+                ch = CheckIn.objects.filter(id=ch_id_num, viaje=viaje).first()
+                if ch:
+                    if nueva_fecha:
+                        ch.fecha_llegada = nueva_fecha
+                    if nuevas_noches is not None:
+                        ch.dias_previstos = max(1, int(nuevas_noches))
+                    ch.save()
+        except Exception as e:
+            print("Error al actualizar CheckIn:", e)
+
+        # 2. Actualizar en resumen_ruta si existe
+        if viaje.resumen_ruta:
+            for p in viaje.resumen_ruta:
+                if str(p.get('id')) == str(parada_id) or str(p.get('checkin_id')) == str(parada_id):
+                    if nueva_fecha:
+                        p['fecha'] = str(nueva_fecha).split('T')[0]
+                        p['fecha_llegada'] = str(nueva_fecha).split('T')[0]
+                    if nuevas_noches is not None:
+                        p['dias'] = max(1, int(nuevas_noches))
+                        p['dias_previstos'] = max(1, int(nuevas_noches))
+            viaje.save()
+
+        recalcular_viaje(viaje)
+        viaje.refresh_from_db()
+        serializer = ViajeSerializer(viaje, context={'request': request})
+        return Response({
+            'mensaje': 'Etapa modificada correctamente.',
+            'viaje': serializer.data
+        })
+
+    @action(detail=False, methods=['get'], url_path='lugar-hoy')
+    def lugar_hoy(self, request):
+        # Aquí verifico si el explorador tiene programada una etapa para la fecha de hoy
+        if not request.user.is_authenticated:
+            return Response({'lugar': None})
+
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+        hoy = timezone.now().date()
+
+        viajes_activos = Viaje.objects.filter(explorador=request.user, esta_cerrado=False)
+        for viaje in viajes_activos:
+            # Comprobar en paradas de resumen_ruta
+            if viaje.resumen_ruta:
+                for p in viaje.resumen_ruta:
+                    if p.get('tipo') not in ['base_salida', 'base_vuelta', 'base'] and p.get('lugar_id'):
+                        f_str = p.get('fecha') or p.get('fecha_llegada')
+                        dias = int(p.get('dias') or p.get('dias_previstos') or 1)
+                        if f_str:
+                            try:
+                                f_inicio = datetime.strptime(f_str.split('T')[0], '%Y-%m-%d').date()
+                                f_fin = f_inicio + timedelta(days=dias)
+                                if f_inicio <= hoy <= f_fin:
+                                    try:
+                                        lug = Lugar.objects.get(id=p['lugar_id'])
+                                        return Response({
+                                            'lugar': {
+                                                'id': lug.id,
+                                                'nombre': lug.nombre,
+                                                'poblacion': lug.poblacion,
+                                                'provincia': lug.provincia,
+                                                'latitud': float(lug.latitud) if lug.latitud else None,
+                                                'longitud': float(lug.longitud) if lug.longitud else None,
+                                                'tipo_lugar': lug.tipo_lugar,
+                                                'viaje_id': viaje.id,
+                                                'viaje_titulo': viaje.titulo,
+                                            }
+                                        })
+                                    except Lugar.DoesNotExist:
+                                        pass
+                            except Exception:
+                                pass
+
+            # Comprobar en checkins asociados
+            for ch in viaje.checkins_asociados.all():
+                f_ch = ch.fecha_llegada.date()
+                if f_ch <= hoy <= f_ch + timedelta(days=ch.dias_previstos):
+                    lug = ch.lugar
+                    return Response({
+                        'lugar': {
+                            'id': lug.id,
+                            'nombre': lug.nombre,
+                            'poblacion': lug.poblacion,
+                            'provincia': lug.provincia,
+                            'latitud': float(lug.latitud) if lug.latitud else None,
+                            'longitud': float(lug.longitud) if lug.longitud else None,
+                            'tipo_lugar': lug.tipo_lugar,
+                            'viaje_id': viaje.id,
+                            'viaje_titulo': viaje.titulo,
+                        }
+                    })
+
+        return Response({'lugar': None})
+
     @action(detail=True, methods=['post'], url_path='anadir-parada')
     def anadir_parada(self, request, pk=None):
         # Aquí añado un lugar o parada planificada al itinerario de este viaje

@@ -12,7 +12,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { buscarGasolinerasCercanas } from '../services/gasolineras';
 import { 
   Calendar, MapPin, Plus, Route, 
-  Map, Compass, Trash2, Edit3, 
+  Map, Compass, Trash2, Edit2, Edit3, 
   Check, X, ChevronDown, ChevronUp, 
   Sparkles, Fuel, ArrowRight, Eye,
   ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation, Info
@@ -345,6 +345,25 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
   // Estados de expansión y edición en línea
   const [viajesExpandidos, setViajesExpandidos] = useState({});
+  const [editandoFechaParadaId, setEditandoFechaParadaId] = useState(null);
+  const [formEdicionParada, setFormEdicionParada] = useState({ fecha: '', dias_previstos: 1 });
+  const [lugarParaAnadirConfig, setLugarParaAnadirConfig] = useState(null);
+  const [coordsPoblacionBase, setCoordsPoblacionBase] = useState(null);
+
+  // Si el explorador no tiene coordenadas de lat_base pero sí población, obtener coordenadas de la localidad
+  useEffect(() => {
+    if (!usuario?.lat_base && usuario?.poblacion) {
+      fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(usuario.poblacion)}&limit=1`)
+        .then(res => res.json())
+        .then(data => {
+          if (data?.features?.length > 0) {
+            const [lng, lat] = data.features[0].geometry.coordinates;
+            setCoordsPoblacionBase({ lat, lng });
+          }
+        })
+        .catch(err => console.warn('Geocodificación población base:', err));
+    }
+  }, [usuario?.lat_base, usuario?.poblacion]);
   const [editandoId, setEditandoId] = useState(null);
   const [tituloEditado, setTituloEditado] = useState('');
 
@@ -385,16 +404,62 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
     }, 300);
   };
 
-  const anadirLugarAViaje = async (viajeId, lugar) => {
+  const anadirLugarAViaje = async (viajeId, lugar, fecha = null, noches = 1) => {
     setAnadiendoLugarId(lugar.id);
     try {
       const res = await peticionApi(`/api/viajes/viajes/${viajeId}/anadir-parada/`, {
         method: 'POST',
-        body: { lugar_id: lugar.id }
+        body: { 
+          lugar_id: lugar.id,
+          fecha: fecha || null,
+          dias_previstos: parseInt(noches || 1, 10)
+        }
       });
       // Limpiar cache OSRM para que recalcule con la nueva parada
       setGeometriasRutas(prev => {
         const copy = { ...prev };
+        delete copy[viajeId];
+        return copy;
+      });
+      if (res?.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+      await cargarViajes();
+      setTextoBusquedaLugar(prev => ({ ...prev, [viajeId]: '' }));
+      setResultadosLugar(prev => ({ ...prev, [viajeId]: [] }));
+      setLugarParaAnadirConfig(null);
+    } catch (err) {
+      alert(err.message || 'Error al añadir lugar al itinerario.');
+    } finally {
+      setAnadiendoLugarId(null);
+    }
+  };
+
+  const guardarModificacionParada = async (viajeId, paradaId) => {
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/modificar-parada/`, {
+        method: 'POST',
+        body: {
+          parada_id: paradaId,
+          fecha: formEdicionParada.fecha || null,
+          dias_previstos: parseInt(formEdicionParada.dias_previstos || 1, 10)
+        }
+      });
+      // Limpiar cache OSRM
+      setGeometriasRutas(prev => {
+        const copy = { ...prev };
+        delete copy[viajeId];
+        return copy;
+      });
+      if (res?.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+      await cargarViajes();
+      setEditandoFechaParadaId(null);
+    } catch (err) {
+      alert('Error al modificar la fecha o noches de la etapa.');
+    }
+  };
         delete copy[viajeId];
         return copy;
       });
@@ -699,9 +764,9 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       }));
     }
 
-    const baseTexto = usuario?.direccion_base || usuario?.poblacion || 'Tu Base Camper';
-    const baseLat = usuario?.lat_base || (lista.length > 0 && lista[0].es_base && lista[0].latitud != null ? lista[0].latitud : null);
-    const baseLng = usuario?.lng_base || (lista.length > 0 && lista[0].es_base && lista[0].longitud != null ? lista[0].longitud : null);
+    const basePoblacion = usuario?.poblacion || (usuario?.direccion_base ? usuario.direccion_base.split(',')[0].trim() : 'Tu Base Camper');
+    const baseLat = usuario?.lat_base || coordsPoblacionBase?.lat || (lista.length > 0 && lista[0].es_base && lista[0].latitud != null ? lista[0].latitud : null);
+    const baseLng = usuario?.lng_base || coordsPoblacionBase?.lng || (lista.length > 0 && lista[0].es_base && lista[0].longitud != null ? lista[0].longitud : null);
 
     const tieneSalida = lista.length > 0 && (lista[0].es_base || lista[0].tipo === 'base_salida' || lista[0].tipo === 'base');
     const tieneVuelta = lista.length > 1 && (lista[lista.length - 1].es_base || lista[lista.length - 1].tipo === 'base_vuelta');
@@ -710,10 +775,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       if (!tieneSalida) {
         lista.unshift({
           id: 'base-salida',
-          nombre: `Salida: ${baseTexto}`,
+          nombre: `Salida: ${basePoblacion}`,
           latitud: baseLat,
           longitud: baseLng,
-          poblacion: usuario?.poblacion || '',
+          poblacion: basePoblacion,
           tipo: 'base_salida',
           es_base: true
         });
@@ -721,10 +786,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       if (!tieneVuelta && lista.length > 1) {
         lista.push({
           id: 'base-vuelta',
-          nombre: `Vuelta: ${baseTexto}`,
+          nombre: `Vuelta: ${basePoblacion}`,
           latitud: baseLat,
           longitud: baseLng,
-          poblacion: usuario?.poblacion || '',
+          poblacion: basePoblacion,
           tipo: 'base_vuelta',
           es_base: true
         });
@@ -1509,19 +1574,68 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         <span>Ir</span>
                                       </a>
                                     )}
-                                    <button
-                                      type="button"
-                                      className="btn btn-primary btn-sm"
-                                      disabled={anadiendoLugarId === lugar.id}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        anadirLugarAViaje(viaje.id, lugar);
-                                      }}
-                                      style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
-                                    >
-                                      <Plus size={14} />
-                                      <span>{anadiendoLugarId === lugar.id ? 'Añadiendo...' : 'Añadir a la Ruta'}</span>
-                                    </button>
+                                    {lugarParaAnadirConfig?.lugar?.id === lugar.id && lugarParaAnadirConfig?.viajeId === viaje.id ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Llegada:</span>
+                                          <input
+                                            type="date"
+                                            className="form-control"
+                                            style={{ padding: '2px 6px', fontSize: '0.78rem', width: '130px' }}
+                                            value={lugarParaAnadirConfig.fecha}
+                                            onChange={(e) => setLugarParaAnadirConfig(prev => ({ ...prev, fecha: e.target.value }))}
+                                          />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Noches:</span>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            max="60"
+                                            className="form-control"
+                                            style={{ padding: '2px 6px', fontSize: '0.78rem', width: '55px' }}
+                                            value={lugarParaAnadirConfig.noches}
+                                            onChange={(e) => setLugarParaAnadirConfig(prev => ({ ...prev, noches: e.target.value }))}
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="btn btn-primary btn-sm"
+                                          disabled={anadiendoLugarId === lugar.id}
+                                          onClick={() => anadirLugarAViaje(viaje.id, lugar, lugarParaAnadirConfig.fecha, lugarParaAnadirConfig.noches)}
+                                          style={{ padding: '4px 10px', fontSize: '0.78rem', fontWeight: 700, marginTop: '14px' }}
+                                        >
+                                          {anadiendoLugarId === lugar.id ? '...' : 'Añadir'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={() => setLugarParaAnadirConfig(null)}
+                                          style={{ padding: '4px 8px', fontSize: '0.78rem', marginTop: '14px' }}
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        disabled={anadiendoLugarId === lugar.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLugarParaAnadirConfig({
+                                            viajeId: viaje.id,
+                                            lugar,
+                                            fecha: viaje.fecha_inicio || new Date().toISOString().split('T')[0],
+                                            noches: 1
+                                          });
+                                        }}
+                                        style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                      >
+                                        <Plus size={14} />
+                                        <span>Añadir a la Ruta</span>
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -2074,11 +2188,82 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
                                         </div>
 
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                          {parada.poblacion || parada.direccion} • {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}
-                                          {parada.tipo !== 'gasolinera' && ` (${parada.dias_previstos} ${parada.dias_previstos === 1 ? 'noche' : 'noches'})`}
-                                          {parada.precio && ` • ${parada.precio} €/L`}
-                                        </div>
+                                        {editandoFechaParadaId === parada.id ? (
+                                          <div
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <input
+                                              type="date"
+                                              className="form-control"
+                                              style={{ padding: '2px 8px', fontSize: '0.78rem', width: '135px' }}
+                                              value={formEdicionParada.fecha}
+                                              onChange={(e) => setFormEdicionParada(prev => ({ ...prev, fecha: e.target.value }))}
+                                            />
+                                            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Noches:</span>
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              max="60"
+                                              className="form-control"
+                                              style={{ padding: '2px 6px', fontSize: '0.78rem', width: '55px' }}
+                                              value={formEdicionParada.dias_previstos}
+                                              onChange={(e) => setFormEdicionParada(prev => ({ ...prev, dias_previstos: e.target.value }))}
+                                            />
+                                            <button
+                                              type="button"
+                                              className="btn btn-primary btn-sm"
+                                              style={{ padding: '3px 8px', fontSize: '0.76rem', fontWeight: 700 }}
+                                              onClick={() => guardarModificacionParada(viaje.id, parada.id)}
+                                            >
+                                              Guardar
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary btn-sm"
+                                              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
+                                              onClick={() => setEditandoFechaParadaId(null)}
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div
+                                            style={{
+                                              fontSize: '0.8rem',
+                                              color: 'var(--text-secondary)',
+                                              marginTop: '2px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              cursor: parada.tipo !== 'gasolinera' ? 'pointer' : 'default',
+                                              padding: '2px 6px',
+                                              borderRadius: 'var(--radius-sm)',
+                                              transition: 'background 0.2s ease'
+                                            }}
+                                            onClick={(e) => {
+                                              if (parada.tipo !== 'gasolinera') {
+                                                e.stopPropagation();
+                                                setEditandoFechaParadaId(parada.id);
+                                                setFormEdicionParada({
+                                                  fecha: (parada.fecha_llegada || viaje.fecha_inicio || '').split('T')[0],
+                                                  dias_previstos: parada.dias_previstos || 1
+                                                });
+                                              }
+                                            }}
+                                            onMouseEnter={(e) => { if (parada.tipo !== 'gasolinera') e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                            title={parada.tipo !== 'gasolinera' ? "Haz clic para modificar la fecha y noches de esta parada" : undefined}
+                                          >
+                                            <span>{parada.poblacion || parada.direccion} • 📅 {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}</span>
+                                            {parada.tipo !== 'gasolinera' && (
+                                              <span style={{ color: 'var(--accent-forest)', fontWeight: 600 }}>
+                                                ({parada.dias_previstos} {parada.dias_previstos === 1 ? 'noche' : 'noches'} ✏️)
+                                              </span>
+                                            )}
+                                            {parada.precio && <span> • ⛽ {parada.precio} €/L</span>}
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
 

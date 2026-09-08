@@ -107,13 +107,22 @@ def recalcular_viaje(viaje):
 
     puntos_ruta = []
     explorador = viaje.explorador
-    lugar_base_nombre = explorador.direccion_base or explorador.poblacion or "Lugar Base"
+    lugar_base_nombre = explorador.poblacion or explorador.direccion_base or "Lugar Base"
+    lat_base = explorador.lat_base
+    lng_base = explorador.lng_base
 
-    if explorador.lat_base and explorador.lng_base:
+    if (lat_base is None or lng_base is None) and explorador.poblacion:
+        from lugares.models import Lugar
+        lug_pob = Lugar.objects.filter(poblacion__iexact=explorador.poblacion, latitud__isnull=False).first()
+        if lug_pob:
+            lat_base = float(lug_pob.latitud)
+            lng_base = float(lug_pob.longitud)
+
+    if lat_base and lng_base:
         puntos_ruta.append({
-            'nombre': f'Salida desde: {lugar_base_nombre}',
-            'lat': explorador.lat_base,
-            'lng': explorador.lng_base,
+            'nombre': f'Salida: {lugar_base_nombre}',
+            'lat': lat_base,
+            'lng': lng_base,
             'tipo': 'base_salida',
             'es_base': True
         })
@@ -192,11 +201,11 @@ def recalcular_viaje(viaje):
                 paises.add(lug.pais)
 
     # Añadimos el retorno final a la base camper para cerrar la ruta y contabilizar la vuelta
-    if explorador.lat_base and explorador.lng_base and len(puntos_ruta) > 1:
+    if lat_base and lng_base and len(puntos_ruta) > 1:
         puntos_ruta.append({
-            'nombre': f'Vuelta a: {lugar_base_nombre}',
-            'lat': explorador.lat_base,
-            'lng': explorador.lng_base,
+            'nombre': f'Vuelta: {lugar_base_nombre}',
+            'lat': lat_base,
+            'lng': lng_base,
             'tipo': 'base_vuelta',
             'es_base': True
         })

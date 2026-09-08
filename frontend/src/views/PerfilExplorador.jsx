@@ -899,7 +899,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              Historial de rutas y bitácoras de tus pernoctas en furgo o autocaravana.
+              Historial de rutas y bitácoras de tus lugares en furgo o autocaravana.
             </div>
             {alNavegarOrganizar && (
               <button
@@ -918,7 +918,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
               <Compass size={40} color="var(--accent-forest)" style={{ marginBottom: '12px' }} />
               <h3 style={{ margin: '0 0 8px' }}>Aún no has registrado viajes</h3>
               <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px', fontSize: '0.9rem' }}>
-                Haz check-in en tus lugares de pernocta y el sistema agrupará tus paradas en itinerarios y calculará tu ruta.
+                Haz check-in en tus lugares y el sistema agrupará tus paradas en itinerarios y calculará tu ruta.
               </p>
             </div>
           ) : (
@@ -981,7 +981,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                           📅 {formatearFecha(viaje.fecha_inicio)} 
                           {viaje.fecha_fin && ` - ${formatearFecha(viaje.fecha_fin)}`} 
-                          {' • '} <strong>{viaje.km_totales} km</strong>
+                          {' • '} <strong style={{ color: 'var(--accent-forest)' }}>🛣️ {viaje.km_totales} km (Ida y Vuelta completa)</strong>
                           {esPasado && <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>(Viaje pasado)</span>}
                         </div>
                       </div>
@@ -992,7 +992,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                           onClick={() => setViajeSeleccionadoParaPdf(viaje)}
                           style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                         >
-                          <FileText size={15} /> Generar PDF
+                          <FileText size={15} /> Generar PDF A4 📄
                         </button>
 
                         <button
@@ -1145,6 +1145,31 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                             })()}
                           </div>
                         )}
+
+                        {/* Crónicas y Diarios de Ruta vinculados a este viaje */}
+                        {viaje.publicaciones_diario && viaje.publicaciones_diario.length > 0 && (
+                          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed var(--border-color)' }}>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--accent-earth)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <BookOpen size={16} /> Diarios de Ruta en Travesía ({viaje.publicaciones_diario.length}):
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+                              {viaje.publicaciones_diario.map(post => (
+                                <div key={post.id} style={{ padding: '12px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.84rem' }}>
+                                  {post.imagen && (
+                                    <img src={post.imagen} alt="Foto diario" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px' }} />
+                                  )}
+                                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '3px' }}>
+                                    {post.lugar_nombre ? `📍 ${post.lugar_nombre}` : 'Diario de ruta'}
+                                  </div>
+                                  <p style={{ margin: '0 0 6px', color: 'var(--text-secondary)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                    {post.contenido}
+                                  </p>
+                                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{post.fecha_legible}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1215,7 +1240,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                       Panel de Administración Django & Base de Datos
                     </h3>
                     <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.8)', margin: '4px 0 0' }}>
-                      Gestión avanzada de Usuarios, Grupos, Lugares, Pernoctas, Comentarios, Trofeos y Moderación activa.
+                      Gestión avanzada de Usuarios, Grupos, Lugares, Comentarios, Trofeos y Moderación activa.
                     </p>
                   </div>
                 </div>
@@ -1910,7 +1935,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 <Bookmark size={18} color="var(--accent-forest)" /> Lugares Guardados e Inspiración
               </h3>
               <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                Pernoctas marcadas con 🌲 Guardado para ir en el Diario de Ruta y guardadas desde las fichas.
+                Lugares marcados con 🌲 Guardado para ir en el Diario de Ruta y guardados desde las fichas.
               </p>
             </div>
             <span className="badge-camper badge-forest">

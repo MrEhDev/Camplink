@@ -130,10 +130,10 @@ export default function PosterViajeModal({ estadisticasData, alCerrar }) {
 
             <div style={{ background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '12px', borderLeft: '4px solid #489A65' }}>
               <div style={{ fontSize: '0.8rem', color: '#A0B2A5', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <MapPin size={15} color="#489A65" /> PERNOCTAS REALIZADAS
+                <MapPin size={15} color="#489A65" /> LUGARES VISITADOS
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 900, color: '#FFFFFF', marginTop: '4px' }}>
-                {estadisticas.total_pernoctas} <span style={{ fontSize: '1rem', fontWeight: 600 }}>noches</span>
+                {estadisticas.total_pernoctas} <span style={{ fontSize: '1rem', fontWeight: 600 }}>lugares</span>
               </div>
             </div>
 

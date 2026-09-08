@@ -980,8 +980,8 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
 
                         <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                           📅 {formatearFecha(viaje.fecha_inicio)} 
-                          {viaje.fecha_fin && ` - ${formatearFecha(viaje.fecha_fin)}`} 
-                          {' • '} <strong style={{ color: 'var(--accent-forest)' }}>🛣️ {viaje.km_totales} km (Ida y Vuelta completa)</strong>
+                          {viaje.fecha_fin && ` al ${formatearFecha(viaje.fecha_fin)}`} 
+                          {' • '} <strong style={{ color: 'var(--accent-forest)' }}>{viaje.km_totales} km</strong>
                           {esPasado && <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>(Viaje pasado)</span>}
                         </div>
                       </div>
@@ -1096,14 +1096,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                                           </button>
                                         )}
 
-                                        <button
-                                          className="btn btn-secondary btn-sm"
-                                          style={{ padding: '2px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                          onClick={() => copiarCoordenadas(p.lat, p.lng, `${viaje.id}-${idx}`)}
-                                        >
-                                          {copiadoId === `${viaje.id}-${idx}` ? <CheckCheck size={12} color="var(--accent-forest)" /> : <Copy size={12} />}
-                                          <span>{copiadoId === `${viaje.id}-${idx}` ? '¡Copiado!' : 'GPS'}</span>
-                                        </button>
+
                                       </div>
                                     </div>
 

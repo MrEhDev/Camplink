@@ -169,7 +169,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span className="badge-camper badge-forest" style={{ fontSize: '0.88rem', fontWeight: 700 }}>
-                      🛣️ {viaje.km_totales} km (Ida y Vuelta completa)
+                      {viaje.km_totales} km
                     </span>
                     <span className={`badge-camper ${viaje.esta_cerrado ? 'badge-earth' : 'badge-gold'}`}>
                       {viaje.esta_cerrado ? 'Viaje Finalizado' : 'En Curso (Abierto)'}

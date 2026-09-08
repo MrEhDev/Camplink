@@ -64,8 +64,11 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return '';
-    const d = new Date(fechaStr);
-    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const partes = fechaStr.split('T')[0].split('-');
+    if (partes.length === 3) {
+      return `${partes[2].padStart(2, '0')}-${partes[1].padStart(2, '0')}-${partes[0]}`;
+    }
+    return fechaStr;
   };
 
   const diarios = viaje.publicaciones_diario || [];
@@ -100,10 +103,10 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
             <h2 style={{ fontSize: '1.35rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📄 Recuerdo Coleccionable A4 • Cuaderno de Bitácora</span>
+              <span>Cuaderno de Bitácora</span>
             </h2>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-              Listo para descargar, imprimir en tamaño A4 y coleccionar en tu cuaderno nómada.
+              Listo para descargar
             </p>
           </div>
 
@@ -165,19 +168,12 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
                   marginBottom: '10px'
                 }}>
                   <Award size={13} />
-                  <span>Certificado Nómada • Colección Oficial Camplink</span>
+                  <span>Certificado de explorador</span>
                 </div>
                 <h1 style={{ fontSize: '2.2rem', margin: '0 0 6px', color: '#FFFFFF', fontWeight: 900, lineHeight: 1.15 }}>
                   {viaje.titulo}
                 </h1>
-                <p style={{ margin: 0, fontSize: '0.94rem', color: '#B5C9BE', maxWidth: '520px', lineHeight: 1.4 }}>
-                  {viaje.descripcion || 'Crónica de ruta, paradas memorables y kilómetros en libertad.'}
-                </p>
-                {viaje.explorador_detalle?.username && (
-                  <div style={{ marginTop: '8px', fontSize: '0.82rem', color: '#889E90' }}>
-                    Explorador: <strong>@{viaje.explorador_detalle.username}</strong>
-                  </div>
-                )}
+
               </div>
 
               {/* Sello Coleccionable */}
@@ -413,7 +409,7 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
               fontSize: '0.78rem',
               color: '#889E90'
             }}>
-              <span>Camplink • Cuaderno de Bitácora Nómada A4</span>
+              <span>Camplink</span>
               <span>Colección Digital de Rutas • www.camplinkapp.com</span>
             </div>
           </div>

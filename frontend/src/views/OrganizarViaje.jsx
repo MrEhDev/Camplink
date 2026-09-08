@@ -460,21 +460,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       alert('Error al modificar la fecha o noches de la etapa.');
     }
   };
-        delete copy[viajeId];
-        return copy;
-      });
-      if (res?.viaje) {
-        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
-      }
-      await cargarViajes();
-      setTextoBusquedaLugar(prev => ({ ...prev, [viajeId]: '' }));
-      setResultadosLugar(prev => ({ ...prev, [viajeId]: [] }));
-    } catch (err) {
-      alert(err.message || 'Error al añadir lugar al itinerario.');
-    } finally {
-      setAnadiendoLugarId(null);
-    }
-  };
+
 
   // Geometría de carreteras OSRM en tiempo real para mapa
   const [geometriasRutas, setGeometriasRutas] = useState({});

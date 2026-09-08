@@ -110,6 +110,9 @@ class ViajeViewSet(viewsets.ModelViewSet):
                                 if f_inicio <= hoy <= f_fin:
                                     try:
                                         lug = Lugar.objects.get(id=p['lugar_id'])
+                                        # Si ya ha hecho check-in en este lugar hoy, no mostrar notificación
+                                        if CheckIn.objects.filter(explorador=request.user, lugar=lug, fecha_creacion__date=hoy).exists():
+                                            continue
                                         return Response({
                                             'lugar': {
                                                 'id': lug.id,
@@ -133,6 +136,10 @@ class ViajeViewSet(viewsets.ModelViewSet):
                 f_ch = ch.fecha_llegada.date()
                 if f_ch <= hoy <= f_ch + timedelta(days=ch.dias_previstos):
                     lug = ch.lugar
+                    if CheckIn.objects.filter(explorador=request.user, lugar=lug, fecha_creacion__date=hoy).exclude(id=ch.id).exists():
+                        continue
+                    if ch.fecha_creacion.date() == hoy and (ch.comentario_publico or ch.foto or ch.notas_privadas):
+                        continue
                     return Response({
                         'lugar': {
                             'id': lug.id,

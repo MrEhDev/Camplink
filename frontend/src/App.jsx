@@ -102,11 +102,19 @@ export default function App() {
   // Comprobar si el explorador tiene un lugar programado para la fecha de hoy
   useEffect(() => {
     if (usuario) {
+      const hoyKey = new Date().toISOString().split('T')[0];
       import('./services/api').then(({ peticionApi }) => {
         peticionApi('/api/viajes/rutas/lugar-hoy/')
           .then(res => {
             if (res?.lugar) {
-              setLugarProgramadoHoy(res.lugar);
+              const yaRealizado = localStorage.getItem(`camplink_checkin_realizado_${res.lugar.id}_${hoyKey}`);
+              if (!yaRealizado) {
+                setLugarProgramadoHoy(res.lugar);
+              } else {
+                setLugarProgramadoHoy(null);
+              }
+            } else {
+              setLugarProgramadoHoy(null);
             }
           })
           .catch(err => console.warn('Comprobación de lugar programado para hoy:', err));
@@ -252,7 +260,7 @@ export default function App() {
           background: 'linear-gradient(90deg, #1B3826 0%, #2A543A 50%, #1B3826 100%)',
           borderBottom: '2px solid var(--accent-forest)',
           color: '#FFFFFF',
-          padding: '10px 20px',
+          padding: '12px 50px 12px 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -261,6 +269,27 @@ export default function App() {
           zIndex: 100,
           animation: 'fadeIn 0.3s ease'
         }}>
+          {/* Botón X para cerrar arriba a la derecha */}
+          <button
+            type="button"
+            onClick={() => setDescartadoLugarHoy(true)}
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '16px',
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255,255,255,0.75)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title="Cerrar aviso"
+          >
+            <X size={18} />
+          </button>
+
           <div style={{
             maxWidth: '1200px',
             width: '100%',
@@ -270,16 +299,8 @@ export default function App() {
             flexWrap: 'wrap',
             gap: '12px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '1.4rem' }}>🚐📍</span>
-              <div>
-                <span style={{ fontWeight: 800, fontSize: '0.94rem' }}>
-                  ¿Estás en {lugarProgramadoHoy.nombre}?
-                </span>
-                <span style={{ fontSize: '0.86rem', marginLeft: '6px', opacity: 0.9 }}>
-                  {lugarProgramadoHoy.poblacion && `(${lugarProgramadoHoy.poblacion}) `}Haz check-in al llegar para registrar tu pernocta y sumar kilómetros a tu ruta.
-                </span>
-              </div>
+            <div style={{ fontSize: '0.94rem', color: '#FFFFFF' }}>
+              <span>¿Estás en <strong>{lugarProgramadoHoy.nombre}</strong>? Haz check-in al llegar para registrar tu pernocta</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -310,23 +331,7 @@ export default function App() {
                   padding: '5px 14px'
                 }}
               >
-                🚐 Hacer Check-in
-              </button>
-              <button
-                type="button"
-                onClick={() => setDescartadoLugarHoy(true)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'rgba(255,255,255,0.7)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-                title="Cerrar aviso"
-              >
-                <X size={16} />
+                Hacer Check-in
               </button>
             </div>
           </div>
@@ -475,6 +480,15 @@ export default function App() {
             alCompletar={(res) => {
               if (res?.nuevos_trofeos && res.nuevos_trofeos.length > 0) {
                 setTrofeosCelebracion(res.nuevos_trofeos);
+              }
+              // Ocultar notificación permanentemente tras hacer check-in
+              setLugarProgramadoHoy(null);
+              setDescartadoLugarHoy(true);
+              if (modalCheckInLugar?.id) {
+                try {
+                  const hoyKey = new Date().toISOString().split('T')[0];
+                  localStorage.setItem(`camplink_checkin_realizado_${modalCheckInLugar.id}_${hoyKey}`, 'true');
+                } catch(e){}
               }
               setVistaActiva('perfil');
             }}

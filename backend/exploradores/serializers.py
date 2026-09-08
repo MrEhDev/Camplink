@@ -24,7 +24,12 @@ class ExploradorRegistroSerializer(serializers.ModelSerializer):
         return str(value).strip().lower()
 
     def validate_email(self, value):
-        return str(value).strip().lower()
+        email = str(value).strip().lower()
+        if not email:
+            raise serializers.ValidationError('El correo electrónico es obligatorio.')
+        if Explorador.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError('Ya existe una cuenta registrada con este correo electrónico.')
+        return email
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:

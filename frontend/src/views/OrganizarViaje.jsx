@@ -14,7 +14,7 @@ import {
   Map, Compass, Trash2, Edit3, 
   Check, X, ChevronDown, ChevronUp, 
   Sparkles, Fuel, ArrowRight, Eye,
-  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag
+  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation
 } from 'lucide-react';
 
 // Icono de pernocta para el trazado de paradas en el mapa
@@ -27,14 +27,72 @@ const miniIconoPlan = new L.Icon({
   shadowSize: [32, 32]
 });
 
-// Icono de gasolinera para paradas de repostaje
-const miniIconoGasolinera = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [22, 34],
-  iconAnchor: [11, 34],
-  popupAnchor: [1, -28],
-  shadowSize: [32, 32]
+// Icono de gasolinera fija en la ruta
+const miniIconoGasolinera = L.divIcon({
+  className: 'custom-gas-pin',
+  html: `<div style="
+    background: #D97706;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    border: 2px solid white;
+  ">
+    <div style="transform: rotate(45deg); font-size: 14px; line-height: 1;">⛽</div>
+  </div>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+  popupAnchor: [0, -30]
+});
+
+// Icono de gasolineras sugeridas en la búsqueda interactiva
+const miniIconoGasolineraSugerida = L.divIcon({
+  className: 'custom-gas-suggested-pin',
+  html: `<div style="
+    background: #F59E0B;
+    color: white;
+    width: 26px;
+    height: 26px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+    border: 2px solid white;
+  ">
+    <div style="transform: rotate(45deg); font-size: 12px; line-height: 1;">⛽</div>
+  </div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 26],
+  popupAnchor: [0, -26]
+});
+
+// Icono del punto crítico donde se supera el 80% de combustible
+const miniIconoPuntoCritico = L.divIcon({
+  className: 'custom-critical-pin',
+  html: `<div style="
+    background: #EF4444;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.35), 0 2px 6px rgba(0,0,0,0.4);
+    border: 2px solid white;
+  ">
+    <span style="font-size: 13px; line-height: 1;">⚠️</span>
+  </div>`,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+  popupAnchor: [0, -14]
 });
 
 // Icono de base camper para inicio y fin
@@ -326,6 +384,12 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
           tipo_combustible: usuario?.tipo_combustible || 'gasoleo_a',
           despues_de_indice: tramoIdx
         }
+      });
+      // Limpiar cache OSRM para que recalcule el nuevo trazado por carretera incluyendo la gasolinera
+      setGeometriasRutas(prev => {
+        const copy = { ...prev };
+        delete copy[viajeId];
+        return copy;
       });
       if (res.viaje) {
         setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
@@ -689,10 +753,25 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--accent-forest)' }}>
                               {gas.precioLitro ? `${gas.precioLitro.toFixed(3)} €/L` : 'Consultar'}
                             </span>
+
+                            {gas.lat != null && gas.lng != null && (
+                              <a
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-secondary btn-sm"
+                                onClick={(e) => e.stopPropagation()}
+                                title={`Abrir navegación GPS hasta ${gas.rotulo}`}
+                                style={{ fontSize: '0.74rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '3px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                              >
+                                <Navigation size={12} color="var(--accent-forest)" />
+                                <span>Ir</span>
+                              </a>
+                            )}
 
                             <button
                               type="button"
@@ -902,6 +981,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                               opacity={0.85}
                             />
                           )}
+                          {/* Marcadores de paradas fijas del viaje (lugares, bases y gasolineras añadidas) */}
                           {paradas.map((p, idx) => (
                             p.latitud != null && p.longitud != null && (
                               <Marker
@@ -910,22 +990,99 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                 icon={p.es_base ? miniIconoBase : (p.tipo === 'gasolinera' || p.es_repostaje ? miniIconoGasolinera : miniIconoPlan)}
                               >
                                 <Popup>
-                                  <div style={{ padding: '4px', textAlign: 'center' }}>
+                                  <div style={{ padding: '6px', textAlign: 'center', minWidth: '160px' }}>
                                     <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                                      {p.es_base ? (p.tipo === 'base_salida' ? '🏠 Salida Base' : '🏁 Vuelta Base') : (p.tipo === 'gasolinera' ? '⛽ Gasolinera' : p.nombre)}
+                                      {p.es_base ? (p.tipo === 'base_salida' ? '🏠 Salida Base' : '🏁 Vuelta Base') : (p.tipo === 'gasolinera' ? `⛽ ${p.nombre}` : p.nombre)}
                                     </div>
-                                    <div style={{ fontSize: '0.78rem', color: '#666' }}>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                                       {p.poblacion || p.direccion}
                                     </div>
-                                    {alSeleccionarLugar && p.lugar_id && (
-                                      <button
-                                        className="btn btn-primary btn-sm"
-                                        onClick={() => alSeleccionarLugar(p.lugar_id)}
-                                        style={{ marginTop: '6px', fontSize: '0.72rem', padding: '3px 8px' }}
-                                      >
-                                        Ver Ficha del Lugar
-                                      </button>
+                                    {p.precio && (
+                                      <div style={{ fontWeight: 800, color: 'var(--accent-forest)', fontSize: '0.85rem', marginTop: '3px' }}>
+                                        {p.precio} €/L
+                                      </div>
                                     )}
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+                                      <a
+                                        href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.74rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                      >
+                                        <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
+                                      </a>
+                                      {alSeleccionarLugar && p.lugar_id && (
+                                        <button
+                                          className="btn btn-primary btn-sm"
+                                          onClick={() => alSeleccionarLugar(p.lugar_id)}
+                                          style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                                        >
+                                          Ver Ficha
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            )
+                          ))}
+
+                          {/* Marcador del punto crítico donde se supera el 80% en la búsqueda activa */}
+                          {panelGasolineras && panelGasolineras.viajeId === viaje.id && panelGasolineras.lat != null && panelGasolineras.lng != null && (
+                            <Marker
+                              position={[panelGasolineras.lat, panelGasolineras.lng]}
+                              icon={miniIconoPuntoCritico}
+                            >
+                              <Popup>
+                                <div style={{ padding: '6px', textAlign: 'center' }}>
+                                  <div style={{ fontWeight: 800, color: '#EF4444', fontSize: '0.88rem' }}>⚠️ Zona 80% Combustible</div>
+                                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{panelGasolineras.paradaNombre}</div>
+                                </div>
+                              </Popup>
+                            </Marker>
+                          )}
+
+                          {/* Gasolineras sugeridas en tiempo real mostradas en el mapa */}
+                          {panelGasolineras && panelGasolineras.viajeId === viaje.id && panelGasolineras.lista && panelGasolineras.lista.map((gas, gIdx) => (
+                            gas.lat != null && gas.lng != null && (
+                              <Marker
+                                key={`sug-gas-${gIdx}`}
+                                position={[gas.lat, gas.lng]}
+                                icon={miniIconoGasolineraSugerida}
+                              >
+                                <Popup>
+                                  <div style={{ padding: '6px', textAlign: 'center', minWidth: '170px' }}>
+                                    <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#D97706' }}>
+                                      ⛽ {gas.rotulo}
+                                    </div>
+                                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                                      {gas.direccion} {gas.distanciaKm != null ? `• ${gas.distanciaKm.toFixed(1)} km` : ''}
+                                    </div>
+                                    {gas.precioLitro && (
+                                      <div style={{ fontWeight: 800, color: 'var(--accent-forest)', fontSize: '0.9rem', marginTop: '3px' }}>
+                                        {gas.precioLitro.toFixed(3)} €/L
+                                      </div>
+                                    )}
+                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+                                      <a
+                                        href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.72rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                      >
+                                        <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
+                                      </a>
+                                      <button
+                                        type="button"
+                                        className="btn btn-primary btn-sm"
+                                        style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
+                                        onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
+                                      >
+                                        ➕ Añadir
+                                      </button>
+                                    </div>
                                   </div>
                                 </Popup>
                               </Marker>
@@ -1066,19 +1223,35 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                     </div>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    className="btn btn-primary btn-sm"
-                                    disabled={anadiendoLugarId === lugar.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      anadirLugarAViaje(viaje.id, lugar);
-                                    }}
-                                    style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
-                                  >
-                                    <Plus size={14} />
-                                    <span>{anadiendoLugarId === lugar.id ? 'Añadiendo...' : 'Añadir a la Ruta'}</span>
-                                  </button>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {lugar.latitud != null && lugar.longitud != null && (
+                                      <a
+                                        href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={`Abrir navegación GPS hasta ${lugar.nombre}`}
+                                        style={{ padding: '6px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                                      >
+                                        <Navigation size={13} color="var(--accent-forest)" />
+                                        <span>Ir</span>
+                                      </a>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="btn btn-primary btn-sm"
+                                      disabled={anadiendoLugarId === lugar.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        anadirLugarAViaje(viaje.id, lugar);
+                                      }}
+                                      style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                      <Plus size={14} />
+                                      <span>{anadiendoLugarId === lugar.id ? 'Añadiendo...' : 'Añadir a la Ruta'}</span>
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -1137,6 +1310,21 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                               // La advertencia se evalúa y muestra ANTES de la etapa donde se supera el 80% de autonomía
                               const supera80 = idx > 0 && kmHastaEstaParada >= umbral80 && !parada.es_repostaje;
 
+                              // Calcular el punto exacto y posterior al 80% de combustible en la ruta entre punto y punto
+                              let latPunto80 = paradas[idx - 1]?.latitud;
+                              let lngPunto80 = paradas[idx - 1]?.longitud;
+                              let kmPunto80 = kmAcumulados;
+
+                              if (supera80 && paradas[idx - 1]?.latitud != null && parada.latitud != null) {
+                                const kmRestantesPara80 = Math.max(0, umbral80 - kmAcumulados);
+                                const fraccion80 = distTramo > 0 ? Math.min(0.92, Math.max(0.08, kmRestantesPara80 / distTramo)) : 0.5;
+                                // Para buscar DESPUÉS del punto donde se supera el 80% en el tramo entre punto y punto:
+                                const fraccionBusqueda = Math.min(0.96, fraccion80 + 0.05);
+                                latPunto80 = paradas[idx - 1].latitud + fraccionBusqueda * (parada.latitud - paradas[idx - 1].latitud);
+                                lngPunto80 = paradas[idx - 1].longitud + fraccionBusqueda * (parada.longitud - paradas[idx - 1].longitud);
+                                kmPunto80 = kmAcumulados + Math.round(fraccionBusqueda * distTramo);
+                              }
+
                               // Actualizamos km acumulados para el siguiente tramo
                               if (parada.es_repostaje) {
                                 kmAcumulados = 0;
@@ -1175,7 +1363,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             type="button"
                                             className="btn btn-primary btn-sm"
                                             style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
-                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre, `alerta-${idx}`)}
+                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
                                           >
                                             <Fuel size={14} /> Buscar Gasolineras Baratas
                                           </button>
@@ -1223,18 +1411,36 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         </div>
                                       </div>
 
-                                      {/* Radar centrado en Base */}
-                                      {parada.latitud != null && parada.longitud != null && (
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
-                                          style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        >
-                                          <Radar size={13} color="var(--accent-earth)" />
-                                          <span>Radar Base</span>
-                                        </button>
-                                      )}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {/* Abrir en GPS */}
+                                        {parada.latitud != null && parada.longitud != null && (
+                                          <a
+                                            href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title={`Abrir navegación GPS hasta ${parada.nombre}`}
+                                            style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                                          >
+                                            <Navigation size={13} color="var(--accent-forest)" />
+                                            <span>Ir</span>
+                                          </a>
+                                        )}
+
+                                        {/* Radar centrado en Base */}
+                                        {parada.latitud != null && parada.longitud != null && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
+                                            style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                          >
+                                            <Radar size={13} color="var(--accent-earth)" />
+                                            <span>Radar Base</span>
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                     {renderPanelGasolineras(`parada-${idx}`)}
                                   </div>
@@ -1275,7 +1481,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                           type="button"
                                           className="btn btn-primary btn-sm"
                                           style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
-                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre, `alerta-${idx}`)}
+                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
                                         >
                                           <Fuel size={14} /> Buscar Gasolineras Baratas
                                         </button>
@@ -1436,6 +1642,22 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
                                     {/* ACCIONES DE LA ETAPA: RADAR, REPOSTAJE Y ELIMINAR */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
+                                      {/* Botón Ir en GPS */}
+                                      {parada.latitud != null && parada.longitud != null && (
+                                        <a
+                                          href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={(e) => e.stopPropagation()}
+                                          title={`Abrir navegación GPS hasta ${parada.nombre}`}
+                                          style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                                        >
+                                          <Navigation size={13} color="var(--accent-forest)" />
+                                          <span>Ir</span>
+                                        </a>
+                                      )}
+
                                       {/* Radar centrado en este lugar */}
                                       {parada.latitud != null && parada.longitud != null && (
                                         <button

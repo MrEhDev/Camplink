@@ -99,6 +99,15 @@ www.camplinkapp.com
 @permission_classes([permissions.AllowAny])
 @csrf_exempt
 def registro_vista(request):
+    email = request.data.get('email', '')
+    if email:
+        email = str(email).strip().lower()
+        if Explorador.objects.filter(email__iexact=email).exists():
+            return Response({
+                'error': 'Ya existe una cuenta registrada con este correo electrónico.',
+                'email': ['Ya existe una cuenta registrada con este correo electrónico.']
+            }, status=status.HTTP_400_BAD_REQUEST)
+
     serializer = ExploradorRegistroSerializer(data=request.data)
     if serializer.is_valid():
         explorador = serializer.save()

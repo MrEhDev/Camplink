@@ -14,7 +14,8 @@ from .serializers import (
     ExploradorRegistroSerializer,
     ExploradorPerfilSerializer,
     GrupoPrivacidadSerializer,
-    RelacionSeguimientoSerializer
+    RelacionSeguimientoSerializer,
+    NotificacionSerializer
 )
 
 @api_view(['GET'])

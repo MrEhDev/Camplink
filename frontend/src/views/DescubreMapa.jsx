@@ -1,8 +1,9 @@
 // Aquí implemento la vista Descubre: mapa interactivo a pantalla completa con Leaflet,
-// filtro principal obligatorio por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
+// filtro principal multi-selección por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
 // cajón modal de filtros categorizados (Servicios, Entorno/Ocio, Terreno/Acceso, Puntuación),
+// tarjetas popup premium con soporte de imagen, estética camper de alto contraste,
 // capas de Relieve Topográfico, Satélite Natural, Radar de Lluvia y Contaminación Lumínica,
-// y popup de alto contraste con listado completo de servicios y modal directo para añadir a viaje planificado.
+// y modal directo para añadir a viaje planificado.
 
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, useMap } from 'react-leaflet';
@@ -45,6 +46,15 @@ const NOMBRES_TIPO = {
   solo_servicios: 'Solo Servicios'
 };
 
+// Helper para obtener etiqueta de tipo sin duplicar emojis
+export const obtenerEtiquetaTipoLugar = (lugar) => {
+  if (!lugar) return '🚐 Lugar Camper';
+  if (lugar.tipo_lugar_display) return lugar.tipo_lugar_display;
+  const emoji = EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐';
+  const nombre = NOMBRES_TIPO[lugar.tipo_lugar] || 'Lugar Camper';
+  return `${emoji} ${nombre}`;
+};
+
 // Creador de marcadores camper según tipo y valoración
 const crearIconoCamperColor = (colorFondo, colorBorde, emojiIcon = '🚐') => {
   return L.divIcon({
@@ -52,16 +62,16 @@ const crearIconoCamperColor = (colorFondo, colorBorde, emojiIcon = '🚐') => {
     html: `
       <div style="
         position: relative;
-        width: 26px;
-        height: 32px;
+        width: 28px;
+        height: 34px;
         display: flex;
         align-items: center;
         justify-content: center;
       ">
-        <svg viewBox="0 0 22 28" width="26" height="32" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));">
+        <svg viewBox="0 0 22 28" width="28" height="34" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));">
           <path d="M11 0 C4.92 0 0 4.92 0 11 C0 18 11 28 11 28 C11 28 22 18 22 11 C22 4.92 17.08 0 11 0 Z" 
                 fill="${colorFondo}" stroke="${colorBorde}" stroke-width="1.8"/>
-          <circle cx="11" cy="10" r="6.5" fill="#FFFFFF"/>
+          <circle cx="11" cy="10" r="6.8" fill="#FFFFFF"/>
         </svg>
         <div style="
           position: absolute;
@@ -71,15 +81,15 @@ const crearIconoCamperColor = (colorFondo, colorBorde, emojiIcon = '🚐') => {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
+          font-size: 11px;
         ">
           ${emojiIcon}
         </div>
       </div>
     `,
-    iconSize: [26, 32],
-    iconAnchor: [13, 32],
-    popupAnchor: [0, -30]
+    iconSize: [28, 34],
+    iconAnchor: [14, 34],
+    popupAnchor: [0, -32]
   });
 };
 
@@ -131,8 +141,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
   const [obteniendoGps, setObteniendoGps] = useState(false);
   const [centroMapa, setCentroMapa] = useState([40.4168, -3.7038]);
 
-  // FILTRO PRINCIPAL: Tipo de Lugar
-  const [tipoLugarSeleccionado, setTipoLugarSeleccionado] = useState('todos');
+  // FILTRO PRINCIPAL: Multi-selección de Tipo de Lugar
+  const [tiposLugarSeleccionados, setTiposLugarSeleccionados] = useState([]);
 
   // FILTROS AVANZADOS POR CATEGORÍA
   const [panelFiltrosAbierto, setPanelFiltrosAbierto] = useState(false);
@@ -217,12 +227,27 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
     }
   };
 
+  // Alternar selección múltiple de tipos de lugar
+  const alternarTipoLugar = (id) => {
+    if (id === 'todos') {
+      setTiposLugarSeleccionados([]);
+      return;
+    }
+    setTiposLugarSeleccionados(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(t => t !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
   const toggleFiltro = (clave) => {
     setFiltros(prev => ({ ...prev, [clave]: !prev[clave] }));
   };
 
   const limpiarFiltros = () => {
-    setTipoLugarSeleccionado('todos');
+    setTiposLugarSeleccionados([]);
     setFiltros({
       agua_potable: false,
       lavabos: false,
@@ -249,13 +274,13 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
     setBusqueda('');
   };
 
-  const totalFiltrosActivos = Object.entries(filtros).filter(([k, v]) => k !== 'puntuacion_minima' ? v : v > 0).length + (tipoLugarSeleccionado !== 'todos' ? 1 : 0);
+  const totalFiltrosActivos = Object.entries(filtros).filter(([k, v]) => k !== 'puntuacion_minima' ? v : v > 0).length + (tiposLugarSeleccionados.length > 0 ? tiposLugarSeleccionados.length : 0);
 
   // Filtrado de lugares
   const lugaresFiltrados = lugares.filter(l => {
-    // 1. Filtro Principal: Tipo de Lugar
-    if (tipoLugarSeleccionado !== 'todos') {
-      if (l.tipo_lugar !== tipoLugarSeleccionado) return false;
+    // 1. Filtro Principal: Multi-selección de Tipo de Lugar
+    if (tiposLugarSeleccionados.length > 0) {
+      if (!tiposLugarSeleccionados.includes(l.tipo_lugar)) return false;
     }
 
     // 2. Buscador
@@ -275,29 +300,29 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
     // 4. Servicios Básicos
     if (filtros.agua_potable && !l.agua_potable && !l.tiene_agua) return false;
-    if (filtros.lavabos && !l.lavabos) return false;
+    if (filtros.lavabos && !l.lavabos && !l.tiene_lavabo) return false;
     if (filtros.electricidad && !l.electricidad && !l.tiene_electricidad) return false;
-    if (filtros.wifi && !l.wifi) return false;
-    if (filtros.basuras && !l.basuras) return false;
-    if (filtros.duchas && !l.duchas) return false;
-    if (filtros.vaciado_aguas_grises && !l.vaciado_aguas_grises && !l.vaciado_aguas) return false;
-    if (filtros.vaciado_aguas_negras && !l.vaciado_aguas_negras && !l.vaciado_aguas) return false;
+    if (filtros.wifi && !l.wifi && !l.tiene_wifi) return false;
+    if (filtros.basuras && !l.basuras && !l.tiene_basuras) return false;
+    if (filtros.duchas && !l.duchas && !l.tiene_duchas) return false;
+    if (filtros.vaciado_aguas_grises && !l.vaciado_aguas_grises && !l.tiene_vaciado_aguas_grises && !l.vaciado_aguas) return false;
+    if (filtros.vaciado_aguas_negras && !l.vaciado_aguas_negras && !l.tiene_vaciado_aguas_negras && !l.vaciado_aguas) return false;
     if (filtros.es_gratuito && !l.es_gratuito) return false;
 
     // 5. Entorno y Ocio
-    if (filtros.ideal_ninos_10_anos && !l.ideal_ninos_10_anos) return false;
-    if (filtros.senderismo_cercano && !l.senderismo_cercano) return false;
+    if (filtros.ideal_ninos_10_anos && !l.ideal_familias && !l.ideal_ninos_10_anos) return false;
+    if (filtros.senderismo_cercano && !l.senderismo_cercano && !l.tiene_senderismo && !l.tiene_senderos_sencillos) return false;
     if (filtros.playa_cercana && !l.playa_cercana) return false;
-    if (filtros.rutas_bici && !l.rutas_bici) return false;
+    if (filtros.rutas_bici && !l.rutas_bici && !l.rutas_en_bici) return false;
     if (filtros.admite_mascotas && !l.admite_mascotas && !l.mascotas) return false;
 
     // 6. Terreno y Acceso
     if (filtros.acceso_asfaltado && !l.acceso_asfaltado) return false;
     if (filtros.mucha_sombra && !l.mucha_sombra) return false;
-    if (filtros.muy_soleado_placas && !l.muy_soleado_placas) return false;
+    if (filtros.muy_soleado_placas && !l.muy_soleado_placas && !l.muy_soleado) return false;
     if (filtros.terreno_nivelado && !l.terreno_nivelado) return false;
-    if (filtros.apto_autocaravanas_grandes && !l.apto_autocaravanas_grandes) return false;
-    if (filtros.permitido_sacar_toldo && !l.permitido_sacar_toldo && !l.toldo) return false;
+    if (filtros.apto_autocaravanas_grandes && !l.apto_autocaravanas_grandes && !l.apto_grandes_autocaravanas) return false;
+    if (filtros.permitido_sacar_toldo && !l.permitido_sacar_toldo && !l.permite_sacar_toldo && !l.toldo) return false;
 
     return true;
   });
@@ -382,20 +407,20 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
       {/* BARRA SUPERIOR DE BÚSQUEDA Y FILTRO PRINCIPAL (TIPO DE LUGAR) */}
       <div style={{
         position: 'absolute',
-        top: '18px',
+        top: '16px',
         left: '12px',
         right: '12px',
         zIndex: 999,
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
-        maxWidth: '960px',
+        maxWidth: '1000px',
         width: 'calc(100% - 24px)',
         margin: '0 auto'
       }}>
         {/* BUSCADOR + BOTÓN FILTROS + BOTÓN LISTA */}
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
             <input
               type="text"
               placeholder="Buscar pernoctas, áreas, campings, pueblos..."
@@ -403,16 +428,17 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
               onChange={(e) => setBusqueda(e.target.value)}
               style={{
                 width: '100%',
+                boxSizing: 'border-box',
                 height: '42px',
                 paddingLeft: '38px',
                 paddingRight: '12px',
                 borderRadius: 'var(--radius-full)',
-                background: 'rgba(20, 28, 22, 0.92)',
+                background: 'rgba(18, 28, 22, 0.95)',
                 color: '#FFFFFF',
                 border: '1px solid rgba(255, 255, 255, 0.25)',
-                backdropFilter: 'blur(15px)',
+                backdropFilter: 'blur(16px)',
                 fontSize: '0.86rem',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.35)'
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
               }}
             />
             <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.7)' }} />
@@ -424,19 +450,20 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
             title="Abrir panel de filtros categorizados"
             style={{
               height: '42px',
-              padding: '0 14px',
+              padding: '0 15px',
               borderRadius: 'var(--radius-full)',
-              background: totalFiltrosActivos > 0 ? 'var(--accent-forest)' : 'rgba(20, 28, 22, 0.92)',
+              background: totalFiltrosActivos > 0 ? 'var(--accent-forest)' : 'rgba(18, 28, 22, 0.95)',
               color: '#FFFFFF',
               border: totalFiltrosActivos > 0 ? '1.5px solid #6EE7B7' : '1px solid rgba(255, 255, 255, 0.25)',
-              backdropFilter: 'blur(15px)',
+              backdropFilter: 'blur(16px)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               fontSize: '0.84rem',
               fontWeight: 700,
-              boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
-              cursor: 'pointer'
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              cursor: 'pointer',
+              flexShrink: 0
             }}
           >
             <Filter size={16} />
@@ -466,20 +493,21 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
               title="Ver lugares en formato lista y tarjetas"
               style={{
                 height: '42px',
-                padding: '0 14px',
+                padding: '0 15px',
                 borderRadius: 'var(--radius-full)',
-                background: 'rgba(20, 28, 22, 0.92)',
+                background: 'rgba(18, 28, 22, 0.95)',
                 color: '#FFFFFF',
                 border: '1px solid rgba(255, 255, 255, 0.25)',
-                backdropFilter: 'blur(15px)',
+                backdropFilter: 'blur(16px)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 fontSize: '0.84rem',
                 fontWeight: 700,
                 whiteSpace: 'nowrap',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
-                cursor: 'pointer'
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                cursor: 'pointer',
+                flexShrink: 0
               }}
             >
               <span>📋 Ver Lista</span>
@@ -487,37 +515,46 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           )}
         </div>
 
-        {/* FILTRO PRINCIPAL: SELECTOR DE TIPO DE LUGAR (CHIPS GRANDES Y CLAROS) */}
+        {/* FILTRO PRINCIPAL: SELECTOR MULTI-SELECCIÓN DE TIPO DE LUGAR (CHIPS DESPLAZABLES SIN CORTES) */}
         <div style={{
           display: 'flex',
-          gap: '6px',
+          gap: '8px',
           overflowX: 'auto',
-          paddingBottom: '4px',
-          scrollbarWidth: 'none',
-          WebkitOverflowScrolling: 'touch'
+          padding: '2px 4px 8px 4px',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'thin',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           {TIPOS_LUGAR_MAPA.map((tipo) => {
-            const activo = tipoLugarSeleccionado === tipo.id;
-            const cantidad = tipo.id === 'todos' 
+            const esTodos = tipo.id === 'todos';
+            const activo = esTodos 
+              ? tiposLugarSeleccionados.length === 0 
+              : tiposLugarSeleccionados.includes(tipo.id);
+            
+            const cantidad = esTodos 
               ? lugares.length 
               : lugares.filter(l => l.tipo_lugar === tipo.id).length;
+
             return (
               <button
                 key={tipo.id}
-                onClick={() => setTipoLugarSeleccionado(tipo.id)}
+                type="button"
+                onClick={() => alternarTipoLugar(tipo.id)}
                 style={{
+                  flexShrink: 0,
                   whiteSpace: 'nowrap',
-                  padding: '6px 13px',
+                  padding: '7px 14px',
                   borderRadius: 'var(--radius-full)',
-                  fontSize: '0.79rem',
+                  fontSize: '0.81rem',
                   fontWeight: activo ? 800 : 600,
                   cursor: 'pointer',
                   border: activo ? '2px solid #6EE7B7' : '1px solid rgba(255,255,255,0.22)',
-                  background: activo ? 'var(--accent-forest)' : 'rgba(20, 28, 22, 0.90)',
+                  background: activo ? 'var(--accent-forest)' : 'rgba(18, 28, 22, 0.92)',
                   color: '#FFFFFF',
-                  backdropFilter: 'blur(12px)',
-                  boxShadow: activo ? '0 3px 12px rgba(35,83,52,0.6)' : '0 2px 8px rgba(0,0,0,0.3)',
-                  transition: 'all 0.2s ease',
+                  backdropFilter: 'blur(16px)',
+                  boxShadow: activo ? '0 3px 14px rgba(35,83,52,0.65)' : '0 2px 8px rgba(0,0,0,0.3)',
+                  transition: 'all 0.15s ease',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
@@ -527,7 +564,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                 <span>{tipo.label}</span>
                 <span style={{
                   fontSize: '0.70rem',
-                  background: activo ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)',
+                  background: activo ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.12)',
                   padding: '1px 6px',
                   borderRadius: '10px',
                   fontWeight: 800
@@ -537,6 +574,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
               </button>
             );
           })}
+          {/* Espacio derecho de resguardo */}
+          <div style={{ minWidth: '16px', flexShrink: 0 }} />
         </div>
       </div>
 
@@ -546,8 +585,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         bottom: '24px',
         left: '14px',
         zIndex: 900,
-        background: 'rgba(20, 28, 22, 0.90)',
-        backdropFilter: 'blur(14px)',
+        background: 'rgba(18, 28, 22, 0.92)',
+        backdropFilter: 'blur(16px)',
         border: '1px solid rgba(255, 255, 255, 0.2)',
         borderRadius: 'var(--radius-md)',
         padding: '10px 14px',
@@ -556,7 +595,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+        boxShadow: '0 4px 18px rgba(0,0,0,0.45)'
       }}>
         <div style={{ fontWeight: 800, fontSize: '0.76rem', color: '#F3F4F6', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Sparkles size={12} color="#F59E0B" /> Puntuación Camper:
@@ -609,7 +648,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         <Crosshair size={22} className={obteniendoGps ? 'spin-anim' : ''} />
       </button>
 
-      {/* MODAL / CAJÓN DE FILTROS CATEGORIZADOS (CATEGORÍAS ESTRUCTURADAS) */}
+      {/* MODAL / CAJÓN DE FILTROS CATEGORIZADOS */}
       {panelFiltrosAbierto && (
         <div style={{
           position: 'fixed',
@@ -617,7 +656,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0, 0, 0, 0.72)',
+          background: 'rgba(0, 0, 0, 0.75)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
@@ -626,7 +665,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           padding: '16px'
         }}>
           <div className="camper-card" style={{
-            maxWidth: '680px',
+            maxWidth: '700px',
             width: '100%',
             maxHeight: '90vh',
             display: 'flex',
@@ -634,7 +673,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
             padding: '24px',
             border: '2px solid var(--accent-forest)',
             background: 'var(--bg-surface-elevated)',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
             borderRadius: 'var(--radius-lg)'
           }}>
             {/* Cabecera modal */}
@@ -651,19 +690,28 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
             {/* Cuerpo con scroll */}
             <div style={{ overflowY: 'auto', paddingRight: '6px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
-              {/* 1. SELECCIÓN DE TIPO DE LUGAR */}
+              {/* 1. SELECCIÓN DE TIPOS DE LUGAR (MULTI-SELECCIÓN) */}
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-forest)' }}>
-                  🌲 Tipo de Lugar (Filtro Principal)
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '8px' }}>
-                  {TIPOS_LUGAR_MAPA.map(tipo => {
-                    const activo = tipoLugarSeleccionado === tipo.id;
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0, color: 'var(--accent-forest)' }}>
+                    🌲 Tipos de Lugar (Selección Múltiple)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setTiposLugarSeleccionados([])}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Marcar todos
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                  {TIPOS_LUGAR_MAPA.filter(t => t.id !== 'todos').map(tipo => {
+                    const activo = tiposLugarSeleccionados.includes(tipo.id);
                     return (
                       <button
                         key={tipo.id}
                         type="button"
-                        onClick={() => setTipoLugarSeleccionado(tipo.id)}
+                        onClick={() => alternarTipoLugar(tipo.id)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -671,7 +719,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                           padding: '8px 12px',
                           borderRadius: 'var(--radius-md)',
                           border: activo ? '2px solid var(--accent-forest)' : '1px solid var(--border-color)',
-                          background: activo ? 'rgba(35, 83, 52, 0.15)' : 'var(--bg-primary)',
+                          background: activo ? 'rgba(35, 83, 52, 0.18)' : 'var(--bg-primary)',
                           color: activo ? 'var(--accent-forest)' : 'var(--text-primary)',
                           fontWeight: activo ? 800 : 500,
                           fontSize: '0.84rem',
@@ -681,7 +729,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                         }}
                       >
                         <span style={{ fontSize: '1.2rem' }}>{tipo.emoji}</span>
-                        <span>{tipo.label}</span>
+                        <span style={{ flex: 1 }}>{tipo.label}</span>
+                        {activo && <Check size={14} color="var(--accent-forest)" />}
                       </button>
                     );
                   })}
@@ -690,7 +739,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
               {/* 2. SERVICIOS BÁSICOS Y CAMPER */}
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-forest)' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   🚰 Servicios Básicos y Camper
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
@@ -734,12 +783,12 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
               {/* 3. ENTORNO Y OCIO */}
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-forest)' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   🌳 Entorno y Ocio
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
                   {[
-                    { key: 'ideal_ninos_10_anos', label: '👨‍👩‍👧 Familias (Niños ~10a)' },
+                    { key: 'ideal_ninos_10_anos', label: '👨‍👩‍👧 Ideal Familias' },
                     { key: 'senderismo_cercano', label: '🥾 Senderismo Cercano' },
                     { key: 'playa_cercana', label: '🏖️ Playa / Lago / Río' },
                     { key: 'rutas_bici', label: '🚴 Rutas en Bicicleta' },
@@ -774,7 +823,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
               {/* 4. TERRENO Y ACCESO */}
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-forest)' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   🛣️ Terreno y Acceso
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
@@ -815,7 +864,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
               {/* 5. PUNTUACIÓN CAMPER MÍNIMA */}
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-forest)' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   ⭐ Puntuación Camper Mínima
                 </h4>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -952,7 +1001,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
             })}
           >
             <Popup>
-              <div style={{ textAlign: 'center', padding: '4px' }}>
+              <div style={{ textAlign: 'center', padding: '6px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>📍 Tu Ubicación Actual</div>
                 <div style={{ fontSize: '0.74rem', color: '#6B7280' }}>Furgoneta / Explorador</div>
               </div>
@@ -960,106 +1009,174 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           </Marker>
         )}
 
-        {/* Marcadores de Lugares */}
+        {/* Marcadores de Lugares con Tarjetas Mejoradas e Imagen */}
         {lugaresFiltrados.map((lugar) => {
-          const tipoInfo = TIPOS_LUGAR_MAPA.find(t => t.id === lugar.tipo_lugar) || { emoji: '🚐', label: lugar.tipo_lugar_display || 'Lugar Camper' };
+          const imagenLugar = lugar.foto_principal || (lugar.fotos && lugar.fotos.length > 0 ? lugar.fotos[0].imagen : null);
+          const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
+
           return (
             <Marker
               key={lugar.id}
               position={[parseFloat(lugar.latitud), parseFloat(lugar.longitud)]}
               icon={obtenerIconoPorLugar(lugar)}
             >
-              <Popup className="custom-camper-popup" maxWidth={300}>
-                <div style={{ padding: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {/* Tipo de lugar badge */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                    <span style={{
-                      display: 'inline-flex',
+              <Popup className="custom-camper-popup" maxWidth={310}>
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                  
+                  {/* FOTO DEL LUGAR O BANNER PAISAJÍSTICO */}
+                  {imagenLugar ? (
+                    <div style={{ position: 'relative', width: '100%', height: '135px', overflow: 'hidden', background: '#0D1A12' }}>
+                      <img 
+                        src={imagenLugar} 
+                        alt={lugar.nombre} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(to top, rgba(17,28,22,0.95) 0%, transparent 60%)'
+                      }} />
+                    </div>
+                  ) : (
+                    <div style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '80px',
+                      background: 'linear-gradient(135deg, #183d26 0%, #0d2115 100%)',
+                      display: 'flex',
                       alignItems: 'center',
-                      gap: '4px',
-                      background: 'rgba(35, 83, 52, 0.12)',
-                      color: 'var(--accent-forest)',
-                      border: '1px solid var(--accent-forest)',
-                      borderRadius: 'var(--radius-full)',
-                      padding: '2px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 800
+                      justifyContent: 'center',
+                      borderBottom: '1px solid rgba(255,255,255,0.1)'
                     }}>
-                      <span>{tipoInfo.emoji}</span>
-                      <span>{lugar.tipo_lugar_display || tipoInfo.label}</span>
-                    </span>
+                      <span style={{ fontSize: '2.4rem', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
+                        {EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐'}
+                      </span>
+                    </div>
+                  )}
 
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      color: lugar.es_gratuito ? '#059669' : '#D97706',
-                      background: lugar.es_gratuito ? 'rgba(5,150,105,0.1)' : 'rgba(217,119,6,0.1)',
-                      padding: '2px 6px',
-                      borderRadius: '4px'
-                    }}>
-                      {lugar.es_gratuito ? 'Gratis' : `${lugar.precio_noche || '0'} €/n`}
-                    </span>
-                  </div>
+                  {/* CUERPO DE LA TARJETA */}
+                  <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    
+                    {/* Fila: Tipo de Lugar (1 solo icono) + Precio */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(35, 83, 52, 0.25)',
+                        color: '#6EE7B7',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        borderRadius: 'var(--radius-full)',
+                        padding: '2px 8px',
+                        fontSize: '0.73rem',
+                        fontWeight: 800
+                      }}>
+                        {etiquetaTipo}
+                      </span>
 
-                  {/* Nombre y ubicación */}
-                  <div>
-                    <h4 style={{ margin: '0 0 2px 0', fontSize: '0.96rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                      {lugar.nombre}
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <MapPin size={11} /> {lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}
-                    </p>
-                  </div>
+                      <span style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 900,
+                        color: lugar.es_gratuito ? '#34D399' : '#FBBF24',
+                        background: lugar.es_gratuito ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        border: lugar.es_gratuito ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(251, 191, 36, 0.3)'
+                      }}>
+                        {lugar.es_gratuito ? 'Gratis' : `${lugar.precio_noche || '0'} €/n`}
+                      </span>
+                    </div>
 
-                  {/* Valoración */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
-                    <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={13} />
-                    <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                      {parseFloat(lugar.valoracion_media || 0).toFixed(1)}
-                    </span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.70rem' }}>
-                      ({lugar.total_valoraciones || 0} reviews)
-                    </span>
-                  </div>
+                    {/* Nombre y Ubicación */}
+                    <div>
+                      <h4 style={{ margin: '0 0 3px 0', fontSize: '1.02rem', fontWeight: 900, color: '#FFFFFF', lineHeight: '1.25' }}>
+                        {lugar.nombre}
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '0.76rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={12} color="#10B981" />
+                        <span>{lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}</span>
+                      </p>
+                    </div>
 
-                  {/* Servicios destacados */}
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', fontSize: '0.70rem' }}>
-                    {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>💧 Agua</span>}
-                    {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>⚡ Luz</span>}
-                    {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>🔘 Vaciado</span>}
-                    {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>🐕 Mascotas</span>}
-                    {lugar.ideal_ninos_10_anos && <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
-                  </div>
+                    {/* Puntuación Camper */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
+                      <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} />
+                      <span style={{ fontWeight: 800, color: '#F3F4F6' }}>
+                        {parseFloat(lugar.valoracion_media || 0).toFixed(1)}
+                      </span>
+                      <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
+                        ({lugar.total_valoraciones || 0} valoraciones)
+                      </span>
+                    </div>
 
-                  {/* Botones de acción */}
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                    <button
-                      onClick={() => alSeleccionarLugar(lugar.id)}
-                      className="btn btn-primary btn-sm"
-                      style={{ flex: 1, fontSize: '0.76rem', padding: '5px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                    >
-                      <Eye size={12} /> Ver Ficha
-                    </button>
+                    {/* Servicios destacados */}
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', fontSize: '0.71rem' }}>
+                      {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>💧 Agua</span>}
+                      {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>⚡ Luz</span>}
+                      {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>🔘 Vaciado</span>}
+                      {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>🐕 Mascotas</span>}
+                      {(lugar.ideal_familias || lugar.ideal_ninos_10_anos) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
+                    </div>
 
-                    <button
-                      onClick={() => abrirModalAnadirViaje(lugar)}
-                      className="btn btn-secondary btn-sm"
-                      title="Añadir a mi viaje planificado"
-                      style={{ fontSize: '0.76rem', padding: '5px 8px' }}
-                    >
-                      <Plus size={13} /> Viaje
-                    </button>
+                    {/* Botones de acción con alto contraste */}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                      <button
+                        onClick={() => alSeleccionarLugar(lugar.id)}
+                        className="btn btn-primary btn-sm"
+                        style={{
+                          flex: 1,
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          padding: '6px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '5px',
+                          background: 'var(--accent-forest)',
+                          color: '#FFFFFF',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        <Eye size={13} /> Ver Ficha
+                      </button>
 
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary btn-sm"
-                      title="Abrir navegación GPS"
-                      style={{ fontSize: '0.76rem', padding: '5px 8px' }}
-                    >
-                      <Navigation size={12} />
-                    </a>
+                      <button
+                        onClick={() => abrirModalAnadirViaje(lugar)}
+                        className="btn btn-secondary btn-sm"
+                        title="Añadir a mi viaje planificado"
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          padding: '6px 10px',
+                          background: 'rgba(255,255,255,0.1)',
+                          color: '#FFFFFF',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        <Plus size={14} /> Viaje
+                      </button>
+
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        title="Abrir navegación GPS"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 10px',
+                          background: 'rgba(255,255,255,0.1)',
+                          color: '#FFFFFF',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <Navigation size={13} />
+                      </a>
+                    </div>
+
                   </div>
                 </div>
               </Popup>
@@ -1076,7 +1193,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
+          background: 'rgba(0, 0, 0, 0.75)',
           backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',

@@ -1,6 +1,6 @@
 // Aquí implemento la vista Descubre Lista: listado completo de lugares y pernoctas camper en formato tarjetas,
-// con filtro principal obligatorio por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
-// buscador inteligente por ubicación, filtros estructurados por categorías (Servicios, Entorno/Ocio, Terreno/Acceso, Puntuación),
+// con filtro principal multi-selección por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
+// imágenes destacadas por lugar, buscador inteligente de ancho completo, filtros estructurados por categorías,
 // botón para alternar a vista mapa, y acciones directas de guardado, añadido a viaje planificado y navegación GPS.
 
 import React, { useState, useEffect } from 'react';
@@ -24,6 +24,32 @@ export const TIPOS_LUGAR_LISTA = [
   { id: 'solo_servicios', label: 'Solo Servicios', emoji: '💧' },
 ];
 
+const EMOJIS_POR_TIPO = {
+  pernocta_libre: '🌲',
+  area_autocaravanas: '🚐',
+  camping: '⛺',
+  parking_urbano: '🅿️',
+  area_recreativa: '🏞️',
+  solo_servicios: '💧'
+};
+
+const NOMBRES_TIPO = {
+  pernocta_libre: 'Pernocta Libre (Naturaleza)',
+  area_autocaravanas: 'Área de Autocaravanas',
+  camping: 'Camping',
+  parking_urbano: 'Parking Urbano / Mixto',
+  area_recreativa: 'Área Recreativa / Merendero',
+  solo_servicios: 'Solo Servicios'
+};
+
+export const obtenerEtiquetaTipoLugar = (lugar) => {
+  if (!lugar) return '🚐 Lugar Camper';
+  if (lugar.tipo_lugar_display) return lugar.tipo_lugar_display;
+  const emoji = EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐';
+  const nombre = NOMBRES_TIPO[lugar.tipo_lugar] || 'Lugar Camper';
+  return `${emoji} ${nombre}`;
+};
+
 export default function DescubreLista({ 
   alSeleccionarLugar, 
   alCambiarAMapa, 
@@ -35,8 +61,8 @@ export default function DescubreLista({
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   
-  // FILTRO PRINCIPAL: Tipo de Lugar
-  const [filtroTipoLugar, setFiltroTipoLugar] = useState('todos');
+  // FILTRO PRINCIPAL: Multi-selección de Tipo de Lugar
+  const [tiposLugarSeleccionados, setTiposLugarSeleccionados] = useState([]);
 
   // FILTROS AVANZADOS
   const [panelFiltrosAbierto, setPanelFiltrosAbierto] = useState(false);
@@ -113,13 +139,29 @@ export default function DescubreLista({
     }
   };
 
+  const alternarTipoLugar = (id) => {
+    if (id === 'todos') {
+      setTiposLugarSeleccionados([]);
+      setPaginaActual(1);
+      return;
+    }
+    setTiposLugarSeleccionados(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(t => t !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+    setPaginaActual(1);
+  };
+
   const toggleFiltro = (clave) => {
     setFiltros(prev => ({ ...prev, [clave]: !prev[clave] }));
     setPaginaActual(1);
   };
 
   const limpiarFiltros = () => {
-    setFiltroTipoLugar('todos');
+    setTiposLugarSeleccionados([]);
     setFiltros({
       es_gratuito: false,
       agua_potable: false,
@@ -164,6 +206,7 @@ export default function DescubreLista({
           descripcion: lugar.descripcion,
           tipo_lugar: lugar.tipo_lugar,
           tipo_lugar_display: lugar.tipo_lugar_display,
+          foto_principal: lugar.foto_principal,
           origen: 'descubre_lista',
           fecha_guardado: new Date().toISOString()
         }, ...favs];
@@ -248,12 +291,14 @@ export default function DescubreLista({
     }
   };
 
-  const totalFiltrosActivos = Object.entries(filtros).filter(([k, v]) => k !== 'puntuacion_minima' ? v : v > 0).length + (filtroTipoLugar !== 'todos' ? 1 : 0);
+  const totalFiltrosActivos = Object.entries(filtros).filter(([k, v]) => k !== 'puntuacion_minima' ? v : v > 0).length + (tiposLugarSeleccionados.length > 0 ? tiposLugarSeleccionados.length : 0);
 
   // FILTRADO
   const lugaresFiltrados = lugares.filter(l => {
-    // 1. Tipo de Lugar Principal
-    if (filtroTipoLugar !== 'todos' && l.tipo_lugar !== filtroTipoLugar) return false;
+    // 1. Tipo de Lugar Principal (Multi-selección)
+    if (tiposLugarSeleccionados.length > 0 && !tiposLugarSeleccionados.includes(l.tipo_lugar)) {
+      return false;
+    }
 
     // 2. Buscador
     if (busqueda.trim()) {
@@ -273,28 +318,28 @@ export default function DescubreLista({
     // 4. Servicios
     if (filtros.es_gratuito && !l.es_gratuito) return false;
     if (filtros.agua_potable && !l.agua_potable && !l.tiene_agua) return false;
-    if (filtros.lavabos && !l.lavabos) return false;
+    if (filtros.lavabos && !l.lavabos && !l.tiene_lavabo) return false;
     if (filtros.electricidad && !l.electricidad && !l.tiene_electricidad) return false;
-    if (filtros.wifi && !l.wifi) return false;
-    if (filtros.basuras && !l.basuras) return false;
-    if (filtros.duchas && !l.duchas) return false;
-    if (filtros.vaciado_aguas_grises && !l.vaciado_aguas_grises && !l.vaciado_aguas) return false;
-    if (filtros.vaciado_aguas_negras && !l.vaciado_aguas_negras && !l.vaciado_aguas) return false;
+    if (filtros.wifi && !l.wifi && !l.tiene_wifi) return false;
+    if (filtros.basuras && !l.basuras && !l.tiene_basuras) return false;
+    if (filtros.duchas && !l.duchas && !l.tiene_duchas) return false;
+    if (filtros.vaciado_aguas_grises && !l.vaciado_aguas_grises && !l.tiene_vaciado_aguas_grises && !l.vaciado_aguas) return false;
+    if (filtros.vaciado_aguas_negras && !l.vaciado_aguas_negras && !l.tiene_vaciado_aguas_negras && !l.vaciado_aguas) return false;
 
     // 5. Entorno / Ocio
-    if (filtros.ideal_ninos_10_anos && !l.ideal_ninos_10_anos) return false;
-    if (filtros.senderismo_cercano && !l.senderismo_cercano) return false;
+    if (filtros.ideal_ninos_10_anos && !l.ideal_familias && !l.ideal_ninos_10_anos) return false;
+    if (filtros.senderismo_cercano && !l.senderismo_cercano && !l.tiene_senderismo && !l.tiene_senderos_sencillos) return false;
     if (filtros.playa_cercana && !l.playa_cercana) return false;
-    if (filtros.rutas_bici && !l.rutas_bici) return false;
+    if (filtros.rutas_bici && !l.rutas_bici && !l.rutas_en_bici) return false;
     if (filtros.admite_mascotas && !l.admite_mascotas && !l.mascotas) return false;
 
     // 6. Terreno / Acceso
     if (filtros.acceso_asfaltado && !l.acceso_asfaltado) return false;
     if (filtros.mucha_sombra && !l.mucha_sombra) return false;
-    if (filtros.muy_soleado_placas && !l.muy_soleado_placas) return false;
+    if (filtros.muy_soleado_placas && !l.muy_soleado_placas && !l.muy_soleado) return false;
     if (filtros.terreno_nivelado && !l.terreno_nivelado) return false;
-    if (filtros.apto_autocaravanas_grandes && !l.apto_autocaravanas_grandes) return false;
-    if (filtros.permitido_sacar_toldo && !l.permitido_sacar_toldo && !l.toldo) return false;
+    if (filtros.apto_autocaravanas_grandes && !l.apto_autocaravanas_grandes && !l.apto_grandes_autocaravanas) return false;
+    if (filtros.permitido_sacar_toldo && !l.permitido_sacar_toldo && !l.permite_sacar_toldo && !l.toldo) return false;
 
     return true;
   });
@@ -305,10 +350,10 @@ export default function DescubreLista({
   const lugaresPaginados = lugaresFiltrados.slice(indiceInicio, indiceInicio + lugaresPorPagina);
 
   return (
-    <div className="container" style={{ padding: '24px 16px', maxWidth: '1240px', margin: '0 auto' }}>
+    <div className="container" style={{ padding: '24px 16px', maxWidth: '1240px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
       
       {/* CABECERA PRINCIPAL CON CONTROLES */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px', width: '100%' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
@@ -345,16 +390,24 @@ export default function DescubreLista({
           </div>
         </div>
 
-        {/* BARRA DE BÚSQUEDA Y BOTÓN DE FILTROS AVANZADOS */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        {/* BARRA DE BÚSQUEDA CORREGIDA (ANCHO COMPLETO SIN CORTES) Y BOTÓN DE FILTROS */}
+        <div style={{ display: 'flex', gap: '10px', width: '100%', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 0, width: '100%' }}>
             <input
               type="text"
               placeholder="Buscar por nombre, población o provincia (ej: Pirineos, Cabo de Gata, Llanes)..."
               value={busqueda}
               onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
               className="input"
-              style={{ paddingLeft: '40px', height: '44px', fontSize: '0.90rem' }}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                paddingLeft: '42px',
+                paddingRight: '12px',
+                height: '44px',
+                fontSize: '0.90rem',
+                display: 'block'
+              }}
             />
             <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           </div>
@@ -362,7 +415,16 @@ export default function DescubreLista({
           <button
             onClick={() => setPanelFiltrosAbierto(true)}
             className={`btn ${totalFiltrosActivos > 0 ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '44px', padding: '0 16px', fontSize: '0.88rem', fontWeight: 700 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              height: '44px',
+              padding: '0 16px',
+              fontSize: '0.88rem',
+              fontWeight: 700,
+              flexShrink: 0
+            }}
           >
             <SlidersHorizontal size={16} />
             <span>Filtros</span>
@@ -385,23 +447,30 @@ export default function DescubreLista({
           </button>
         </div>
 
-        {/* FILTRO PRINCIPAL: TIPO DE LUGAR (PESTAÑAS GRANDES) */}
+        {/* FILTRO PRINCIPAL: TIPOS DE LUGAR (MULTI-SELECCIÓN) */}
         <div style={{
           display: 'flex',
           gap: '8px',
           overflowX: 'auto',
           paddingBottom: '4px',
-          scrollbarWidth: 'thin'
+          scrollbarWidth: 'thin',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           {TIPOS_LUGAR_LISTA.map(tipo => {
-            const activo = filtroTipoLugar === tipo.id;
-            const cantidad = tipo.id === 'todos'
+            const esTodos = tipo.id === 'todos';
+            const activo = esTodos
+              ? tiposLugarSeleccionados.length === 0
+              : tiposLugarSeleccionados.includes(tipo.id);
+
+            const cantidad = esTodos
               ? lugares.length
               : lugares.filter(l => l.tipo_lugar === tipo.id).length;
+
             return (
               <button
                 key={tipo.id}
-                onClick={() => { setFiltroTipoLugar(tipo.id); setPaginaActual(1); }}
+                onClick={() => alternarTipoLugar(tipo.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -415,7 +484,8 @@ export default function DescubreLista({
                   fontSize: '0.84rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  boxShadow: activo ? '0 2px 10px rgba(35,83,52,0.3)' : 'none',
+                  flexShrink: 0,
+                  boxShadow: activo ? '0 2px 10px rgba(35,83,52,0.35)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -423,7 +493,7 @@ export default function DescubreLista({
                 <span>{tipo.label}</span>
                 <span style={{
                   fontSize: '0.72rem',
-                  background: activo ? 'rgba(255,255,255,0.25)' : 'var(--bg-secondary)',
+                  background: activo ? 'rgba(255,255,255,0.28)' : 'var(--bg-secondary)',
                   color: activo ? '#FFFFFF' : 'var(--text-secondary)',
                   padding: '1px 6px',
                   borderRadius: '10px',
@@ -446,7 +516,7 @@ export default function DescubreLista({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0, 0, 0, 0.72)',
+          background: 'rgba(0, 0, 0, 0.75)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
@@ -455,7 +525,7 @@ export default function DescubreLista({
           padding: '16px'
         }}>
           <div className="camper-card" style={{
-            maxWidth: '680px',
+            maxWidth: '700px',
             width: '100%',
             maxHeight: '90vh',
             display: 'flex',
@@ -463,7 +533,7 @@ export default function DescubreLista({
             padding: '24px',
             border: '2px solid var(--accent-forest)',
             background: 'var(--bg-surface-elevated)',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
             borderRadius: 'var(--radius-lg)'
           }}>
             {/* Cabecera */}
@@ -480,7 +550,54 @@ export default function DescubreLista({
             {/* Contenido */}
             <div style={{ overflowY: 'auto', paddingRight: '6px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
-              {/* 1. SERVICIOS BÁSICOS Y CAMPER */}
+              {/* 1. SELECCIÓN DE TIPOS DE LUGAR */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0, color: 'var(--accent-forest)' }}>
+                    🌲 Tipos de Lugar (Multi-selección)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setTiposLugarSeleccionados([])}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Marcar todos
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                  {TIPOS_LUGAR_LISTA.filter(t => t.id !== 'todos').map(tipo => {
+                    const activo = tiposLugarSeleccionados.includes(tipo.id);
+                    return (
+                      <button
+                        key={tipo.id}
+                        type="button"
+                        onClick={() => alternarTipoLugar(tipo.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: activo ? '2px solid var(--accent-forest)' : '1px solid var(--border-color)',
+                          background: activo ? 'rgba(35, 83, 52, 0.18)' : 'var(--bg-primary)',
+                          color: activo ? 'var(--accent-forest)' : 'var(--text-primary)',
+                          fontWeight: activo ? 800 : 500,
+                          fontSize: '0.84rem',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>{tipo.emoji}</span>
+                        <span style={{ flex: 1 }}>{tipo.label}</span>
+                        {activo && <Check size={14} color="var(--accent-forest)" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. SERVICIOS BÁSICOS Y CAMPER */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   🚰 Servicios Básicos y Camper
@@ -524,14 +641,14 @@ export default function DescubreLista({
                 </div>
               </div>
 
-              {/* 2. ENTORNO Y OCIO */}
+              {/* 3. ENTORNO Y OCIO */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   🌳 Entorno y Ocio
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
                   {[
-                    { key: 'ideal_ninos_10_anos', label: '👨‍👩‍👧 Familias (Niños ~10a)' },
+                    { key: 'ideal_ninos_10_anos', label: '👨‍👩‍👧 Ideal Familias' },
                     { key: 'senderismo_cercano', label: '🥾 Senderismo Cercano' },
                     { key: 'playa_cercana', label: '🏖️ Playa / Lago / Río' },
                     { key: 'rutas_bici', label: '🚴 Rutas en Bicicleta' },
@@ -564,7 +681,7 @@ export default function DescubreLista({
                 </div>
               </div>
 
-              {/* 3. TERRENO Y ACCESO */}
+              {/* 4. TERRENO Y ACCESO */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   🛣️ Terreno y Acceso
@@ -605,7 +722,7 @@ export default function DescubreLista({
                 </div>
               </div>
 
-              {/* 4. PUNTUACIÓN */}
+              {/* 5. PUNTUACIÓN */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
                   ⭐ Puntuación Camper Mínima
@@ -669,7 +786,7 @@ export default function DescubreLista({
         </div>
       )}
 
-      {/* LISTA DE LUGARES */}
+      {/* LISTA DE LUGARES EN FORMATO TARJETA CON IMÁGENES Y ALTO CONTRASTE */}
       {cargando ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
           <div className="spinner" style={{ margin: '0 auto 16px auto', width: '36px', height: '36px', border: '3px solid var(--border-color)', borderTopColor: 'var(--accent-forest)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
@@ -695,12 +812,13 @@ export default function DescubreLista({
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '20px',
+            gap: '22px',
             marginBottom: '32px'
           }}>
             {lugaresPaginados.map(lugar => {
               const guardado = lugaresGuardados.some(g => g.id === lugar.id);
-              const tipoInfo = TIPOS_LUGAR_LISTA.find(t => t.id === lugar.tipo_lugar) || { emoji: '🚐', label: lugar.tipo_lugar_display || 'Lugar Camper' };
+              const imagenLugar = lugar.foto_principal || (lugar.fotos && lugar.fotos.length > 0 ? lugar.fotos[0].imagen : null);
+              const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
               const val = parseFloat(lugar.valoracion_media) || 0;
 
               return (
@@ -711,40 +829,83 @@ export default function DescubreLista({
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    padding: '18px',
+                    padding: 0,
+                    overflow: 'hidden',
                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                     border: '1px solid var(--border-color)',
                     background: 'var(--bg-surface)',
-                    borderRadius: 'var(--radius-lg)'
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
                   }}
                 >
-                  <div>
-                    {/* Fila superior: Tipo de Lugar + Precio + Favorito */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  {/* IMAGEN DEL LUGAR O BANNER PAISAJÍSTICO */}
+                  <div style={{ position: 'relative', width: '100%', height: '170px', background: '#0D1A12', overflow: 'hidden' }}>
+                    {imagenLugar ? (
+                      <img 
+                        src={imagenLugar} 
+                        alt={lugar.nombre} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(135deg, #193f28 0%, #0c2014 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <span style={{ fontSize: '3.2rem', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))' }}>
+                          {EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Gradient Overlay */}
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(to top, rgba(17,24,20,0.85) 0%, transparent 60%)'
+                    }} />
+
+                    {/* Floating Badges */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '12px',
+                      right: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      zIndex: 2
+                    }}>
                       <span style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '5px',
-                        background: 'rgba(35, 83, 52, 0.12)',
-                        color: 'var(--accent-forest)',
-                        border: '1px solid var(--accent-forest)',
+                        background: 'rgba(20, 32, 24, 0.90)',
+                        color: '#6EE7B7',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        backdropFilter: 'blur(10px)',
                         borderRadius: 'var(--radius-full)',
                         padding: '3px 10px',
                         fontSize: '0.74rem',
-                        fontWeight: 800
+                        fontWeight: 800,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
                       }}>
-                        <span>{tipoInfo.emoji}</span>
-                        <span>{lugar.tipo_lugar_display || tipoInfo.label}</span>
+                        {etiquetaTipo}
                       </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{
                           fontSize: '0.76rem',
-                          fontWeight: 800,
-                          color: lugar.es_gratuito ? '#059669' : '#D97706',
-                          background: lugar.es_gratuito ? 'rgba(5,150,105,0.1)' : 'rgba(217,119,6,0.1)',
-                          padding: '3px 8px',
-                          borderRadius: '4px'
+                          fontWeight: 900,
+                          color: lugar.es_gratuito ? '#34D399' : '#FBBF24',
+                          background: 'rgba(20, 32, 24, 0.90)',
+                          backdropFilter: 'blur(10px)',
+                          padding: '3px 9px',
+                          borderRadius: '6px',
+                          border: lugar.es_gratuito ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(251, 191, 36, 0.4)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
                         }}>
                           {lugar.es_gratuito ? 'Gratis' : `${lugar.precio_noche || '0'} €/n`}
                         </span>
@@ -753,104 +914,118 @@ export default function DescubreLista({
                           onClick={() => alternarGuardado(lugar)}
                           title={guardado ? 'Quitar de guardados' : 'Guardar lugar para ir'}
                           style={{
-                            background: 'none',
-                            border: 'none',
+                            background: 'rgba(20, 32, 24, 0.90)',
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             cursor: 'pointer',
-                            color: guardado ? 'var(--accent-forest)' : 'var(--text-secondary)',
-                            padding: '4px'
+                            color: guardado ? '#10B981' : '#FFFFFF',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
                           }}
                         >
-                          <Bookmark size={18} fill={guardado ? 'currentColor' : 'none'} />
+                          <Bookmark size={16} fill={guardado ? 'currentColor' : 'none'} />
                         </button>
                       </div>
                     </div>
-
-                    {/* Nombre y Población */}
-                    <h3
-                      onClick={() => alSeleccionarLugar(lugar.id)}
-                      style={{
-                        margin: '0 0 4px 0',
-                        fontSize: '1.15rem',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        color: 'var(--text-primary)'
-                      }}
-                    >
-                      {lugar.nombre}
-                    </h3>
-
-                    <p style={{ margin: '0 0 10px 0', fontSize: '0.80rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={13} /> {lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}
-                    </p>
-
-                    {/* Puntuación Camper */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                      <CamperIconRating rating={val} maxIcons={5} size={15} />
-                      <span style={{ fontWeight: 800, fontSize: '0.84rem' }}>
-                        {val > 0 ? val.toFixed(1) : 'Sin valoraciones'}
-                      </span>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                        ({lugar.total_valoraciones || 0} reviews)
-                      </span>
-                    </div>
-
-                    {/* Descripción breve */}
-                    {lugar.descripcion && (
-                      <p style={{
-                        margin: '0 0 12px 0',
-                        fontSize: '0.82rem',
-                        color: 'var(--text-secondary)',
-                        lineHeight: 1.4,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}>
-                        {lugar.descripcion}
-                      </p>
-                    )}
-
-                    {/* Etiquetas y servicios */}
-                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '16px', fontSize: '0.72rem' }}>
-                      {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>💧 Agua</span>}
-                      {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>⚡ Luz</span>}
-                      {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>🔘 Vaciado</span>}
-                      {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>🐕 Mascotas</span>}
-                      {lugar.ideal_ninos_10_anos && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
-                      {lugar.mucha_sombra && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>🌲 Sombra</span>}
-                      {lugar.muy_soleado_placas && <span style={{ background: 'var(--bg-secondary)', padding: '2px 7px', borderRadius: '4px' }}>☀️ Placas</span>}
-                    </div>
                   </div>
 
-                  {/* Acciones */}
-                  <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                    <button
-                      onClick={() => alSeleccionarLugar(lugar.id)}
-                      className="btn btn-primary btn-sm"
-                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.80rem' }}
-                    >
-                      <Eye size={13} /> Ver Detalle
-                    </button>
+                  {/* CONTENIDO DE LA TARJETA */}
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+                    <div>
+                      {/* Nombre y Población */}
+                      <h3
+                        onClick={() => alSeleccionarLugar(lugar.id)}
+                        style={{
+                          margin: '0 0 4px 0',
+                          fontSize: '1.18rem',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          color: 'var(--text-primary)',
+                          lineHeight: '1.3'
+                        }}
+                      >
+                        {lugar.nombre}
+                      </h3>
 
-                    <button
-                      onClick={() => abrirModalAnadirViaje(lugar)}
-                      className="btn btn-secondary btn-sm"
-                      title="Añadir a ruta o viaje planificado"
-                      style={{ fontSize: '0.80rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Plus size={13} /> Viaje
-                    </button>
+                      <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={14} color="#10B981" /> 
+                        <span>{lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}</span>
+                      </p>
 
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary btn-sm"
-                      title="Navegar con Google Maps"
-                      style={{ fontSize: '0.80rem', padding: '6px 10px', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Navigation size={13} />
-                    </a>
+                      {/* Puntuación Camper */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                        <CamperIconRating rating={val} maxIcons={5} size={15} />
+                        <span style={{ fontWeight: 800, fontSize: '0.86rem' }}>
+                          {val > 0 ? val.toFixed(1) : 'Sin valoraciones'}
+                        </span>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                          ({lugar.total_valoraciones || 0} reviews)
+                        </span>
+                      </div>
+
+                      {/* Descripción breve */}
+                      {lugar.descripcion && (
+                        <p style={{
+                          margin: '0 0 12px 0',
+                          fontSize: '0.83rem',
+                          color: 'var(--text-secondary)',
+                          lineHeight: 1.45,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {lugar.descripcion}
+                        </p>
+                      )}
+
+                      {/* Etiquetas y servicios */}
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '16px', fontSize: '0.73rem' }}>
+                        {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>💧 Agua</span>}
+                        {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>⚡ Luz</span>}
+                        {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>🔘 Vaciado</span>}
+                        {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>🐕 Mascotas</span>}
+                        {(lugar.ideal_familias || lugar.ideal_ninos_10_anos) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
+                        {lugar.mucha_sombra && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>🌲 Sombra</span>}
+                        {(lugar.muy_soleado_placas || lugar.muy_soleado) && <span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>☀️ Placas</span>}
+                      </div>
+                    </div>
+
+                    {/* Acciones */}
+                    <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                      <button
+                        onClick={() => alSeleccionarLugar(lugar.id)}
+                        className="btn btn-primary btn-sm"
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '0.82rem', fontWeight: 800 }}
+                      >
+                        <Eye size={14} /> Ver Detalle
+                      </button>
+
+                      <button
+                        onClick={() => abrirModalAnadirViaje(lugar)}
+                        className="btn btn-secondary btn-sm"
+                        title="Añadir a ruta o viaje planificado"
+                        style={{ fontSize: '0.82rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
+                      >
+                        <Plus size={14} /> Viaje
+                      </button>
+
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        title="Navegar con Google Maps"
+                        style={{ fontSize: '0.82rem', padding: '6px 10px', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Navigation size={14} />
+                      </a>
+                    </div>
                   </div>
 
                 </div>
@@ -893,7 +1068,7 @@ export default function DescubreLista({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
+          background: 'rgba(0, 0, 0, 0.75)',
           backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',

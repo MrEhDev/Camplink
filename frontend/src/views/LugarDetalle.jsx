@@ -468,8 +468,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
               fontSize: '0.84rem',
               fontWeight: 800
             }}>
-              <span>{lugar.tipo_lugar === 'pernocta_libre' ? '🌲' : lugar.tipo_lugar === 'area_autocaravanas' ? '🚐' : lugar.tipo_lugar === 'camping' ? '⛺' : lugar.tipo_lugar === 'parking_urbano' ? '🅿️' : lugar.tipo_lugar === 'area_recreativa' ? '🏞️' : '💧'}</span>
-              <span>{lugar.tipo_lugar_display || 'Lugar Camper'}</span>
+              <span>{lugar.tipo_lugar_display || (lugar.tipo_lugar === 'pernocta_libre' ? '🌲 Pernocta Libre (Naturaleza)' : lugar.tipo_lugar === 'area_autocaravanas' ? '🚐 Área de Autocaravanas' : lugar.tipo_lugar === 'camping' ? '⛺ Camping' : lugar.tipo_lugar === 'parking_urbano' ? '🅿️ Parking Urbano / Mixto' : lugar.tipo_lugar === 'area_recreativa' ? '🏞️ Área Recreativa / Merendero' : '💧 Solo Servicios')}</span>
             </span>
           </div>
 
@@ -621,7 +620,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
                 🌳 Entorno y Ocio
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {lugar.ideal_ninos_10_anos && <span className="badge-camper badge-forest">👨‍👩‍👧 Ideal Familias (Niños ~10 años)</span>}
+                {lugar.ideal_ninos_10_anos && <span className="badge-camper badge-forest">👨‍👩‍👧 Ideal Familias</span>}
                 {lugar.senderismo_cercano && <span className="badge-camper badge-forest">🥾 Senderismo Cercano</span>}
                 {lugar.playa_cercana && <span className="badge-camper badge-forest">🏖️ Playa / Lago / Río</span>}
                 {lugar.rutas_bici && <span className="badge-camper badge-forest">🚴 Rutas en Bicicleta</span>}

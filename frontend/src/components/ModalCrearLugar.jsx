@@ -8,7 +8,7 @@ import { peticionApi } from '../services/api';
 const TIPOS_LUGAR_OPCIONES = [
   { valor: 'pernocta_libre', emoji: '🌲', label: 'Pernocta Libre (Naturaleza)', desc: 'Montaña, bosque, playa o acantilados sin servicios. Cielos oscuros y sin contaminación lumínica.' },
   { valor: 'area_autocaravanas', emoji: '🚐', label: 'Área de Autocaravanas', desc: 'Espacios habilitados específicamente para vehículos vivienda, con servicios de agua y vaciado.' },
-  { valor: 'camping', emoji: '⛺', label: 'Camping', desc: 'Establecimientos de pago con todos los servicios, piscinas y ocio familiar para niños ~10 años.' },
+  { valor: 'camping', emoji: '⛺', label: 'Camping', desc: 'Establecimientos de pago con todos los servicios, piscinas y ocio familiar.' },
   { valor: 'parking_urbano', emoji: '🅿️', label: 'Parking Urbano / Mixto', desc: 'Aparcamientos en pueblos/ciudades. Solo dormir dentro del vehículo (sin desplegar toldos).' },
   { valor: 'area_recreativa', emoji: '🏞️', label: 'Área Recreativa / Merendero', desc: 'Zonas de picnic con mesas de madera, fuentes, barbacoas y senderos.' },
   { valor: 'solo_servicios', emoji: '💧', label: 'Solo Servicios', desc: 'Punto de logística para vaciado de aguas grises/negras y carga de agua limpia (no pernocta).' },

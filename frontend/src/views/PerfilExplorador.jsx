@@ -1,3 +1,4 @@
+import { formatearFecha } from '../i18n/LanguageContext';
 import ModalRecortarFotoPerfil from '../components/ModalRecortarFotoPerfil';
 const formatearUsuario = (u) => {
   if (!u) return '';
@@ -978,8 +979,8 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         )}
 
                         <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          📅 {new Date(viaje.fecha_inicio).toLocaleDateString('es-ES')} 
-                          {viaje.fecha_fin && ` - ${new Date(viaje.fecha_fin).toLocaleDateString('es-ES')}`} 
+                          📅 {formatearFecha(viaje.fecha_inicio)} 
+                          {viaje.fecha_fin && ` - ${formatearFecha(viaje.fecha_fin)}`} 
                           {' • '} <strong>{viaje.km_totales} km</strong>
                           {esPasado && <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>(Viaje pasado)</span>}
                         </div>

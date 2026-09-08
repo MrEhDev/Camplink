@@ -1,3 +1,4 @@
+import { formatearFecha } from '../i18n/LanguageContext';
 // Aquí implemento la vista "Mis Viajes": visualización de estadísticas acumuladas,
 // agrupación cronológica de viajes en ruta y generación del cartel infográfico en PDF.
 
@@ -159,7 +160,7 @@ export default function MisViajes({ alSeleccionarLugar }) {
                       {viaje.titulo}
                     </h3>
                     <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Del {new Date(viaje.fecha_inicio).toLocaleDateString('es-ES')} al {viaje.fecha_fin ? new Date(viaje.fecha_fin).toLocaleDateString('es-ES') : 'En curso'} • {viaje.duracion_dias} días
+                      Del {formatearFecha(viaje.fecha_inicio)} al {viaje.fecha_fin ? formatearFecha(viaje.fecha_fin) : 'En curso'} • {viaje.duracion_dias} días
                     </div>
                   </div>
 

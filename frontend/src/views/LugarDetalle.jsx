@@ -1310,7 +1310,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
                 {misCheckinsLugar.map(ck => ck.notas_privadas ? (
                   <div key={ck.id} style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '6px' }}>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                      📅 Pernocta del {new Date(ck.fecha_llegada).toLocaleDateString('es-ES')} ({ck.dias_previstos} noche{ck.dias_previstos > 1 ? 's' : ''}):
+                      📅 Pernocta del {formatearFecha(ck.fecha_llegada)} ({ck.dias_previstos} noche{ck.dias_previstos > 1 ? 's' : ''}):
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>
                       {ck.notas_privadas}

@@ -7,6 +7,25 @@ import { en } from './en';
 
 const LanguageContext = createContext();
 
+export const formatearFecha = (fecha, idioma = null) => {
+  if (!fecha) return '';
+  const langActivo = idioma || localStorage.getItem('camplink_lang') || 'es';
+  if (typeof fecha === 'string') {
+    const soloFecha = fecha.split('T')[0];
+    const partes = soloFecha.split('-');
+    if (partes.length === 3) {
+      const [yyyy, mm, dd] = partes;
+      return langActivo === 'en' ? `${yyyy}-${mm}-${dd}` : `${dd}-${mm}-${yyyy}`;
+    }
+  }
+  const d = new Date(fecha);
+  if (isNaN(d.getTime())) return String(fecha);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return langActivo === 'en' ? `${yyyy}-${mm}-${dd}` : `${dd}-${mm}-${yyyy}`;
+};
+
 export const LanguageProvider = ({ children }) => {
   // Aquí gestiono el idioma activo guardado en localStorage o detectado del navegador
   const [idioma, setIdioma] = useState(() => {
@@ -26,8 +45,10 @@ export const LanguageProvider = ({ children }) => {
     return traducciones[clave] || fallback || clave;
   };
 
+  const formatearFechaActual = (fecha) => formatearFecha(fecha, idioma);
+
   return (
-    <LanguageContext.Provider value={{ idioma, cambiarIdioma, t }}>
+    <LanguageContext.Provider value={{ idioma, cambiarIdioma, t, formatearFecha: formatearFechaActual }}>
       {children}
     </LanguageContext.Provider>
   );

@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/LanguageContext';
 import { buscarGasolinerasCercanas } from '../services/gasolineras';
 import { 
   Calendar, MapPin, Plus, Route, 
@@ -52,6 +53,135 @@ function ActualizadorVistaMapa({ panelGasolineras }) {
 }
 
 // Función para calcular la escala cromática de gasolineras (Verde = más barata -> Rojo = más cara)
+// Funciones para generación de enlaces y exportación a Google Calendar
+function generarUrlGoogleCalendarParada(parada, viaje, fechaEstimada) {
+  let icono = '🏕️';
+  if (parada.es_base) {
+    icono = (parada.tipo === 'base_salida' || parada.id === 'base-salida') ? '🏠' : '🏁';
+  } else if (parada.tipo === 'gasolinera' || parada.es_repostaje) {
+    icono = '⛽';
+  } else {
+    const iconMap = {
+      pernocta_libre: '🌲',
+      area_autocaravanas: '🚐',
+      camping: '⛺',
+      parking_urbano: '🅿️',
+      area_recreativa: '🏞️',
+      solo_servicios: '💧'
+    };
+    icono = iconMap[parada.tipo_lugar] || '🏕️';
+  }
+  const titulo = `${icono} ${parada.nombre}`;
+
+  const fStr = (parada.fecha_llegada || fechaEstimada || viaje.fecha_inicio || new Date().toISOString().split('T')[0]).split('T')[0];
+  const fechaLimpia = fStr.replace(/-/g, '');
+  const dias = parseInt(parada.dias_previstos || 1, 10);
+
+  const dStart = new Date(fStr);
+  const dEnd = new Date(dStart);
+  dEnd.setDate(dEnd.getDate() + (isNaN(das => dias) ? 1 : dias));
+  const yyyyEnd = dEnd.getFullYear();
+  const mmEnd = String(dEnd.getMonth() + 1).padStart(2, '0');
+  const ddEnd = String(dEnd.getDate()).padStart(2, '0');
+  const fechaFinStr = `${yyyyEnd}${mmEnd}${ddEnd}`;
+
+  const dates = `${fechaLimpia}/${fechaFinStr}`;
+
+  const ubicacion = (parada.latitud != null && parada.longitud != null)
+    ? `https://www.google.com/maps/search/?api=1&query=${parada.latitud},${parada.longitud}`
+    : (parada.direccion || parada.poblacion || '');
+
+  const lineasDesc = [];
+  if (parada.lugar_id) {
+    lineasDesc.push(`🔗 Enlace al lugar: ${window.location.origin}/?lugar=${parada.lugar_id}`);
+  }
+  if (parada.notas_privadas) {
+    lineasDesc.push(`📝 Mis notas personales: ${parada.notas_privadas}`);
+  }
+  if (parada.tipo === 'gasolinera' && parada.precio) {
+    lineasDesc.push(`⛽ Precio combustible: ${parada.precio} €/L`);
+    if (parada.tipo_combustible) lineasDesc.push(`Tipo: ${parada.tipo_combustible}`);
+  }
+  if (parada.equipamiento && parada.equipamiento.length > 0) {
+    lineasDesc.push(`🛠️ Equipamiento: ${parada.equipamiento.join(', ')}`);
+  }
+  if (parada.entorno && parada.entorno.length > 0) {
+    lineasDesc.push(`🌲 Entorno: ${parada.entorno.join(', ')}`);
+  }
+  if (parada.acceso && parada.acceso.length > 0) {
+    lineasDesc.push(`🛣️ Acceso y terreno: ${parada.acceso.join(', ')}`);
+  }
+  if (parada.latitud != null && parada.longitud != null) {
+    lineasDesc.push(`📍 Navegación GPS: https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`);
+  }
+  lineasDesc.push(`🚐 Itinerario: ${viaje.titulo} (Camplink)`);
+
+  const details = lineasDesc.join('\n\n');
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dates}&location=${encodeURIComponent(ubicacion)}&details=${encodeURIComponent(details)}`;
+}
+
+function exportarItinerarioGoogleCalendar(viaje, paradas) {
+  let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Camplink//Itinerario Nomada//ES\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
+  let fechaCursor = viaje.fecha_inicio ? new Date(viaje.fecha_inicio.split('T')[0]) : new Date();
+
+  paradas.forEach((p, idx) => {
+    let fInicio = p.fecha_llegada ? new Date(p.fecha_llegada.split('T')[0]) : new Date(fechaCursor);
+    const dias = parseInt(p.dias_previstos || 1, 10);
+    let fFin = new Date(fInicio);
+    fFin.setDate(fFin.getDate() + dias);
+
+    const fInicioStr = fInicio.toISOString().split('T')[0].replace(/-/g, '');
+    const fFinStr = fFin.toISOString().split('T')[0].replace(/-/g, '');
+
+    let icono = '🏕️';
+    if (p.es_base) icono = (p.tipo === 'base_salida' || p.id === 'base-salida') ? '🏠' : '🏁';
+    else if (p.tipo === 'gasolinera') icono = '⛽';
+
+    const summary = `${icono} ${p.nombre}`;
+    const location = (p.latitud != null && p.longitud != null) 
+      ? `https://www.google.com/maps/search/?api=1&query=${p.latitud},${p.longitud}` 
+      : (p.direccion || p.poblacion || '');
+
+    const lineas = [];
+    if (p.lugar_id) lineas.push(`Enlace: ${window.location.origin}/?lugar=${p.lugar_id}`);
+    if (p.notas_privadas) lineas.push(`Notas personales: ${p.notas_privadas}`);
+    if (p.tipo === 'gasolinera' && p.precio) lineas.push(`Precio: ${p.precio} €/L`);
+    if (p.equipamiento?.length) lineas.push(`Equipamiento: ${p.equipamiento.join(', ')}`);
+    if (p.entorno?.length) lineas.push(`Entorno: ${p.entorno.join(', ')}`);
+    if (p.acceso?.length) lineas.push(`Acceso: ${p.acceso.join(', ')}`);
+
+    const desc = lineas.join('\n\n');
+
+    icsContent += "BEGIN:VEVENT\r\n";
+    icsContent += `UID:camplink-${viaje.id}-${idx}-${Date.now()}@camplink.es\r\n`;
+    icsContent += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\r\n`;
+    icsContent += `DTSTART;VALUE=DATE:${fInicioStr}\r\n`;
+    icsContent += `DTEND;VALUE=DATE:${fFinStr}\r\n`;
+    icsContent += `SUMMARY:${summary}\r\n`;
+    icsContent += `LOCATION:${location}\r\n`;
+    icsContent += `DESCRIPTION:${desc}\r\n`;
+    icsContent += "STATUS:CONFIRMED\r\n";
+    icsContent += "END:VEVENT\r\n";
+
+    if (!p.fecha_llegada) {
+      fechaCursor = new Date(fFin);
+    }
+  });
+
+  icsContent += "END:VCALENDAR\r\n";
+
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', `${(viaje.titulo || 'viaje').replace(/\s+/g, '_')}_itinerario.ics`);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
 function calcularColorGasolinera(precio, minPrecio, maxPrecio) {
   if (precio == null || minPrecio == null || maxPrecio == null || minPrecio >= maxPrecio) {
     return '#10B981'; // Verde por defecto si tienen el mismo coste
@@ -197,6 +327,7 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
 
 export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abrirRadar }) {
   const { usuario } = useAuth();
+  const { idioma, formatearFecha } = useTranslation();
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
 
@@ -535,6 +666,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         dias_previstos: p.dias || p.dias_previstos || 1,
         notas_privadas: p.notas_privadas || '',
         tipo: p.tipo || 'parada',
+        tipo_lugar: p.tipo_lugar || 'pernocta_libre',
+        equipamiento: p.equipamiento || [],
+        entorno: p.entorno || [],
+        acceso: p.acceso || [],
         es_repostaje: p.es_repostaje || false,
         es_base: p.es_base || p.tipo === 'base' || p.tipo === 'base_salida' || p.tipo === 'base_vuelta',
         precio: p.precio,
@@ -553,6 +688,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         dias_previstos: ch.dias_previstos || 1,
         notas_privadas: ch.notas_privadas || '',
         tipo: 'parada',
+        tipo_lugar: ch.tipo_lugar || 'pernocta_libre',
+        equipamiento: ch.equipamiento || [],
+        entorno: ch.entorno || [],
+        acceso: ch.acceso || [],
         es_repostaje: false,
         es_base: false
       }));
@@ -923,6 +1062,14 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
             const consMedio = parseFloat(usuario?.consumo_medio_l_100km || usuario?.consumo_medio || usuario?.consumo_medio_l_km || 6.5);
             const autonomiaEstimada = Math.round((capDeposito / consMedio) * 100);
 
+            // Coste aproximado en combustible para este viaje
+            const litrosEstimados = (kmTotalesViaje * consMedio) / 100;
+            const preciosGas = paradas.filter(p => p.tipo === 'gasolinera' && p.precio).map(p => parseFloat(p.precio));
+            const precioMedioLitro = preciosGas.length > 0
+              ? (preciosGas.reduce((a, b) => a + b, 0) / preciosGas.length)
+              : (usuario?.tipo_combustible === 'gasolina_95' ? 1.54 : usuario?.tipo_combustible === 'gasolina_98' ? 1.68 : usuario?.tipo_combustible === 'glp' ? 0.94 : 1.39);
+            const costeCombustibleEstimado = Math.round(litrosEstimados * precioMedioLitro);
+
             // Identificar índices de inicio y fin para bloquear reordenación fuera de límites
             const primerIndiceMovible = paradas.findIndex(p => !p.es_base);
             const ultimoIndiceMovible = paradas.length - 1 - [...paradas].reverse().findIndex(p => !p.es_base);
@@ -999,13 +1146,33 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                       )}
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', flexWrap: 'wrap' }}>
-                        <span>📅 Salida: {new Date(viaje.fecha_inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>📅 Salida: {formatearFecha(viaje.fecha_inicio)}</span>
                         {viaje.fecha_fin && (
-                          <span>🏁 Regreso: {new Date(viaje.fecha_fin).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span>🏁 Regreso: {formatearFecha(viaje.fecha_fin)}</span>
                         )}
                         <span style={{ fontWeight: 700, color: 'var(--accent-forest)' }}>
                           🛣️ {kmTotalesViaje} km de ruta estimados
                         </span>
+                        <span style={{ fontWeight: 700, color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          ⛽ ~{costeCombustibleEstimado} € en combustible aprox.
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => exportarItinerarioGoogleCalendar(viaje, paradas)}
+                          title="Descargar archivo de calendario (.ics) para importar todo el itinerario a Google Calendar"
+                          style={{
+                            fontSize: '0.74rem',
+                            padding: '3px 8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: 700
+                          }}
+                        >
+                          <Calendar size={13} color="var(--accent-forest)" />
+                          <span>Añadir todo a Calendar</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1554,8 +1721,8 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       justifyContent: 'space-between',
                                       padding: '12px 16px',
                                       borderRadius: 'var(--radius-md)',
-                                      background: esSalida ? 'rgba(35, 83, 52, 0.08)' : 'rgba(217, 119, 6, 0.08)',
-                                      border: `1.5px dashed ${esSalida ? 'var(--accent-forest)' : 'var(--accent-gold)'}`,
+                                      background: 'rgba(35, 83, 52, 0.08)',
+                                      border: '1.5px dashed var(--accent-forest)',
                                       gap: '12px',
                                       flexWrap: 'wrap'
                                     }}>
@@ -1564,7 +1731,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                           width: '36px',
                                           height: '36px',
                                           borderRadius: '50%',
-                                          background: esSalida ? 'var(--accent-forest)' : 'var(--accent-gold)',
+                                          background: 'var(--accent-forest)',
                                           color: '#fff',
                                           display: 'flex',
                                           alignItems: 'center',
@@ -1576,7 +1743,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         <div>
                                           <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span>{parada.nombre}</span>
-                                            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 'var(--radius-full)', background: esSalida ? 'rgba(35,83,52,0.18)' : 'rgba(217,119,6,0.18)', color: esSalida ? 'var(--accent-forest)' : 'var(--accent-gold)' }}>
+                                            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(35,83,52,0.18)', color: 'var(--accent-forest)' }}>
                                               {esSalida ? 'Punto de Partida' : 'Retorno a Base'}
                                             </span>
                                           </div>
@@ -1587,8 +1754,54 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         </div>
                                       </div>
 
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        {/* Abrir en GPS */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {/* Radar */}
+                                        {parada.latitud != null && parada.longitud != null && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
+                                            style={{
+                                              fontSize: '0.84rem',
+                                              fontWeight: 700,
+                                              padding: '6px 12px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              borderRadius: 'var(--radius-sm)'
+                                            }}
+                                            title={`Abrir Radar Nómada en ${parada.nombre}`}
+                                          >
+                                            <Radar size={15} color="var(--accent-earth)" />
+                                            <span>Radar</span>
+                                          </button>
+                                        )}
+
+                                        {/* Calendario Google */}
+                                        <a
+                                          href={generarUrlGoogleCalendarParada(parada, viaje)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={(e) => e.stopPropagation()}
+                                          title={`Añadir ${parada.nombre} a Google Calendar`}
+                                          style={{
+                                            fontSize: '0.84rem',
+                                            fontWeight: 700,
+                                            padding: '6px 12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            textDecoration: 'none',
+                                            color: 'var(--text-primary)',
+                                            borderRadius: 'var(--radius-sm)'
+                                          }}
+                                        >
+                                          <Calendar size={15} color="var(--accent-earth)" />
+                                          <span>Calendario</span>
+                                        </a>
+
+                                        {/* Ir */}
                                         {parada.latitud != null && parada.longitud != null && (
                                           <a
                                             href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
@@ -1597,27 +1810,22 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             className="btn btn-secondary btn-sm"
                                             onClick={(e) => e.stopPropagation()}
                                             title={`Abrir navegación GPS hasta ${parada.nombre}`}
-                                            style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                                            style={{
+                                              fontSize: '0.84rem',
+                                              fontWeight: 700,
+                                              padding: '6px 12px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              textDecoration: 'none',
+                                              color: 'var(--text-primary)',
+                                              borderRadius: 'var(--radius-sm)'
+                                            }}
                                           >
-                                            <Navigation size={13} color="var(--accent-forest)" />
+                                            <Navigation size={15} color="var(--accent-forest)" />
                                             <span>Ir</span>
                                           </a>
                                         )}
-
-                                        {/* Radar centrado en Base */}
-                                        {parada.latitud != null && parada.longitud != null && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
-                                            style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                          >
-                                            <Radar size={13} color="var(--accent-earth)" />
-                                            <span>Radar Base</span>
-                                          </button>
-                                        )}
-
-
                                       </div>
                                     </div>
                                     {renderPanelGasolineras(`parada-${idx}`)}
@@ -1883,11 +2091,29 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             + {distTramo} km
                                           </span>
 
+                                          {/* Badge en gasolineras: km acumulados desde el último repostaje */}
+                                          {parada.tipo === 'gasolinera' && (
+                                            <span style={{
+                                              fontSize: '0.74rem',
+                                              background: 'rgba(217, 119, 6, 0.14)',
+                                              color: '#D97706',
+                                              border: '1px solid rgba(217, 119, 6, 0.35)',
+                                              padding: '1px 7px',
+                                              borderRadius: 'var(--radius-full)',
+                                              fontWeight: 700,
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '3px'
+                                            }}>
+                                              ⛽➡️ {kmHastaEstaParada} km
+                                            </span>
+                                          )}
+
 
                                         </div>
 
                                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                          {parada.poblacion || parada.direccion} • {parada.fecha_llegada ? parada.fecha_llegada.split('T')[0] : 'Sin fecha'}
+                                          {parada.poblacion || parada.direccion} • {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}
                                           {parada.tipo !== 'gasolinera' && ` (${parada.dias_previstos} ${parada.dias_previstos === 1 ? 'noche' : 'noches'})`}
                                           {parada.precio && ` • ${parada.precio} €/L`}
                                         </div>
@@ -1927,6 +2153,30 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                           <span>Radar</span>
                                         </button>
                                       )}
+
+                                      {/* Calendario Google */}
+                                      <a
+                                        href={generarUrlGoogleCalendarParada(parada, viaje)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={`Añadir ${parada.nombre} a Google Calendar`}
+                                        style={{
+                                          fontSize: '0.84rem',
+                                          fontWeight: 700,
+                                          padding: '6px 12px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          textDecoration: 'none',
+                                          color: 'var(--text-primary)',
+                                          borderRadius: 'var(--radius-sm)'
+                                        }}
+                                      >
+                                        <Calendar size={15} color="var(--accent-earth)" />
+                                        <span>Calendario</span>
+                                      </a>
 
                                       {/* Ir */}
                                       {parada.latitud != null && parada.longitud != null && (

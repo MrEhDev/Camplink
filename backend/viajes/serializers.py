@@ -73,11 +73,47 @@ class ViajeSerializer(serializers.ModelSerializer):
         # Aquí obtengo una lista detallada de los check-ins vinculados a este viaje (etapas, fotos, notas privadas si es dueño)
         request = self.context.get('request')
         es_dueno = request and hasattr(request, 'user') and request.user.is_authenticated and (request.user == obj.explorador or request.user.id == obj.explorador_id)
+        def _get_equipamiento(lug):
+            if not lug: return []
+            items = []
+            if getattr(lug, 'tiene_agua', False): items.append('Agua potable')
+            if getattr(lug, 'tiene_electricidad', False): items.append('Electricidad')
+            if getattr(lug, 'tiene_vaciado_aguas_grises', False): items.append('Vaciado aguas grises')
+            if getattr(lug, 'tiene_vaciado_aguas_negras', False): items.append('Vaciado aguas negras (WC)')
+            if getattr(lug, 'tiene_duchas', False): items.append('Duchas')
+            if getattr(lug, 'tiene_lavabo', False): items.append('Lavabos')
+            if getattr(lug, 'tiene_wifi', False): items.append('Wi-Fi')
+            if getattr(lug, 'tiene_basuras', False): items.append('Basuras')
+            return items
+
+        def _get_entorno(lug):
+            if not lug: return []
+            items = []
+            if getattr(lug, 'admite_mascotas', False): items.append('Admite mascotas')
+            if getattr(lug, 'tiene_senderismo', False): items.append('Senderismo')
+            if getattr(lug, 'playa_cercana', False): items.append('Playa cercana')
+            if getattr(lug, 'rutas_en_bici', False): items.append('Rutas en bici')
+            if getattr(lug, 'ideal_familias', False): items.append('Ideal familias')
+            return items
+
+        def _get_acceso(lug):
+            if not lug: return []
+            items = []
+            if getattr(lug, 'acceso_asfaltado', False): items.append('Acceso asfaltado')
+            if getattr(lug, 'terreno_nivelado', False): items.append('Terreno nivelado')
+            if getattr(lug, 'apto_grandes_autocaravanas', False): items.append('Apto autocaravanas >7m')
+            if getattr(lug, 'permite_sacar_toldo', False): items.append('Permite toldo/mesas')
+            if getattr(lug, 'mucha_sombra', False): items.append('Mucha sombra')
+            if getattr(lug, 'muy_soleado', False): items.append('Muy soleado')
+            return items
+
         return [
             {
                 'id': ch.id,
                 'lugar_id': ch.lugar.id,
                 'lugar_nombre': ch.lugar.nombre,
+                'tipo_lugar': ch.lugar.tipo_lugar,
+                'tipo_lugar_display': ch.lugar.get_tipo_lugar_display(),
                 'poblacion': ch.lugar.poblacion,
                 'provincia': ch.lugar.provincia,
                 'latitud': ch.lugar.latitud,
@@ -88,6 +124,9 @@ class ViajeSerializer(serializers.ModelSerializer):
                 'comentario_publico': ch.comentario_publico,
                 'notas_privadas': ch.notas_privadas if es_dueno else '',
                 'foto': ch.foto.url if ch.foto else None,
+                'equipamiento': _get_equipamiento(ch.lugar),
+                'entorno': _get_entorno(ch.lugar),
+                'acceso': _get_acceso(ch.lugar),
             }
             for ch in obj.checkins_asociados.all().order_by('fecha_llegada')
         ]

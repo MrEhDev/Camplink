@@ -64,6 +64,41 @@ def calcular_distancia_carretera(coordenadas):
     return round(total_km, 1)
 
 
+def _extraer_detalles_lugar(lug):
+    if not lug:
+        return {'equipamiento': [], 'entorno': [], 'acceso': [], 'tipo_lugar': 'pernocta_libre'}
+    equip = []
+    if getattr(lug, 'tiene_agua', False): equip.append('Agua potable')
+    if getattr(lug, 'tiene_electricidad', False): equip.append('Electricidad')
+    if getattr(lug, 'tiene_vaciado_aguas_grises', False): equip.append('Vaciado aguas grises')
+    if getattr(lug, 'tiene_vaciado_aguas_negras', False): equip.append('Vaciado aguas negras (WC)')
+    if getattr(lug, 'tiene_duchas', False): equip.append('Duchas')
+    if getattr(lug, 'tiene_lavabo', False): equip.append('Lavabos')
+    if getattr(lug, 'tiene_wifi', False): equip.append('Wi-Fi')
+    if getattr(lug, 'tiene_basuras', False): equip.append('Basuras')
+
+    ent = []
+    if getattr(lug, 'admite_mascotas', False): ent.append('Admite mascotas')
+    if getattr(lug, 'tiene_senderismo', False): ent.append('Senderismo')
+    if getattr(lug, 'playa_cercana', False): ent.append('Playa cercana')
+    if getattr(lug, 'rutas_en_bici', False): ent.append('Rutas en bici')
+    if getattr(lug, 'ideal_familias', False): ent.append('Ideal familias')
+
+    acc = []
+    if getattr(lug, 'acceso_asfaltado', False): acc.append('Acceso asfaltado')
+    if getattr(lug, 'terreno_nivelado', False): acc.append('Terreno nivelado')
+    if getattr(lug, 'apto_grandes_autocaravanas', False): acc.append('Apto autocaravanas >7m')
+    if getattr(lug, 'permite_sacar_toldo', False): acc.append('Permite toldo/mesas')
+    if getattr(lug, 'mucha_sombra', False): acc.append('Mucha sombra')
+    if getattr(lug, 'muy_soleado', False): acc.append('Muy soleado')
+
+    return {
+        'equipamiento': equip,
+        'entorno': ent,
+        'acceso': acc,
+        'tipo_lugar': getattr(lug, 'tipo_lugar', 'pernocta_libre')
+    }
+
 def recalcular_viaje(viaje):
     # Aquí calculo la ruta integral con salida desde el lugar base y vuelta al mismo para el kilometraje total
     checkins = viaje.checkins_asociados.all().order_by('fecha_llegada')
@@ -102,6 +137,7 @@ def recalcular_viaje(viaje):
         for ch in checkins:
             if ch.id not in ids_presentes:
                 lug = ch.lugar
+                det = _extraer_detalles_lugar(lug)
                 puntos_ruta.append({
                     'nombre': lug.nombre if lug else 'Parada',
                     'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
@@ -111,9 +147,14 @@ def recalcular_viaje(viaje):
                     'fecha': ch.fecha_llegada.strftime('%Y-%m-%d') if ch.fecha_llegada else '',
                     'dias': ch.dias_previstos,
                     'tipo': 'parada',
+                    'tipo_lugar': det['tipo_lugar'],
+                    'equipamiento': det['equipamiento'],
+                    'entorno': det['entorno'],
+                    'acceso': det['acceso'],
                     'lugar_id': lug.id if lug else None,
                     'id': ch.id,
                     'checkin_id': ch.id,
+                    'notas_privadas': ch.notas_privadas or '',
                     'es_repostaje': False,
                     'es_base': False
                 })
@@ -124,6 +165,7 @@ def recalcular_viaje(viaje):
     else:
         for ch in checkins:
             lug = ch.lugar
+            det = _extraer_detalles_lugar(lug)
             puntos_ruta.append({
                 'nombre': lug.nombre if lug else 'Parada',
                 'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
@@ -133,9 +175,14 @@ def recalcular_viaje(viaje):
                 'fecha': ch.fecha_llegada.strftime('%Y-%m-%d') if ch.fecha_llegada else '',
                 'dias': ch.dias_previstos,
                 'tipo': 'parada',
+                'tipo_lugar': det['tipo_lugar'],
+                'equipamiento': det['equipamiento'],
+                'entorno': det['entorno'],
+                'acceso': det['acceso'],
                 'lugar_id': lug.id if lug else None,
                 'id': ch.id,
                 'checkin_id': ch.id,
+                'notas_privadas': ch.notas_privadas or '',
                 'es_repostaje': False,
                 'es_base': False
             })

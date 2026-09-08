@@ -279,9 +279,13 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   };
 
   // BUSCADOR DE GASOLINERAS EN RUTA
-  const abrirBuscadorGasolineras = async (viajeId, tramoIdx, lat, lng, paradaNombre) => {
+  const abrirBuscadorGasolineras = async (viajeId, tramoIdx, lat, lng, paradaNombre, widgetKey = `parada-${tramoIdx}`) => {
     if (!lat || !lng) {
       alert('Coordenadas no disponibles en este punto para buscar gasolineras.');
+      return;
+    }
+    if (panelGasolineras && panelGasolineras.viajeId === viajeId && panelGasolineras.widgetKey === widgetKey) {
+      setPanelGasolineras(null);
       return;
     }
     setPanelGasolineras({
@@ -290,6 +294,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       lat,
       lng,
       paradaNombre,
+      widgetKey,
       cargando: true,
       lista: []
     });
@@ -301,10 +306,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         radioKm: 25,
         tipoCombustible: usuario?.tipo_combustible || 'gasoleo_a'
       });
-      setPanelGasolineras(prev => prev ? { ...prev, cargando: false, lista: resultados } : null);
+      setPanelGasolineras(prev => (prev && prev.widgetKey === widgetKey) ? { ...prev, cargando: false, lista: resultados } : prev);
     } catch (err) {
       console.error('Error buscando gasolineras en tramo:', err);
-      setPanelGasolineras(prev => prev ? { ...prev, cargando: false, lista: [] } : null);
+      setPanelGasolineras(prev => (prev && prev.widgetKey === widgetKey) ? { ...prev, cargando: false, lista: [] } : prev);
     }
   };
 
@@ -618,6 +623,96 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
           {[...viajesFuturos, ...otrosViajesAbiertos].map((viaje) => {
             const expandido = viajesExpandidos[viaje.id] !== false;
             const paradas = obtenerParadasViaje(viaje);
+
+            const renderPanelGasolineras = (widgetKey) => {
+              if (!panelGasolineras || panelGasolineras.viajeId !== viaje.id || panelGasolineras.widgetKey !== widgetKey) {
+                return null;
+              }
+              return (
+                <div className="camper-card" style={{
+                  margin: '10px 0',
+                  padding: '16px',
+                  border: '2px solid #D97706',
+                  background: 'var(--bg-glass)',
+                  boxShadow: 'var(--shadow-glass)',
+                  borderRadius: 'var(--radius-md)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.94rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#D97706' }}>
+                      <Fuel size={17} />
+                      <span>Gasolineras baratas cerca de: <strong>{panelGasolineras.paradaNombre}</strong></span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPanelGasolineras(null);
+                      }}
+                      style={{ width: '28px', height: '28px', cursor: 'pointer' }}
+                      title="Cerrar panel de gasolineras"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {panelGasolineras.cargando ? (
+                    <div style={{ textAlign: 'center', padding: '18px', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
+                      Buscando precios de gasolineras en tiempo real...
+                    </div>
+                  ) : panelGasolineras.lista.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '18px', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
+                      No se encontraron gasolineras cercanas a este punto.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {panelGasolineras.lista.slice(0, 8).map((gas, gIdx) => (
+                        <div
+                          key={gas.id || gIdx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border-color)',
+                            gap: '10px'
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                              {gas.rotulo}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                              {gas.direccion} • {gas.distanciaKm != null ? `${gas.distanciaKm.toFixed(1)} km` : ''}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--accent-forest)' }}>
+                              {gas.precioLitro ? `${gas.precioLitro.toFixed(3)} €/L` : 'Consultar'}
+                            </span>
+
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              style={{ fontSize: '0.74rem', padding: '4px 10px', background: '#D97706', borderColor: '#D97706' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx);
+                              }}
+                            >
+                              ➕ Añadir al viaje
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            };
             const coordsRuta = paradas
               .filter(p => p.latitud != null && p.longitud != null)
               .map(p => [p.latitud, p.longitud]);
@@ -1056,34 +1151,37 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                   <div key={parada.id || `base-${idx}`}>
                                     {/* Advertencia antes del punto de retorno a base si supera el 80% */}
                                     {supera80 && (
-                                      <div style={{
-                                        margin: '0 0 10px 0',
-                                        padding: '12px 16px',
-                                        background: 'rgba(239, 68, 68, 0.12)',
-                                        border: '1.5px solid #EF4444',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: '0.86rem',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        flexWrap: 'wrap',
-                                        gap: '10px'
-                                      }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
-                                          <AlertTriangle size={18} />
-                                          <span>
-                                            <strong>¡Atención Combustible!</strong> Para completar el regreso a base acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu autonomía de {autonomiaEstimada} km). Reposta antes de este tramo.
-                                          </span>
+                                      <>
+                                        <div style={{
+                                          margin: '0 0 10px 0',
+                                          padding: '12px 16px',
+                                          background: 'rgba(239, 68, 68, 0.12)',
+                                          border: '1.5px solid #EF4444',
+                                          borderRadius: 'var(--radius-md)',
+                                          fontSize: '0.86rem',
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'center',
+                                          flexWrap: 'wrap',
+                                          gap: '10px'
+                                        }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                            <AlertTriangle size={18} />
+                                            <span>
+                                              <strong>¡Atención Combustible!</strong> Para completar el regreso a base acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu autonomía de {autonomiaEstimada} km). Reposta antes de este tramo.
+                                            </span>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="btn btn-primary btn-sm"
+                                            style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
+                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre, `alerta-${idx}`)}
+                                          >
+                                            <Fuel size={14} /> Buscar Gasolineras Baratas
+                                          </button>
                                         </div>
-                                        <button
-                                          type="button"
-                                          className="btn btn-primary btn-sm"
-                                          style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
-                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre)}
-                                        >
-                                          <Fuel size={14} /> Buscar Gasolineras Baratas
-                                        </button>
-                                      </div>
+                                        {renderPanelGasolineras(`alerta-${idx}`)}
+                                      </>
                                     )}
 
                                     <div style={{
@@ -1138,6 +1236,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         </button>
                                       )}
                                     </div>
+                                    {renderPanelGasolineras(`parada-${idx}`)}
                                   </div>
                                 );
                               }
@@ -1152,34 +1251,37 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                 <div key={parada.id || `parada-${idx}`}>
                                   {/* ADVERTENCIA DE COMBUSTIBLE ANTES DE LA PARADA DONDE SE SUPERA EL 80% */}
                                   {supera80 && (
-                                    <div style={{
-                                      margin: '0 0 10px 0',
-                                      padding: '12px 16px',
-                                      background: 'rgba(239, 68, 68, 0.12)',
-                                      border: '1.5px solid #EF4444',
-                                      borderRadius: 'var(--radius-md)',
-                                      fontSize: '0.86rem',
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      alignItems: 'center',
-                                      flexWrap: 'wrap',
-                                      gap: '10px'
-                                    }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
-                                        <AlertTriangle size={18} />
-                                        <span>
-                                          <strong>¡Atención Combustible!</strong> Para llegar a <strong>{parada.nombre}</strong> acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu previsión de {autonomiaEstimada} km). Recomendamos hacer una parada de repostaje aquí.
-                                        </span>
+                                    <>
+                                      <div style={{
+                                        margin: '0 0 10px 0',
+                                        padding: '12px 16px',
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1.5px solid #EF4444',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontSize: '0.86rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        gap: '10px'
+                                      }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                          <AlertTriangle size={18} />
+                                          <span>
+                                            <strong>¡Atención Combustible!</strong> Para llegar a <strong>{parada.nombre}</strong> acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu previsión de {autonomiaEstimada} km). Recomendamos hacer una parada de repostaje aquí.
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="btn btn-primary btn-sm"
+                                          style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
+                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre, `alerta-${idx}`)}
+                                        >
+                                          <Fuel size={14} /> Buscar Gasolineras Baratas
+                                        </button>
                                       </div>
-                                      <button
-                                        type="button"
-                                        className="btn btn-primary btn-sm"
-                                        style={{ fontSize: '0.78rem', padding: '6px 12px', background: '#D97706', borderColor: '#D97706' }}
-                                        onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, paradas[idx-1]?.latitud, paradas[idx-1]?.longitud, paradas[idx-1]?.nombre)}
-                                      >
-                                        <Fuel size={14} /> Buscar Gasolineras Baratas
-                                      </button>
-                                    </div>
+                                      {renderPanelGasolineras(`alerta-${idx}`)}
+                                    </>
                                   )}
 
                                   <div
@@ -1373,7 +1475,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                           className="btn btn-secondary btn-sm"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre);
+                                            abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre, `parada-${idx}`);
                                           }}
                                           title="Buscar gasolineras baratas cerca de esta etapa"
                                           style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -1398,6 +1500,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       </button>
                                     </div>
                                   </div>
+                                  {renderPanelGasolineras(`parada-${idx}`)}
                                 </div>
                               );
                             });
@@ -1405,84 +1508,6 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                         </div>
                       )}
                     </div>
-
-                    {/* PANEL FLOTANTE DE GASOLINERAS BARATAS EN RUTA */}
-                    {panelGasolineras && panelGasolineras.viajeId === viaje.id && (
-                      <div className="camper-card" style={{
-                        marginTop: '16px',
-                        padding: '18px',
-                        border: '2px solid #D97706',
-                        background: 'var(--bg-glass)',
-                        boxShadow: 'var(--shadow-glass)'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <div style={{ fontWeight: 800, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#D97706' }}>
-                            <Fuel size={18} />
-                            <span>Gasolineras baratas cerca de: {panelGasolineras.paradaNombre}</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            onClick={() => setPanelGasolineras(null)}
-                            style={{ width: '28px', height: '28px' }}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-
-                        {panelGasolineras.cargando ? (
-                          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-                            Buscando precios de gasolineras en tiempo real...
-                          </div>
-                        ) : panelGasolineras.lista.length === 0 ? (
-                          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-                            No se encontraron gasolineras cercanas a este punto.
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
-                            {panelGasolineras.lista.slice(0, 8).map((gas, gIdx) => (
-                              <div
-                                key={gas.id || gIdx}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  padding: '8px 12px',
-                                  background: 'rgba(255, 255, 255, 0.04)',
-                                  borderRadius: 'var(--radius-sm)',
-                                  border: '1px solid var(--border-color)',
-                                  gap: '10px'
-                                }}
-                              >
-                                <div>
-                                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                                    {gas.rotulo}
-                                  </div>
-                                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                                    {gas.direccion} • {gas.distanciaKm != null ? `${gas.distanciaKm.toFixed(1)} km` : ''}
-                                  </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--accent-forest)' }}>
-                                    {gas.precioLitro ? `${gas.precioLitro.toFixed(3)} €/L` : 'Consultar'}
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-primary btn-sm"
-                                    style={{ fontSize: '0.74rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
-                                    onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
-                                  >
-                                    ➕ Añadir al viaje
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

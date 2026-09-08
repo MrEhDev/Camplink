@@ -88,12 +88,13 @@ function generarUrlGoogleCalendarParada(parada, viaje, fechaEstimada) {
   const dates = `${fechaLimpia}/${fechaFinStr}`;
 
   const ubicacion = (parada.latitud != null && parada.longitud != null)
-    ? `https://www.google.com/maps/search/?api=1&query=${parada.latitud},${parada.longitud}`
+    ? `${parada.latitud},${parada.longitud}`
     : (parada.direccion || parada.poblacion || '');
 
   const lineasDesc = [];
   if (parada.lugar_id) {
-    lineasDesc.push(`🔗 Enlace al lugar: ${window.location.origin}/?lugar=${parada.lugar_id}`);
+    const urlLugar = `${window.location.origin}/?lugar=${parada.lugar_id}`;
+    lineasDesc.push(`🔗 Enlace al lugar: <a href="${urlLugar}">${urlLugar}</a>`);
   }
   if (parada.notas_privadas) {
     lineasDesc.push(`📝 Mis notas personales: ${parada.notas_privadas}`);
@@ -112,7 +113,8 @@ function generarUrlGoogleCalendarParada(parada, viaje, fechaEstimada) {
     lineasDesc.push(`🛣️ Acceso y terreno: ${parada.acceso.join(', ')}`);
   }
   if (parada.latitud != null && parada.longitud != null) {
-    lineasDesc.push(`📍 Navegación GPS: https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`);
+    const urlGps = `https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`;
+    lineasDesc.push(`📍 Navegación GPS: <a href="${urlGps}">${urlGps}</a>`);
   }
   lineasDesc.push(`🚐 Itinerario: ${viaje.titulo} (Camplink)`);
 
@@ -1156,23 +1158,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                         <span style={{ fontWeight: 700, color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           ⛽ ~{costeCombustibleEstimado} € en combustible aprox.
                         </span>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => exportarItinerarioGoogleCalendar(viaje, paradas)}
-                          title="Descargar archivo de calendario (.ics) para importar todo el itinerario a Google Calendar"
-                          style={{
-                            fontSize: '0.74rem',
-                            padding: '3px 8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontWeight: 700
-                          }}
-                        >
-                          <Calendar size={13} color="var(--accent-forest)" />
-                          <span>Añadir todo a Calendar</span>
-                        </button>
+
                       </div>
                     </div>
                   </div>
@@ -1387,9 +1373,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                           <span>Itinerario de Etapas ({paradas.filter(p => !p.es_base).length} paradas planificadas):</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                            Usa las flechas ⬆⬇ para ordenar tu ruta
-                          </span>
+
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
@@ -1407,7 +1391,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                             title="Buscar spots, áreas camper y pueblos para añadirlos a este viaje"
                           >
                             <Plus size={14} />
-                            <span>{buscadorLugarAbierto[viaje.id] ? 'Cerrar Buscador' : 'Añadir Parada (Buscar Lugar)'}</span>
+                            <span>{buscadorLugarAbierto[viaje.id] ? 'Cerrar Buscador' : 'Añadir Parada'}</span>
                           </button>
                         </div>
                       </div>
@@ -1777,29 +1761,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                           </button>
                                         )}
 
-                                        {/* Calendario Google */}
-                                        <a
-                                          href={generarUrlGoogleCalendarParada(parada, viaje)}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title={`Añadir ${parada.nombre} a Google Calendar`}
-                                          style={{
-                                            fontSize: '0.84rem',
-                                            fontWeight: 700,
-                                            padding: '6px 12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            textDecoration: 'none',
-                                            color: 'var(--text-primary)',
-                                            borderRadius: 'var(--radius-sm)'
-                                          }}
-                                        >
-                                          <Calendar size={15} color="var(--accent-earth)" />
-                                          <span>Calendario</span>
-                                        </a>
+
 
                                         {/* Ir */}
                                         {parada.latitud != null && parada.longitud != null && (
@@ -2165,17 +2127,16 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         style={{
                                           fontSize: '0.84rem',
                                           fontWeight: 700,
-                                          padding: '6px 12px',
+                                          padding: '6px 10px',
                                           display: 'flex',
                                           alignItems: 'center',
-                                          gap: '6px',
+                                          justifyContent: 'center',
                                           textDecoration: 'none',
                                           color: 'var(--text-primary)',
                                           borderRadius: 'var(--radius-sm)'
                                         }}
                                       >
                                         <Calendar size={15} color="var(--accent-earth)" />
-                                        <span>Calendario</span>
                                       </a>
 
                                       {/* Ir */}

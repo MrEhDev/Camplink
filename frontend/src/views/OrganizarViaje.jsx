@@ -2241,10 +2241,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                                             title={parada.tipo !== 'gasolinera' ? "Haz clic para modificar la fecha y noches de esta parada" : undefined}
                                           >
-                                            <span>{parada.poblacion || parada.direccion} • 📅 {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}</span>
+                                            <span>{parada.poblacion || parada.direccion} • {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}</span>
                                             {parada.tipo !== 'gasolinera' && (
                                               <span style={{ color: 'var(--accent-forest)', fontWeight: 600 }}>
-                                                ({parada.dias_previstos} {parada.dias_previstos === 1 ? 'noche' : 'noches'} ✏️)
+                                                ({parada.dias_previstos} {parada.dias_previstos === 1 ? 'noche' : 'noches'})
                                               </span>
                                             )}
                                             {parada.precio && <span> • ⛽ {parada.precio} €/L</span>}

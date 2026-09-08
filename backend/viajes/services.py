@@ -118,24 +118,16 @@ def recalcular_viaje(viaje):
             lat_base = float(lug_pob.latitud)
             lng_base = float(lug_pob.longitud)
 
-    if lat_base and lng_base:
-        puntos_ruta.append({
-            'nombre': f'Salida: {lugar_base_nombre}',
-            'lat': lat_base,
-            'lng': lng_base,
-            'tipo': 'base_salida',
-            'es_base': True
-        })
-
     comunidades = set()
     paises = set()
+    puntos_intermedios = []
 
     # Si ya tiene un resumen_ruta personalizado (con gasolineras reordenadas), conservamos las etapas intermedias
     if viaje.resumen_ruta:
         ids_presentes = set()
         for p in viaje.resumen_ruta:
             if p.get('tipo') not in ['base', 'base_salida', 'base_vuelta']:
-                puntos_ruta.append(p)
+                puntos_intermedios.append(p)
                 if p.get('provincia'):
                     comunidades.add(p.get('provincia'))
                 if p.get('id'):
@@ -147,7 +139,7 @@ def recalcular_viaje(viaje):
             if ch.id not in ids_presentes:
                 lug = ch.lugar
                 det = _extraer_detalles_lugar(lug)
-                puntos_ruta.append({
+                puntos_intermedios.append({
                     'nombre': lug.nombre if lug else 'Parada',
                     'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
                     'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
@@ -175,7 +167,7 @@ def recalcular_viaje(viaje):
         for ch in checkins:
             lug = ch.lugar
             det = _extraer_detalles_lugar(lug)
-            puntos_ruta.append({
+            puntos_intermedios.append({
                 'nombre': lug.nombre if lug else 'Parada',
                 'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
                 'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
@@ -200,8 +192,23 @@ def recalcular_viaje(viaje):
             if lug and lug.pais:
                 paises.add(lug.pais)
 
+    # Ordenar las paradas intermedias respetando estrictamente el orden cronológico de fechas
+    puntos_intermedios.sort(key=lambda x: str(x.get('fecha') or x.get('fecha_llegada') or '9999-99-99'))
+
+    puntos_ruta = []
+    if lat_base and lng_base:
+        puntos_ruta.append({
+            'nombre': f'Salida: {lugar_base_nombre}',
+            'lat': lat_base,
+            'lng': lng_base,
+            'tipo': 'base_salida',
+            'es_base': True
+        })
+
+    puntos_ruta.extend(puntos_intermedios)
+
     # Añadimos el retorno final a la base camper para cerrar la ruta y contabilizar la vuelta
-    if lat_base and lng_base and len(puntos_ruta) > 1:
+    if lat_base and lng_base and len(puntos_intermedios) > 0:
         puntos_ruta.append({
             'nombre': f'Vuelta: {lugar_base_nombre}',
             'lat': lat_base,

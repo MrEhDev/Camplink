@@ -117,7 +117,7 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
               disabled={generandoPdf}
               style={{ fontWeight: 700, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Download size={16} /> {generandoPdf ? 'Maquetando PDF A4...' : 'Descargar Recuerdo A4 📄'}
+              <Download size={16} /> {generandoPdf ? 'Maquetando PDF...' : 'Descargar'}
             </button>
             <button className="btn-icon" onClick={alCerrar} title="Cerrar ventana">
               <X size={20} />
@@ -232,7 +232,7 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
               </div>
 
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '0.72rem', color: '#889E90', textTransform: 'uppercase', fontWeight: 700 }}>CC.AA. & Países</div>
+                <div style={{ fontSize: '0.72rem', color: '#889E90', textTransform: 'uppercase', fontWeight: 700 }}>CC.AA. visitadas</div>
                 <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#FB7185', marginTop: '3px' }}>
                   {viaje.comunidades_visitadas?.length || 1}
                 </div>

@@ -253,6 +253,16 @@ class ViajeViewSet(viewsets.ModelViewSet):
         if lat is None or lng is None:
             return Response({'error': 'Coordenadas requeridas.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not viaje.resumen_ruta:
+            from viajes.services import recalcular_viaje
+            recalcular_viaje(viaje)
+            viaje.refresh_from_db()
+
+        ruta = list(viaje.resumen_ruta or [])
+        fecha_gas = viaje.fecha_inicio.strftime('%Y-%m-%d') if hasattr(viaje.fecha_inicio, 'strftime') else str(viaje.fecha_inicio)
+        if despues_de is not None and 0 <= int(despues_de) < len(ruta):
+            fecha_gas = ruta[int(despues_de)].get('fecha') or fecha_gas
+
         nueva_parada = {
             'nombre': f'⛽ {nombre}',
             'lat': float(lat),
@@ -262,15 +272,9 @@ class ViajeViewSet(viewsets.ModelViewSet):
             'tipo_combustible': tipo_combustible,
             'tipo': 'gasolinera',
             'es_repostaje': True,
-            'fecha': viaje.fecha_inicio.strftime('%Y-%m-%d') if hasattr(viaje.fecha_inicio, 'strftime') else str(viaje.fecha_inicio)
+            'fecha': fecha_gas
         }
 
-        if not viaje.resumen_ruta:
-            from viajes.services import recalcular_viaje
-            recalcular_viaje(viaje)
-            viaje.refresh_from_db()
-
-        ruta = list(viaje.resumen_ruta or [])
         if despues_de is not None and 0 <= int(despues_de) < len(ruta):
             ruta.insert(int(despues_de) + 1, nueva_parada)
         else:
@@ -370,14 +374,21 @@ def mis_estadisticas_vista(request):
 
     comunidades = set()
     paises = set()
+    lugares_visitados_set = set(c.lugar_id for c in checkins_usuario if c.lugar_id)
     for v in viajes_usuario:
         for c in v.comunidades_visitadas:
             comunidades.add(c)
         for p in v.paises_visitados:
             paises.add(p)
+        for p in (v.resumen_ruta or []):
+            if p.get('lugar_id'):
+                lugares_visitados_set.add(p.get('lugar_id'))
 
     trofeos_ganados = TrofeoExplorador.objects.filter(explorador=explorador).count()
     total_trofeos = Trofeo.objects.count()
+
+    from .services import calcular_metricas_usuario
+    metricas = calcular_metricas_usuario(explorador)
 
     datos = {
         'explorador': {
@@ -394,6 +405,10 @@ def mis_estadisticas_vista(request):
             'dias_totales': dias_totales,
             'total_pernoctas': checkins_usuario.count(),
             'total_lugares_aportados': lugares_creados,
+            'total_lugares_visitados': len(lugares_visitados_set) or checkins_usuario.count(),
+            'total_publicaciones_diario': metricas.get('pluma_bitacora', 0),
+            'total_valoraciones': metricas.get('el_critico', 0),
+            'total_fotos': metricas.get('ojo_halcon', 0),
             'total_viajes': viajes_usuario.count(),
             'total_comunidades': len(comunidades),
             'comunidades_lista': sorted(list(comunidades)),

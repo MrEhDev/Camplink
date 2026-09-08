@@ -16,6 +16,7 @@ import L from 'leaflet';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ModalViajeDetallePdf from '../components/ModalViajeDetallePdf';
+import ModalResumenViajes from '../components/ModalResumenViajes';
 import { 
   Compass, Award, Truck, MapPin, Calendar, Route, Lock, Eye, EyeOff, 
   Sparkles, Camera, Plus, Trash2, Edit3, 
@@ -153,6 +154,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
 
   // Estados para modal de PDF y copiado GPS
   const [viajeSeleccionadoParaPdf, setViajeSeleccionadoParaPdf] = useState(null);
+  const [mostrarModalResumen, setMostrarModalResumen] = useState(false);
   const [copiadoId, setCopiadoId] = useState(null);
 
   const cargarDatos = async () => {
@@ -897,10 +899,16 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
       {/* PESTAÑA 1: MIS VIAJES Y RUTAS (EXPANDIBLES, CON MAPA Y AVISO REPOSTAJE INTELIGENTE) */}
       {pestañaActiva === 'viajes' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              Historial de rutas y bitácoras de tus lugares en furgo o autocaravana.
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setMostrarModalResumen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="Ver el resumen acumulado de todos tus viajes y estadísticas de explorador"
+            >
+              <Award size={15} color="var(--accent-forest)" /> <span>Resumen de mis viajes</span>
+            </button>
             {alNavegarOrganizar && (
               <button
                 className="btn btn-primary btn-sm"
@@ -908,7 +916,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 title="Planificar próximas escapadas e itinerarios futuros"
               >
-                <Route size={15} /> <span>🗓️ Organizar Viaje Futuro</span>
+                <Route size={15} /> <span>Organizar nuevo viaje</span>
               </button>
             )}
           </div>
@@ -2820,6 +2828,16 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
           viaje={viajeSeleccionadoParaPdf}
           alCerrar={() => setViajeSeleccionadoParaPdf(null)}
           alSeleccionarLugar={alSeleccionarLugar}
+        />
+      )}
+
+      {/* MODAL 5: RESUMEN GLOBAL DE MIS VIAJES */}
+      {mostrarModalResumen && (
+        <ModalResumenViajes
+          viajes={viajes}
+          estadisticas={estadisticasData?.estadisticas || {}}
+          explorador={estadisticasData?.explorador || usuario || {}}
+          alCerrar={() => setMostrarModalResumen(false)}
         />
       )}
     </div>

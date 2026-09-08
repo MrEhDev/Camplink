@@ -729,26 +729,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         </div>
       )}
 
-      {/* BANNER INFORMATIVO */}
-      <div className="camper-card" style={{
-        padding: '16px 20px',
-        marginBottom: '24px',
-        background: 'rgba(35, 83, 52, 0.08)',
-        border: '1px solid rgba(35, 83, 52, 0.25)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '14px'
-      }}>
-        <Sparkles size={24} color="var(--accent-forest)" style={{ flexShrink: 0 }} />
-        <div>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-            ¿Cómo añadir lugares a tu viaje?
-          </div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            Navega al <strong>Mapa</strong> o <strong>Diario</strong>, abre la ficha de cualquier lugar de pernocta y pulsa <strong>"➕ Añadir a Viaje Planificado"</strong>.
-          </div>
-        </div>
-      </div>
+
 
       {/* LISTADO DE VIAJES FUTUROS Y PLANIFICADOS */}
       {cargando ? (
@@ -1636,48 +1617,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                           </button>
                                         )}
 
-                                        {/* Buscar Gasolineras en la ruta de regreso a base */}
-                                        {!esSalida && paradas[idx - 1]?.latitud != null && parada.latitud != null && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              const tramoCoords = legsOSRM[idx - 1]?.coords;
-                                              let latBusqueda = latPunto80;
-                                              let lngBusqueda = lngPunto80;
-                                              if (!latBusqueda || !lngBusqueda) {
-                                                if (tramoCoords && tramoCoords.length > 0) {
-                                                  const midIdx = Math.floor(tramoCoords.length * 0.5);
-                                                  latBusqueda = tramoCoords[midIdx][0];
-                                                  lngBusqueda = tramoCoords[midIdx][1];
-                                                } else {
-                                                  latBusqueda = paradas[idx - 1].latitud + 0.5 * (parada.latitud - paradas[idx - 1].latitud);
-                                                  lngBusqueda = paradas[idx - 1].longitud + 0.5 * (parada.longitud - paradas[idx - 1].longitud);
-                                                }
-                                              }
-                                              abrirBuscadorGasolineras(
-                                                viaje.id,
-                                                idx - 1,
-                                                latBusqueda,
-                                                lngBusqueda,
-                                                `Ruta de regreso a ${parada.nombre}`,
-                                                `parada-${idx}`
-                                              );
-                                            }}
-                                            title="Buscar gasolineras en la ruta de regreso a base"
-                                            style={{
-                                              fontSize: '0.76rem',
-                                              padding: '4px 9px',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '4px'
-                                            }}
-                                          >
-                                            <Search size={13} color="#D97706" />
-                                            <span>Gasolineras</span>
-                                          </button>
-                                        )}
+
                                       </div>
                                     </div>
                                     {renderPanelGasolineras(`parada-${idx}`)}
@@ -1943,11 +1883,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             + {distTramo} km
                                           </span>
 
-                                          {parada.es_repostaje && (
-                                            <span style={{ fontSize: '0.72rem', background: '#D97706', color: '#fff', padding: '1px 6px', borderRadius: 'var(--radius-full)' }}>
-                                              ⛽ Repostado
-                                            </span>
-                                          )}
+
                                         </div>
 
                                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -1962,113 +1898,61 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                     <div
                                       style={{
                                         display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '8px',
-                                        alignItems: 'flex-end',
-                                        justifyContent: 'center'
+                                        alignItems: 'center',
+                                        gap: '8px'
                                       }}
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      {/* Fila intermedia: Radar e Ir (de izquierda a derecha, un poco más grandes) */}
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {/* Radar */}
-                                        {parada.latitud != null && parada.longitud != null && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre });
-                                            }}
-                                            title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
-                                            style={{
-                                              fontSize: '0.84rem',
-                                              fontWeight: 700,
-                                              padding: '6px 12px',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '6px',
-                                              borderRadius: 'var(--radius-sm)'
-                                            }}
-                                          >
-                                            <Radar size={15} color="var(--accent-earth)" />
-                                            <span>Radar</span>
-                                          </button>
-                                        )}
-
-                                        {/* Ir */}
-                                        {parada.latitud != null && parada.longitud != null && (
-                                          <a
-                                            href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={(e) => e.stopPropagation()}
-                                            title={`Abrir navegación GPS hasta ${parada.nombre}`}
-                                            style={{
-                                              fontSize: '0.84rem',
-                                              fontWeight: 700,
-                                              padding: '6px 12px',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '6px',
-                                              textDecoration: 'none',
-                                              color: 'var(--text-primary)',
-                                              borderRadius: 'var(--radius-sm)'
-                                            }}
-                                          >
-                                            <Navigation size={15} color="var(--accent-forest)" />
-                                            <span>Ir</span>
-                                          </a>
-                                        )}
-                                      </div>
-
-                                      {/* Fila inferior: Repostado y Gasolineras */}
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {/* Marcar/Desmarcar Repostaje */}
+                                      {/* Radar */}
+                                      {parada.latitud != null && parada.longitud != null && (
                                         <button
                                           type="button"
-                                          className={`btn ${parada.es_repostaje ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                          className="btn btn-secondary btn-sm"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            alternarRepostaje(viaje.id, idx);
+                                            abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre });
                                           }}
-                                          title={parada.es_repostaje ? 'Desmarcar repostaje' : 'Marcar que repostas aquí'}
+                                          title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
                                           style={{
-                                            fontSize: '0.76rem',
-                                            padding: '4px 9px',
+                                            fontSize: '0.84rem',
+                                            fontWeight: 700,
+                                            padding: '6px 12px',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '4px'
+                                            gap: '6px',
+                                            borderRadius: 'var(--radius-sm)'
                                           }}
                                         >
-                                          <Fuel size={13} />
-                                          <span>{parada.es_repostaje ? 'Repostado ✔' : 'Repostar'}</span>
+                                          <Radar size={15} color="var(--accent-earth)" />
+                                          <span>Radar</span>
                                         </button>
+                                      )}
 
-                                        {/* Buscar Gasolineras */}
-                                        {parada.latitud != null && parada.longitud != null && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre, `parada-${idx}`);
-                                            }}
-                                            title="Buscar gasolineras baratas cerca de esta etapa"
-                                            style={{
-                                              fontSize: '0.76rem',
-                                              padding: '4px 9px',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '4px'
-                                            }}
-                                          >
-                                            <Search size={13} color="#D97706" />
-                                            <span>Gasolineras</span>
-                                          </button>
-                                        )}
-                                      </div>
+                                      {/* Ir */}
+                                      {parada.latitud != null && parada.longitud != null && (
+                                        <a
+                                          href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          onClick={(e) => e.stopPropagation()}
+                                          title={`Abrir navegación GPS hasta ${parada.nombre}`}
+                                          style={{
+                                            fontSize: '0.84rem',
+                                            fontWeight: 700,
+                                            padding: '6px 12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            textDecoration: 'none',
+                                            color: 'var(--text-primary)',
+                                            borderRadius: 'var(--radius-sm)'
+                                          }}
+                                        >
+                                          <Navigation size={15} color="var(--accent-forest)" />
+                                          <span>Ir</span>
+                                        </a>
+                                      )}
                                     </div>
                                   </div>
                                   {renderPanelGasolineras(`parada-${idx}`)}

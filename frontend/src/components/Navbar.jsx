@@ -658,17 +658,7 @@ export default function Navbar({
             padding: '16px 16px 24px',
             boxSizing: 'border-box'
           }}>
-            {usuario && (
-              <div style={{ marginBottom: '12px' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => { abrirNuevoLugar(); setMenuMovilAbierto(false); }}
-                  style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.84rem' }}
-                >
-                  <PlusCircle size={16} /> <span>Añadir Nuevo Lugar</span>
-                </button>
-              </div>
-            )}
+
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {usuario ? (

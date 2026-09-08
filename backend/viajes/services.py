@@ -4,6 +4,7 @@
 import math
 import os
 import requests
+import datetime
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Q
@@ -99,6 +100,39 @@ def _extraer_detalles_lugar(lug):
         'tipo_lugar': getattr(lug, 'tipo_lugar', 'pernocta_libre')
     }
 
+def normalizar_fecha_llegada(fecha_val):
+    """
+    Normaliza cualquier entrada de fecha (string 'YYYY-MM-DD', date o datetime)
+    a un datetime consciente de zona horaria situado a mediodía (12:00:00).
+    Esto previene desfases de día causados por diferencias UTC/horario de verano.
+    """
+    if not fecha_val:
+        return timezone.now()
+    if isinstance(fecha_val, str):
+        fecha_limpia = fecha_val.split('T')[0]
+        try:
+            d = datetime.date.fromisoformat(fecha_limpia)
+            return timezone.make_aware(datetime.datetime.combine(d, datetime.time(12, 0, 0)))
+        except:
+            pass
+    if isinstance(fecha_val, datetime.datetime):
+        if timezone.is_naive(fecha_val):
+            fecha_val = timezone.make_aware(fecha_val)
+        fecha_local = timezone.localtime(fecha_val)
+        return timezone.make_aware(datetime.datetime.combine(fecha_local.date(), datetime.time(12, 0, 0)))
+    if isinstance(fecha_val, datetime.date):
+        return timezone.make_aware(datetime.datetime.combine(fecha_val, datetime.time(12, 0, 0)))
+    return fecha_val
+
+def extraer_fecha_local_str(dt_val):
+    if not dt_val:
+        return ''
+    if hasattr(dt_val, 'tzinfo') and dt_val.tzinfo:
+        return timezone.localtime(dt_val).strftime('%Y-%m-%d')
+    if hasattr(dt_val, 'strftime'):
+        return dt_val.strftime('%Y-%m-%d')
+    return str(dt_val).split('T')[0]
+
 def recalcular_viaje(viaje):
     # Aquí calculo la ruta integral con salida desde el lugar base y vuelta al mismo para el kilometraje total
     checkins = viaje.checkins_asociados.all().order_by('fecha_llegada')
@@ -145,7 +179,7 @@ def recalcular_viaje(viaje):
                     'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
                     'poblacion': lug.poblacion if lug else '',
                     'provincia': lug.provincia if lug else '',
-                    'fecha': ch.fecha_llegada.strftime('%Y-%m-%d') if ch.fecha_llegada else '',
+                    'fecha': extraer_fecha_local_str(ch.fecha_llegada),
                     'dias': ch.dias_previstos,
                     'tipo': 'parada',
                     'tipo_lugar': det['tipo_lugar'],
@@ -173,7 +207,7 @@ def recalcular_viaje(viaje):
                 'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
                 'poblacion': lug.poblacion if lug else '',
                 'provincia': lug.provincia if lug else '',
-                'fecha': ch.fecha_llegada.strftime('%Y-%m-%d') if ch.fecha_llegada else '',
+                'fecha': extraer_fecha_local_str(ch.fecha_llegada),
                 'dias': ch.dias_previstos,
                 'tipo': 'parada',
                 'tipo_lugar': det['tipo_lugar'],
@@ -221,9 +255,12 @@ def recalcular_viaje(viaje):
     km_totales = calcular_distancia_carretera(coords)
 
     if checkins.exists():
-        primera_fecha = checkins.first().fecha_llegada.date()
-        ultimo_checkin = checkins.last()
-        ultima_fecha = ultimo_checkin.fecha_llegada.date() + timedelta(days=ultimo_checkin.dias_previstos)
+        checkins_ordenados = list(viaje.checkins_asociados.all().order_by('fecha_llegada'))
+        primera_ch = checkins_ordenados[0]
+        primera_fecha = timezone.localtime(primera_ch.fecha_llegada).date() if hasattr(primera_ch.fecha_llegada, 'tzinfo') and primera_ch.fecha_llegada.tzinfo else primera_ch.fecha_llegada.date()
+        ultimo_checkin = checkins_ordenados[-1]
+        dt_ultimo = timezone.localtime(ultimo_checkin.fecha_llegada) if hasattr(ultimo_checkin.fecha_llegada, 'tzinfo') and ultimo_checkin.fecha_llegada.tzinfo else ultimo_checkin.fecha_llegada
+        ultima_fecha = dt_ultimo.date() + timedelta(days=ultimo_checkin.dias_previstos)
         viaje.fecha_inicio = primera_fecha
         viaje.fecha_fin = ultima_fecha
 

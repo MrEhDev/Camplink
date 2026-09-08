@@ -58,7 +58,8 @@ class ViajeViewSet(viewsets.ModelViewSet):
                 ch = CheckIn.objects.filter(id=ch_id_num, viaje=viaje).first()
                 if ch:
                     if nueva_fecha:
-                        ch.fecha_llegada = nueva_fecha
+                        from viajes.services import normalizar_fecha_llegada
+                        ch.fecha_llegada = normalizar_fecha_llegada(nueva_fecha)
                     if nuevas_noches is not None:
                         ch.dias_previstos = max(1, int(nuevas_noches))
                     ch.save()
@@ -172,7 +173,9 @@ class ViajeViewSet(viewsets.ModelViewSet):
         except Lugar.DoesNotExist:
             return Response({'error': 'Lugar no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
-        fecha = request.data.get('fecha') or viaje.fecha_inicio
+        from viajes.services import normalizar_fecha_llegada
+        fecha_raw = request.data.get('fecha') or viaje.fecha_inicio
+        fecha = normalizar_fecha_llegada(fecha_raw)
         dias_previstos = int(request.data.get('dias_previstos', 1))
         notas = request.data.get('notas_privadas', '')
 

@@ -1,6 +1,7 @@
 # Aquí defino los serializers para el modelo Viaje (agrupación inteligente de pernoctas),
 # las rutas punto a punto, las estadísticas globales y la vitrina de Trofeos camper.
 
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Viaje, Trofeo, TrofeoExplorador
 from exploradores.serializers import ExploradorPerfilSerializer
@@ -122,7 +123,7 @@ class ViajeSerializer(serializers.ModelSerializer):
                 'provincia': ch.lugar.provincia,
                 'latitud': ch.lugar.latitud,
                 'longitud': ch.lugar.longitud,
-                'fecha_llegada': ch.fecha_llegada,
+                'fecha_llegada': timezone.localtime(ch.fecha_llegada).strftime('%Y-%m-%d') if ch.fecha_llegada else None,
                 'dias_previstos': ch.dias_previstos,
                 'valoracion_camper': ch.valoracion_camper,
                 'comentario_publico': ch.comentario_publico,

@@ -4,7 +4,7 @@
 // diferenciación visual de Salida y Vuelta a Base, y aviso de repostaje al 80% de autonomía.
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,82 @@ const miniIconoPlan = new L.Icon({
   popupAnchor: [1, -28],
   shadowSize: [32, 32]
 });
+
+// Controlador de zoom y centrado automático cuando se buscan gasolineras
+function ActualizadorVistaMapa({ panelGasolineras }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (panelGasolineras && panelGasolineras.lat != null && panelGasolineras.lng != null) {
+      if (panelGasolineras.lista && panelGasolineras.lista.length > 0) {
+        const puntosValidos = [
+          [panelGasolineras.lat, panelGasolineras.lng],
+          ...panelGasolineras.lista
+            .filter(g => g.lat != null && g.lng != null)
+            .map(g => [g.lat, g.lng])
+        ];
+        const bounds = L.latLngBounds(puntosValidos);
+        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 13, animate: true });
+      } else {
+        map.flyTo([panelGasolineras.lat, panelGasolineras.lng], 12, { animate: true, duration: 1.2 });
+      }
+    }
+  }, [panelGasolineras?.widgetKey, panelGasolineras?.lista, map]);
+
+  return null;
+}
+
+// Función para calcular la escala cromática de gasolineras (Verde = más barata -> Rojo = más cara)
+function calcularColorGasolinera(precio, minPrecio, maxPrecio) {
+  if (precio == null || minPrecio == null || maxPrecio == null || minPrecio >= maxPrecio) {
+    return '#10B981'; // Verde por defecto si tienen el mismo coste
+  }
+  const t = Math.max(0, Math.min(1, (precio - minPrecio) / (maxPrecio - minPrecio)));
+  const hue = Math.round((1 - t) * 135);
+  return `hsl(${hue}, 88%, 42%)`;
+}
+
+// Creador dinámico de icono con el color según el coste de la gasolina
+function crearIconoGasolineraColor(color, esMasBarata = false) {
+  return L.divIcon({
+    className: 'custom-gas-colored-pin',
+    html: `<div style="
+      background: ${color};
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.45);
+      border: 2px solid white;
+      position: relative;
+    ">
+      <div style="transform: rotate(45deg); font-size: 13px; line-height: 1;">⛽</div>
+      ${esMasBarata ? `
+        <span style="
+          position: absolute;
+          top: -7px;
+          right: -7px;
+          transform: rotate(45deg);
+          background: #10B981;
+          color: white;
+          font-size: 8px;
+          font-weight: 900;
+          padding: 1px 3px;
+          border-radius: 3px;
+          border: 1px solid white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        ">TOP</span>
+      ` : ''}
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+  });
+}
 
 // Icono de gasolinera fija en la ruta
 const miniIconoGasolinera = L.divIcon({
@@ -730,63 +806,87 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {panelGasolineras.lista.slice(0, 8).map((gas, gIdx) => (
-                        <div
-                          key={gas.id || gIdx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '8px 12px',
-                            background: 'rgba(255, 255, 255, 0.04)',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border-color)',
-                            gap: '10px'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
-                              {gas.rotulo}
-                            </div>
-                            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                              {gas.direccion} • {gas.distanciaKm != null ? `${gas.distanciaKm.toFixed(1)} km` : ''}
-                            </div>
-                          </div>
+                      {(() => {
+                        const precios = panelGasolineras.lista
+                          .map(g => g.precioLitro)
+                          .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
+                        const minPrecio = precios.length > 0 ? Math.min(...precios) : null;
+                        const maxPrecio = precios.length > 0 ? Math.max(...precios) : null;
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--accent-forest)' }}>
-                              {gas.precioLitro ? `${gas.precioLitro.toFixed(3)} €/L` : 'Consultar'}
-                            </span>
+                        return panelGasolineras.lista.slice(0, 8).map((gas, gIdx) => {
+                          const colorGas = calcularColorGasolinera(gas.precioLitro, minPrecio, maxPrecio);
+                          const esMasBarata = minPrecio != null && gas.precioLitro != null && gas.precioLitro === minPrecio;
+                          const esMasCara = maxPrecio != null && gas.precioLitro != null && gas.precioLitro === maxPrecio && minPrecio !== maxPrecio;
 
-                            {gas.lat != null && gas.lng != null && (
-                              <a
-                                href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-secondary btn-sm"
-                                onClick={(e) => e.stopPropagation()}
-                                title={`Abrir navegación GPS hasta ${gas.rotulo}`}
-                                style={{ fontSize: '0.74rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '3px', textDecoration: 'none', color: 'var(--text-primary)' }}
-                              >
-                                <Navigation size={12} color="var(--accent-forest)" />
-                                <span>Ir</span>
-                              </a>
-                            )}
-
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              style={{ fontSize: '0.74rem', padding: '4px 10px', background: '#D97706', borderColor: '#D97706' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx);
+                          return (
+                            <div
+                              key={gas.id || gIdx}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 12px',
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                borderRadius: 'var(--radius-sm)',
+                                border: `1.5px solid ${esMasBarata ? 'rgba(16, 185, 129, 0.5)' : 'var(--border-color)'}`,
+                                gap: '10px'
                               }}
                             >
-                              ➕ Añadir al viaje
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{gas.rotulo}</span>
+                                  {esMasBarata && (
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', background: 'rgba(16, 185, 129, 0.18)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
+                                      Más barata
+                                    </span>
+                                  )}
+                                  {esMasCara && (
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-full)', fontWeight: 800 }}>
+                                      Más cara
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                                  {gas.direccion} • {gas.distanciaKm != null ? `${gas.distanciaKm.toFixed(1)} km` : ''}
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontWeight: 800, fontSize: '0.92rem', color: colorGas }}>
+                                  {gas.precioLitro ? `${gas.precioLitro.toFixed(3)} €/L` : 'Consultar'}
+                                </span>
+
+                                {gas.lat != null && gas.lng != null && (
+                                  <a
+                                    href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={`Abrir navegación GPS hasta ${gas.rotulo}`}
+                                    style={{ fontSize: '0.74rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '3px', textDecoration: 'none', color: 'var(--text-primary)' }}
+                                  >
+                                    <Navigation size={12} color="var(--accent-forest)" />
+                                    <span>Ir</span>
+                                  </a>
+                                )}
+
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-sm"
+                                  style={{ fontSize: '0.74rem', padding: '4px 10px', background: '#D97706', borderColor: '#D97706' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx);
+                                  }}
+                                >
+                                  ➕ Añadir al viaje
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>
@@ -966,9 +1066,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                         <MapContainer
                           center={centroMapa}
                           zoom={coordsRuta.length > 1 ? 7 : 10}
-                          scrollWheelZoom={false}
+                          scrollWheelZoom={true}
                           style={{ height: '100%', width: '100%' }}
                         >
+                          <ActualizadorVistaMapa panelGasolineras={panelGasolineras && panelGasolineras.viajeId === viaje.id ? panelGasolineras : null} />
                           <TileLayer
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             attribution="&copy; OpenStreetMap"
@@ -1043,51 +1144,72 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                             </Marker>
                           )}
 
-                          {/* Gasolineras sugeridas en tiempo real mostradas en el mapa */}
-                          {panelGasolineras && panelGasolineras.viajeId === viaje.id && panelGasolineras.lista && panelGasolineras.lista.map((gas, gIdx) => (
-                            gas.lat != null && gas.lng != null && (
-                              <Marker
-                                key={`sug-gas-${gIdx}`}
-                                position={[gas.lat, gas.lng]}
-                                icon={miniIconoGasolineraSugerida}
-                              >
-                                <Popup>
-                                  <div style={{ padding: '6px', textAlign: 'center', minWidth: '170px' }}>
-                                    <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#D97706' }}>
-                                      ⛽ {gas.rotulo}
-                                    </div>
-                                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                                      {gas.direccion} {gas.distanciaKm != null ? `• ${gas.distanciaKm.toFixed(1)} km` : ''}
-                                    </div>
-                                    {gas.precioLitro && (
-                                      <div style={{ fontWeight: 800, color: 'var(--accent-forest)', fontSize: '0.9rem', marginTop: '3px' }}>
-                                        {gas.precioLitro.toFixed(3)} €/L
+                          {/* Gasolineras sugeridas en tiempo real mostradas en el mapa con escala cromática (verde más barata -> rojo más cara) */}
+                          {(() => {
+                            if (!panelGasolineras || panelGasolineras.viajeId !== viaje.id || !panelGasolineras.lista || panelGasolineras.lista.length === 0) {
+                              return null;
+                            }
+                            const precios = panelGasolineras.lista
+                              .map(g => g.precioLitro)
+                              .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
+                            const minPrecio = precios.length > 0 ? Math.min(...precios) : null;
+                            const maxPrecio = precios.length > 0 ? Math.max(...precios) : null;
+
+                            return panelGasolineras.lista.map((gas, gIdx) => {
+                              if (gas.lat == null || gas.lng == null) return null;
+                              const colorGas = calcularColorGasolinera(gas.precioLitro, minPrecio, maxPrecio);
+                              const esMasBarata = minPrecio != null && gas.precioLitro != null && gas.precioLitro === minPrecio;
+                              const icono = crearIconoGasolineraColor(colorGas, esMasBarata);
+
+                              return (
+                                <Marker
+                                  key={`sug-gas-${gIdx}`}
+                                  position={[gas.lat, gas.lng]}
+                                  icon={icono}
+                                >
+                                  <Popup>
+                                    <div style={{ padding: '6px', textAlign: 'center', minWidth: '170px' }}>
+                                      <div style={{ fontWeight: 800, fontSize: '0.92rem', color: colorGas }}>
+                                        ⛽ {gas.rotulo}
                                       </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
-                                      <a
-                                        href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '0.72rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
-                                      >
-                                        <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
-                                      </a>
-                                      <button
-                                        type="button"
-                                        className="btn btn-primary btn-sm"
-                                        style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
-                                        onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
-                                      >
-                                        ➕ Añadir
-                                      </button>
+                                      <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                                        {gas.direccion} {gas.distanciaKm != null ? `• ${gas.distanciaKm.toFixed(1)} km` : ''}
+                                      </div>
+                                      {gas.precioLitro && (
+                                        <div style={{ fontWeight: 800, color: colorGas, fontSize: '0.92rem', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                          <span>{gas.precioLitro.toFixed(3)} €/L</span>
+                                          {esMasBarata && (
+                                            <span style={{ fontSize: '0.68rem', background: 'rgba(16, 185, 129, 0.18)', color: '#10B981', padding: '1px 5px', borderRadius: 'var(--radius-full)', border: '1px solid #10B981' }}>
+                                              ¡Más barata!
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+                                        <a
+                                          href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '0.72rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                        >
+                                          <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
+                                        </a>
+                                        <button
+                                          type="button"
+                                          className="btn btn-primary btn-sm"
+                                          style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
+                                          onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
+                                        >
+                                          ➕ Añadir
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                </Popup>
-                              </Marker>
-                            )
-                          ))}
+                                  </Popup>
+                                </Marker>
+                              );
+                            });
+                          })()}
                         </MapContainer>
                       </div>
                     )}
@@ -1501,18 +1623,49 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       }
                                     }}
                                     style={{
+                                      position: 'relative',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'space-between',
-                                      padding: '12px 14px',
+                                      padding: '14px 16px',
+                                      paddingRight: '44px',
                                       borderRadius: 'var(--radius-md)',
                                       background: parada.tipo === 'gasolinera' ? 'rgba(217, 119, 6, 0.08)' : 'var(--bg-surface)',
                                       border: parada.es_repostaje ? '1.5px solid #D97706' : '1px solid var(--border-color)',
-                                      gap: '12px',
+                                      gap: '14px',
                                       flexWrap: 'wrap',
                                       transition: 'background 0.2s'
                                     }}
                                   >
+                                    {/* 1. Botón borrar en esquina superior derecha (como la X de cerrar) */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        eliminarParada(viaje.id, idx, parada);
+                                      }}
+                                      title="Eliminar esta parada del viaje"
+                                      style={{
+                                        position: 'absolute',
+                                        top: '8px',
+                                        right: '8px',
+                                        width: '24px',
+                                        height: '24px',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        color: '#EF4444',
+                                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        transition: 'all 0.2s ease',
+                                        zIndex: 2
+                                      }}
+                                    >
+                                      <X size={14} />
+                                    </button>
                                     {/* CONTROLES DE REORDENACIÓN A LA IZQUIERDA DEL TODO (FLECHAS ARRIBA / ABAJO) */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                       <div style={{
@@ -1640,86 +1793,117 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       </div>
                                     </div>
 
-                                    {/* ACCIONES DE LA ETAPA: RADAR, REPOSTAJE Y ELIMINAR */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
-                                      {/* Botón Ir en GPS */}
-                                      {parada.latitud != null && parada.longitud != null && (
-                                        <a
-                                          href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title={`Abrir navegación GPS hasta ${parada.nombre}`}
-                                          style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', color: 'var(--text-primary)' }}
-                                        >
-                                          <Navigation size={13} color="var(--accent-forest)" />
-                                          <span>Ir</span>
-                                        </a>
-                                      )}
+                                    {/* CONTENEDOR DE ACCIONES DE LA ETAPA */}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px',
+                                        alignItems: 'flex-end',
+                                        justifyContent: 'center'
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {/* Fila intermedia: Radar e Ir (de izquierda a derecha, un poco más grandes) */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {/* Radar */}
+                                        {parada.latitud != null && parada.longitud != null && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre });
+                                            }}
+                                            title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
+                                            style={{
+                                              fontSize: '0.84rem',
+                                              fontWeight: 700,
+                                              padding: '6px 12px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              borderRadius: 'var(--radius-sm)'
+                                            }}
+                                          >
+                                            <Radar size={15} color="var(--accent-earth)" />
+                                            <span>Radar</span>
+                                          </button>
+                                        )}
 
-                                      {/* Radar centrado en este lugar */}
-                                      {parada.latitud != null && parada.longitud != null && (
+                                        {/* Ir */}
+                                        {parada.latitud != null && parada.longitud != null && (
+                                          <a
+                                            href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title={`Abrir navegación GPS hasta ${parada.nombre}`}
+                                            style={{
+                                              fontSize: '0.84rem',
+                                              fontWeight: 700,
+                                              padding: '6px 12px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              textDecoration: 'none',
+                                              color: 'var(--text-primary)',
+                                              borderRadius: 'var(--radius-sm)'
+                                            }}
+                                          >
+                                            <Navigation size={15} color="var(--accent-forest)" />
+                                            <span>Ir</span>
+                                          </a>
+                                        )}
+                                      </div>
+
+                                      {/* Fila inferior: Repostado y Gasolineras */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {/* Marcar/Desmarcar Repostaje */}
                                         <button
                                           type="button"
-                                          className="btn btn-secondary btn-sm"
+                                          className={`btn ${parada.es_repostaje ? 'btn-primary' : 'btn-secondary'} btn-sm`}
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre });
+                                            alternarRepostaje(viaje.id, idx);
                                           }}
-                                          title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
-                                          style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        >
-                                          <Radar size={13} color="var(--accent-earth)" />
-                                          <span>Radar</span>
-                                        </button>
-                                      )}
-
-                                      {/* Marcar/Desmarcar Repostaje */}
-                                      <button
-                                        type="button"
-                                        className={`btn ${parada.es_repostaje ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          alternarRepostaje(viaje.id, idx);
-                                        }}
-                                        title={parada.es_repostaje ? 'Desmarcar repostaje' : 'Marcar que repostas aquí'}
-                                        style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      >
-                                        <Fuel size={13} />
-                                        <span>{parada.es_repostaje ? 'Repostado ✔' : 'Repostar'}</span>
-                                      </button>
-
-                                      {/* Buscar Gasolineras */}
-                                      {parada.latitud != null && parada.longitud != null && (
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre, `parada-${idx}`);
+                                          title={parada.es_repostaje ? 'Desmarcar repostaje' : 'Marcar que repostas aquí'}
+                                          style={{
+                                            fontSize: '0.76rem',
+                                            padding: '4px 9px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
                                           }}
-                                          title="Buscar gasolineras baratas cerca de esta etapa"
-                                          style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                                         >
-                                          <Search size={13} color="#D97706" />
-                                          <span>Gasolineras</span>
+                                          <Fuel size={13} />
+                                          <span>{parada.es_repostaje ? 'Repostado ✔' : 'Repostar'}</span>
                                         </button>
-                                      )}
 
-                                      {/* Eliminar Parada */}
-                                      <button
-                                        type="button"
-                                        className="btn btn-danger btn-sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          eliminarParada(viaje.id, idx, parada);
-                                        }}
-                                        title="Eliminar esta parada del viaje"
-                                        style={{ padding: '4px 8px', background: 'rgba(239, 68, 68, 0.18)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.45)' }}
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
+                                        {/* Buscar Gasolineras */}
+                                        {parada.latitud != null && parada.longitud != null && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre, `parada-${idx}`);
+                                            }}
+                                            title="Buscar gasolineras baratas cerca de esta etapa"
+                                            style={{
+                                              fontSize: '0.76rem',
+                                              padding: '4px 9px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '4px'
+                                            }}
+                                          >
+                                            <Search size={13} color="#D97706" />
+                                            <span>Gasolineras</span>
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   {renderPanelGasolineras(`parada-${idx}`)}

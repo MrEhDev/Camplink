@@ -1,7 +1,8 @@
+import ModalRecortarFotoPerfil from '../components/ModalRecortarFotoPerfil';
 const formatearUsuario = (u) => {
   if (!u) return '';
   const s = String(u);
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 // Aquí implemento el Perfil del Explorador en Camplink con todas las herramientas camper:
 // bitácoras de viaje expandibles con mini mapa de ruta interactivo, avisos de combustible situados en paradas recomendadas para viajes futuros,
@@ -15,7 +16,7 @@ import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ModalViajeDetallePdf from '../components/ModalViajeDetallePdf';
 import { 
-  Compass, Award, Truck, MapPin, Calendar, Route, 
+  Compass, Award, Truck, MapPin, Calendar, Route, Lock, Eye, EyeOff, 
   Sparkles, Camera, Plus, Trash2, Edit3, 
   Check, X, FileText, Download, Shield, 
   Users, Fuel, AlertTriangle, UserCheck, 
@@ -34,7 +35,7 @@ const miniIconoCamper = new L.Icon({
   shadowSize: [32, 32]
 });
 
-export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuario, alNavegarOrganizar, abrirRadar }) {
+export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuario, alNavegarOrganizar, abrirRadar, abrirTutorial }) {
   // Aquí gestiono todos los módulos del perfil: viajes, compañeros, grupos, guardados y trofeos
   const { usuario, cargarPerfil } = useAuth();
   const [pestañaActiva, setPestañaActiva] = useState('viajes'); // 'viajes' | 'comunidad' | 'guardados' | 'trofeos'
@@ -64,6 +65,60 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [nuevoTituloViaje, setNuevoTituloViaje] = useState('');
   const [repostajesManuales, setRepostajesManuales] = useState({}); // { [viajeId]: paradaIndex }
 
+  // Estados para cambio de contraseña
+  const [seccionPasswordAbierta, setSeccionPasswordAbierta] = useState(false);
+  const [passActual, setPassActual] = useState('');
+  const [passNueva, setPassNueva] = useState('');
+  const [passConfirmar, setPassConfirmar] = useState('');
+  const [mostrarPassActual, setMostrarPassActual] = useState(false);
+  const [mostrarPassNueva, setMostrarPassNueva] = useState(false);
+  const [mostrarPassConfirmar, setMostrarPassConfirmar] = useState(false);
+  const [guardandoPass, setGuardandoPass] = useState(false);
+  const [mensajePassExito, setMensajePassExito] = useState('');
+  const [mensajePassError, setMensajePassError] = useState('');
+
+  const manejarCambiarPassword = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setMensajePassExito('');
+    setMensajePassError('');
+
+    if (!passActual || !passNueva) {
+      setMensajePassError('Introduce la contraseña actual y la nueva contraseña.');
+      return;
+    }
+    if (passNueva.length < 6) {
+      setMensajePassError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (passNueva !== passConfirmar) {
+      setMensajePassError('Las contraseñas nuevas no coinciden.');
+      return;
+    }
+
+    setGuardandoPass(true);
+    try {
+      const res = await peticionApi('/api/exploradores/cambiar-password/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: {
+          password_actual: passActual,
+          password_nueva: passNueva,
+          password_confirmar: passConfirmar
+        }
+      });
+      setMensajePassExito(res?.mensaje || '¡Contraseña actualizada con éxito!');
+      setPassActual('');
+      setPassNueva('');
+      setPassConfirmar('');
+    } catch (err) {
+      setMensajePassError(err.message || 'Error al cambiar la contraseña. Comprueba la contraseña actual.');
+    } finally {
+      setGuardandoPass(false);
+    }
+  };
+
   // Estados del modal de configuración camper
   const [modalConfigAbierto, setModalConfigAbierto] = useState(false);
   const [tipoViajero, setTipoViajero] = useState('camper');
@@ -78,6 +133,8 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [consumoMedio, setConsumoMedio] = useState(8.5);
   const [archivoAvatar, setArchivoAvatar] = useState(null);
   const [previewAvatar, setPreviewAvatar] = useState(null);
+  const [archivoParaRecortar, setArchivoParaRecortar] = useState(null);
+  const [modalRecorteAbierto, setModalRecorteAbierto] = useState(false);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
 
   // Estados de autocompletado de dirección
@@ -98,64 +155,56 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [copiadoId, setCopiadoId] = useState(null);
 
   const cargarDatos = async () => {
-    // Aquí obtengo de forma segura todas las secciones del perfil
+    // Carga paralela ultrarrápida con Promise.allSettled para eliminar el retraso de cascada
     setCargando(true);
     try {
-      // 1. Estadísticas
-      try {
-        const estats = await peticionApi('/api/viajes/estadisticas/').catch(() => peticionApi('/api/viajes/mis-estadisticas/'));
-        setEstadisticasData(estats);
-      } catch (e) {
-        console.warn('Estadísticas no disponibles:', e);
-      }
+      await Promise.allSettled([
+        // 1. Estadísticas
+        peticionApi('/api/viajes/estadisticas/')
+          .catch(() => peticionApi('/api/viajes/mis-estadisticas/'))
+          .then(estats => { if (estats) setEstadisticasData(estats); })
+          .catch(e => console.warn('Estadísticas no disponibles:', e)),
 
-      // 2. Viajes
-      try {
-        const viajesRes = await peticionApi('/api/viajes/viajes/?mis_viajes=true').catch(() => peticionApi('/api/viajes/rutas/?mis_viajes=true'));
-        setViajes(viajesRes.results || viajesRes || []);
-      } catch (e) {
-        console.warn('Viajes no disponibles:', e);
-      }
+        // 2. Viajes
+        peticionApi('/api/viajes/viajes/?mis_viajes=true')
+          .catch(() => peticionApi('/api/viajes/rutas/?mis_viajes=true'))
+          .then(res => { if (res) setViajes(res.results || res || []); })
+          .catch(e => console.warn('Viajes no disponibles:', e)),
 
-      // 3. Trofeos
-      try {
-        const trofeosRes = await peticionApi('/api/viajes/trofeos/');
-        if (trofeosRes && trofeosRes.categorias) {
-          setTrofeos(trofeosRes.categorias);
-          setPlatinoData(trofeosRes.platino || null);
-        } else if (Array.isArray(trofeosRes)) {
-          setTrofeos(trofeosRes);
-        } else {
-          setTrofeos(trofeosRes?.results || []);
-        }
-      } catch (e) {
-        console.warn('Trofeos no disponibles:', e);
-      }
+        // 3. Trofeos
+        peticionApi('/api/viajes/trofeos/')
+          .then(res => {
+            if (res && res.categorias) {
+              setTrofeos(res.categorias);
+              setPlatinoData(res.platino || null);
+            } else if (Array.isArray(res)) {
+              setTrofeos(res);
+            } else if (res) {
+              setTrofeos(res.results || []);
+            }
+          })
+          .catch(e => console.warn('Trofeos no disponibles:', e)),
 
-      // 4. Compañeros, Seguidores y Siguiendo
-      try {
-        const segRes = await peticionApi('/api/exploradores/seguidores-siguiendo/');
-        if (segRes) {
-          setSeguidores(segRes.seguidores || []);
-          setSiguiendo(segRes.siguiendo || []);
-          setCompaneros(segRes.siguiendo || []);
-        } else {
-          const companerosRes = await peticionApi('/api/exploradores/companeros/');
-          setCompaneros(companerosRes.results || companerosRes || []);
-        }
-        cargarTodosLosExploradores();
-        cargarNotificacionesPerfil();
-      } catch (e) {
-        console.warn('Compañeros no disponibles:', e);
-      }
+        // 4. Compañeros, Seguidores y Siguiendo
+        peticionApi('/api/exploradores/seguidores-siguiendo/')
+          .then(res => {
+            if (res) {
+              setSeguidores(res.seguidores || []);
+              setSiguiendo(res.siguiendo || []);
+              setCompaneros(res.siguiendo || []);
+            }
+          })
+          .catch(e => console.warn('Compañeros no disponibles:', e)),
 
-      // 5. Grupos
-      try {
-        const gruposRes = await peticionApi('/api/exploradores/grupos/');
-        setGrupos(gruposRes.results || gruposRes || []);
-      } catch (e) {
-        console.warn('Grupos no disponibles:', e);
-      }
+        // 5. Grupos
+        peticionApi('/api/exploradores/grupos/')
+          .then(res => { if (res) setGrupos(res.results || res || []); })
+          .catch(e => console.warn('Grupos no disponibles:', e)),
+
+        // 6. Lista exploradores y notificaciones
+        cargarTodosLosExploradores(),
+        cargarNotificacionesPerfil()
+      ]);
 
       // 6. Lugares y Vivencias Guardadas
       try {
@@ -275,9 +324,17 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const manejarCambioAvatar = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setArchivoAvatar(file);
-      setPreviewAvatar(URL.createObjectURL(file));
+      setArchivoParaRecortar(file);
+      setModalRecorteAbierto(true);
     }
+    e.target.value = '';
+  };
+
+  const confirmarRecorteAvatar = (archivoRecortado) => {
+    setArchivoAvatar(archivoRecortado);
+    setPreviewAvatar(URL.createObjectURL(archivoRecortado));
+    setModalRecorteAbierto(false);
+    setArchivoParaRecortar(null);
   };
 
   const guardarCambiosPerfil = async (e) => {
@@ -477,6 +534,19 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
     }
   };
 
+  const eliminarNotificacion = async (notifId) => {
+    try {
+      await peticionApi(`/api/exploradores/notificaciones/?notificacion_id=${notifId}`, {
+        method: 'DELETE',
+        body: { notificacion_id: notifId }
+      });
+      setNotificacionesPerfil(prev => prev.filter(n => n.id !== notifId));
+    } catch (e) {
+      console.error('Error al eliminar notificación:', e);
+      setNotificacionesPerfil(prev => prev.filter(n => n.id !== notifId));
+    }
+  };
+
   const cargarNotificacionesPerfil = async () => {
     try {
       const res = await peticionApi('/api/exploradores/notificaciones/');
@@ -548,75 +618,180 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
 
   return (
     <div className="camplink-container" style={{ padding: '30px 20px 80px', maxWidth: '1000px', width: '100%', margin: '0 auto' }}>
-      {/* CABECERA DEL EXPLORADOR: AVATAR, DATOS Y BOTÓN DE CONFIGURACIÓN */}
-      <div className="camper-card" style={{ padding: '28px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Avatar Clickeable para editar */}
-            <div
-              onClick={() => setModalConfigAbierto(true)}
-              title="Haz clic para cambiar tu avatar de explorador"
-              style={{
-                position: 'relative',
-                width: '82px',
-                height: '82px',
-                borderRadius: '50%',
-                background: 'var(--accent-forest)',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2.4rem',
-                fontWeight: 800,
-                boxShadow: '0 6px 18px rgba(35, 83, 52, 0.35)',
-                overflow: 'hidden',
-                cursor: 'pointer'
-              }}
-            >
-              {usuario?.avatar ? (
-                <img src={usuario.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                usuario?.username?.charAt(0).toUpperCase() || 'E'
-              )}
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                background: 'rgba(0,0,0,0.6)',
-                padding: '2px 0',
-                display: 'flex',
-                justifyContent: 'center'
-              }}>
-                <Camera size={13} color="#fff" />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '1.85rem', margin: 0, color: 'var(--text-primary)' }}>
-                  {formatearUsuario(usuario?.username)}
-                </h1>
-                <span className="badge-camper badge-forest">
-                  {usuario?.tipo_viajero_display || usuario?.tipo_viajero || 'Camper'}
-                </span>
-                {usuario?.es_admin && <span className="badge-camper badge-earth">Admin</span>}
-              </div>
-
-              <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
-                {usuario?.poblacion && <span>📍 {usuario.poblacion}</span>}
-                <span>⛽ {usuario?.capacidad_deposito_l || capacidadDeposito || 60}L ({usuario?.tipo_combustible?.toUpperCase() || 'DIÉSEL'} • ~{autonomiaEstimada} km)</span>
-                <span>📅 Miembro desde {new Date(usuario?.date_joined || Date.now()).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}</span>
-              </div>
+      {/* CABECERA DEL EXPLORADOR: CAMPER-CARD CON AVATAR, DATOS Y CHIPS DENTRO A LA DERECHA */}
+      <div className="camper-card profile-hero-card" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '20px',
+        marginBottom: '26px',
+        flexWrap: 'wrap',
+        padding: '24px 28px',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* LADO IZQUIERDO: AVATAR Y DATOS DEL PERFIL */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          flex: '1 1 500px',
+          minWidth: 0
+        }}>
+          {/* Avatar Clickeable para editar */}
+          <div
+            onClick={() => setModalConfigAbierto(true)}
+            title="Haz clic para cambiar tu avatar de explorador"
+            style={{
+              position: 'relative',
+              width: '82px',
+              height: '82px',
+              borderRadius: '50%',
+              background: 'var(--accent-forest)',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2.4rem',
+              fontWeight: 800,
+              boxShadow: '0 6px 18px rgba(35, 83, 52, 0.35)',
+              overflow: 'hidden',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          >
+            {usuario?.avatar ? (
+              <img loading="lazy" decoding="async" src={usuario.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              usuario?.username?.charAt(0).toUpperCase() || 'E'
+            )}
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'rgba(0,0,0,0.6)',
+              padding: '2px 0',
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              <Camera size={13} color="#fff" />
             </div>
           </div>
 
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.85rem', margin: 0, color: 'var(--text-primary)' }}>
+                {formatearUsuario(usuario?.username)}
+              </h1>
+              <span className={`badge-camper ${usuario?.tipo_viajero === 'autocaravana' ? 'badge-autocaravana' : 'badge-forest'}`}>
+                {usuario?.tipo_viajero === 'autocaravana' ? '🚐 Autocaravana' : (usuario?.tipo_viajero_display || usuario?.tipo_viajero || 'Camper')}
+              </span>
+              {usuario?.es_admin && <span className="badge-camper badge-earth">Admin</span>}
+            </div>
+
+            <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+              {usuario?.poblacion && <span>📍 {usuario.poblacion}</span>}
+              <span>⛽ {usuario?.capacidad_deposito_l || capacidadDeposito || 60}L ({usuario?.tipo_combustible?.toUpperCase() || 'DIÉSEL'} • ~{autonomiaEstimada} km)</span>
+              <span>📅 Miembro desde {new Date(usuario?.date_joined || Date.now()).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* CHIPS CENTRADOS DENTRO DE CAMPER-CARD: CENTRO DE NOTIFICACIONES Y CONFIGURAR PERFIL */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          width: '100%',
+          marginTop: '12px',
+          paddingTop: '14px',
+          borderTop: '1px solid var(--border-subtle)'
+        }}>
+          {/* CHIP CENTRO DE NOTIFICACIONES */}
           <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setModalConfigAbierto(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px' }}
+            type="button"
+            className={`badge-camper ${pestañaActiva === 'comunidad' && tabComunidad === 'notificaciones' ? 'badge-forest' : ''}`}
+            onClick={() => {
+              setPestañaActiva('comunidad');
+              setTabComunidad('notificaciones');
+              cargarNotificacionesPerfil();
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.84rem',
+              padding: '9px 20px',
+              borderRadius: 'var(--radius-full)',
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: pestañaActiva === 'comunidad' && tabComunidad === 'notificaciones' ? '1.5px solid var(--accent-forest)' : '1.5px solid var(--border-color)',
+              background: pestañaActiva === 'comunidad' && tabComunidad === 'notificaciones' ? 'var(--accent-forest)' : 'var(--bg-surface-elevated)',
+              color: pestañaActiva === 'comunidad' && tabComunidad === 'notificaciones' ? '#FFFFFF' : 'var(--text-primary)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
+            }}
           >
-            <Sliders size={16} /> Configurar Furgo y Perfil
+            <Bell size={15} color={pestañaActiva === 'comunidad' && tabComunidad === 'notificaciones' ? '#FFFFFF' : 'var(--accent-forest)'} /> 
+            <span>Centro de Notificaciones {notificacionesPerfil.length > 0 && `(${notificacionesPerfil.length})`}</span>
+          </button>
+
+          {/* CHIP TUTORIAL DE INICIO (MISMO ESTILO QUE CENTRO DE NOTIFICACIONES) */}
+          {abrirTutorial && (
+            <button
+              type="button"
+              className="badge-camper"
+              onClick={abrirTutorial}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.84rem',
+                padding: '9px 20px',
+                borderRadius: 'var(--radius-full)',
+                fontWeight: 800,
+                cursor: 'pointer',
+                border: '1.5px solid var(--border-color)',
+                background: 'var(--bg-surface-elevated)',
+                color: 'var(--text-primary)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              title="Volver a abrir el tour interactivo paso a paso de Camplink"
+            >
+              <Sparkles size={15} color="var(--accent-forest)" />
+              <span>Tutorial</span>
+            </button>
+          )}
+
+          {/* CHIP CONFIGURAR PERFIL Y VEHÍCULO */}
+          <button
+            type="button"
+            onClick={() => setModalConfigAbierto(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.84rem',
+              padding: '9px 20px',
+              borderRadius: 'var(--radius-full)',
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-surface-elevated)',
+              color: 'var(--text-primary)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Sliders size={15} color="var(--accent-earth)" /> 
+            <span>Configurar Perfil y Vehículo</span>
           </button>
         </div>
       </div>
@@ -1110,14 +1285,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             >
               <Shield size={16} /> Grupos ({grupos.length})
             </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${tabComunidad === 'notificaciones' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => { setTabComunidad('notificaciones'); cargarNotificacionesPerfil(); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
-            >
-              <Bell size={16} /> Centro de Notificaciones ({notificacionesPerfil.length})
-            </button>
+
           </div>
 
           {/* SECCIÓN 1: EXPLORADORES QUE TE SIGUEN (SEGUIDORES) */}
@@ -1460,16 +1628,10 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                     Avisos en vivo de seguidores, comentarios en tus vivencias del Diario, likes y trofeos.
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => forzarNotificacionPerfil('reaccion')} style={{ fontSize: '0.76rem' }}>
-                    🔥 Probar Like
-                  </button>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => forzarNotificacionPerfil('comentario')} style={{ fontSize: '0.76rem' }}>
-                    💬 Probar Comentario
-                  </button>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => forzarNotificacionPerfil('seguimiento')} style={{ fontSize: '0.76rem' }}>
-                    🤝 Probar Seguidor
-                  </button>
+                <div>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: 'var(--radius-full)' }}>
+                    Total: {notificacionesPerfil.length} notificaciones
+                  </span>
                 </div>
               </div>
 
@@ -1496,11 +1658,33 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         gap: '12px'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                         <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-forest)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
                           {notif.tipo === 'seguimiento' ? '🤝' : notif.tipo === 'comentario' ? '💬' : notif.tipo === 'reaccion' ? '🔥' : notif.tipo === 'trofeo' ? '🏆' : 'ℹ️'}
                         </div>
-                        <div>
+                        <div style={{ flex: 1 }}>
+                          {notif.usuario_origen && notif.usuario_origen_nombre && (
+                            <button
+                              type="button"
+                              onClick={() => alVerPerfilUsuario && alVerPerfilUsuario(notif.usuario_origen)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                color: 'var(--accent-forest)',
+                                fontWeight: 800,
+                                fontSize: '0.84rem',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                marginBottom: '2px'
+                              }}
+                              title={`Ver perfil de ${notif.usuario_origen_nombre}`}
+                            >
+                              <User size={13} /> @{notif.usuario_origen_nombre}
+                            </button>
+                          )}
                           <div style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
                             {notif.titulo}
                           </div>
@@ -1511,6 +1695,48 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                             {new Date(notif.fecha_creacion).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        {notif.enlace && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              if (notif.enlace.startsWith('/explorador/')) {
+                                const uid = parseInt(notif.enlace.replace('/explorador/', ''));
+                                if (alVerPerfilUsuario && uid) alVerPerfilUsuario(uid);
+                              } else if (notif.enlace.includes('/diario')) {
+                                if (notif.enlace.includes('?')) {
+                                  const q = notif.enlace.substring(notif.enlace.indexOf('?'));
+                                  window.history.pushState({}, '', '/diario' + q);
+                                }
+                                window.location.href = notif.enlace;
+                              } else if (notif.tipo === 'trofeo') {
+                                setPestanaActiva('trofeos');
+                              }
+                            }}
+                            style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                          >
+                            Ver
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => eliminarNotificacion(notif.id)}
+                          style={{
+                            fontSize: '0.78rem',
+                            padding: '6px 10px',
+                            color: 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="Eliminar notificación"
+                        >
+                          <Trash2 size={13} /> Eliminar
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1945,6 +2171,18 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         </div>
       )}
 
+      {/* MODAL RECORTE DE AVATAR 1:1 */}
+      {modalRecorteAbierto && archivoParaRecortar && (
+        <ModalRecortarFotoPerfil
+          archivoOriginal={archivoParaRecortar}
+          alConfirmar={confirmarRecorteAvatar}
+          alCancelar={() => {
+            setModalRecorteAbierto(false);
+            setArchivoParaRecortar(null);
+          }}
+        />
+      )}
+
       {/* MODAL 1: CONFIGURAR FURGO, COMBUSTIBLE, AVATAR Y DIRECCIÓN */}
       {modalConfigAbierto && (
         <div style={{
@@ -1982,7 +2220,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </button>
 
             <h2 style={{ fontSize: '1.35rem', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sliders size={20} color="var(--accent-forest)" /> Configurar Furgo y Perfil
+              <Sliders size={20} color="var(--accent-forest)" /> Configurar Perfil y Vehículo
             </h2>
 
             <form onSubmit={guardarCambiosPerfil}>
@@ -2012,7 +2250,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                   flexShrink: 0
                 }}>
                   {previewAvatar ? (
-                    <img src={previewAvatar} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img loading="lazy" decoding="async" src={previewAvatar} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     usuario?.username?.charAt(0).toUpperCase() || 'E'
                   )}
@@ -2205,6 +2443,198 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                   value={biografia}
                   onChange={(e) => setBiografia(e.target.value)}
                 />
+              </div>
+
+              {/* SECCIÓN SEGURIDAD Y CAMBIO DE CONTRASEÑA */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '14px 16px',
+                marginBottom: '20px'
+              }}>
+                <div 
+                  onClick={() => setSeccionPasswordAbierta(!seccionPasswordAbierta)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                    <Lock size={17} color="var(--accent-forest)" />
+                    <span>Seguridad y Contraseña</span>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--accent-forest)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                    {seccionPasswordAbierta ? 'Ocultar' : 'Cambiar Contraseña'}
+                    {seccionPasswordAbierta ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </span>
+                </div>
+
+                {seccionPasswordAbierta && (
+                  <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {mensajePassExito && (
+                      <div style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(46, 139, 87, 0.15)',
+                        border: '1px solid #2E8B57',
+                        color: '#2E8B57',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <Check size={16} /> {mensajePassExito}
+                      </div>
+                    )}
+
+                    {mensajePassError && (
+                      <div style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(217, 56, 56, 0.15)',
+                        border: '1px solid #D93838',
+                        color: '#D93838',
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <AlertTriangle size={16} /> {mensajePassError}
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>
+                        Contraseña Actual:
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={mostrarPassActual ? 'text' : 'password'}
+                          className="form-control"
+                          placeholder="Tu contraseña actual"
+                          value={passActual}
+                          onChange={(e) => setPassActual(e.target.value)}
+                          style={{ paddingRight: '40px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMostrarPassActual(!mostrarPassActual)}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          {mostrarPassActual ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>
+                          Nueva Contraseña:
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type={mostrarPassNueva ? 'text' : 'password'}
+                            className="form-control"
+                            placeholder="Mínimo 6 caracteres"
+                            value={passNueva}
+                            onChange={(e) => setPassNueva(e.target.value)}
+                            style={{ paddingRight: '40px' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarPassNueva(!mostrarPassNueva)}
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            {mostrarPassNueva ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>
+                          Confirmar Nueva Contraseña:
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type={mostrarPassConfirmar ? 'text' : 'password'}
+                            className="form-control"
+                            placeholder="Repite la nueva contraseña"
+                            value={passConfirmar}
+                            onChange={(e) => setPassConfirmar(e.target.value)}
+                            style={{ paddingRight: '40px' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarPassConfirmar(!mostrarPassConfirmar)}
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            {mostrarPassConfirmar ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={manejarCambiarPassword}
+                        disabled={guardandoPass || !passActual || !passNueva}
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          border: '1.5px solid var(--accent-forest)',
+                          color: 'var(--accent-forest)'
+                        }}
+                      >
+                        <Lock size={14} />
+                        <span>{guardandoPass ? 'Actualizando...' : 'Actualizar Contraseña'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>

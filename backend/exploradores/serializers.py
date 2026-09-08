@@ -17,8 +17,14 @@ class ExploradorRegistroSerializer(serializers.ModelSerializer):
             'username', 'email', 'password', 'password_confirm',
             'first_name', 'last_name', 'fecha_nacimiento',
             'pais', 'poblacion', 'codigo_postal', 'direccion_base', 'lat_base', 'lng_base',
-            'tipo_viajero', 'tipo_combustible', 'foto_vehiculo', 'avatar', 'biografia'
+            'tipo_viajero', 'tipo_combustible', 'capacidad_deposito_l', 'consumo_medio_l_100km', 'foto_vehiculo', 'avatar', 'biografia'
         ]
+
+    def validate_username(self, value):
+        return str(value).strip().lower()
+
+    def validate_email(self, value):
+        return str(value).strip().lower()
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -28,6 +34,13 @@ class ExploradorRegistroSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+        
+        # Valores por defecto requeridos por la especificación si no se proporcionan (50L y 7.0L/100km)
+        if not validated_data.get('capacidad_deposito_l'):
+            validated_data['capacidad_deposito_l'] = 50.0
+        if not validated_data.get('consumo_medio_l_100km'):
+            validated_data['consumo_medio_l_100km'] = 7.0
+
         explorador = Explorador(**validated_data)
         explorador.set_password(password)
         explorador.save()
@@ -68,7 +81,7 @@ class ExploradorPerfilSerializer(serializers.ModelSerializer):
     def get_estado_seguimiento(self, obj):
         # Aquí verifico si el usuario autenticado sigue a este explorador
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated or request.user.id == obj.id:
+        if not request or not hasattr(request, 'user') or not request.user.is_authenticated or request.user.id == obj.id:
             return 'propio'
 
         rel = RelacionSeguimiento.objects.filter(seguidor=request.user, seguido=obj).first()
@@ -79,7 +92,7 @@ class ExploradorPerfilSerializer(serializers.ModelSerializer):
     def get_companeros_de_ruta(self, obj):
         # Aquí devuelvo la lista de compañeros de ruta mutuos de este explorador
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated or request.user.id != obj.id:
+        if not request or not hasattr(request, 'user') or not request.user.is_authenticated or request.user.id != obj.id:
             return []
         ids_amigos = RelacionSeguimiento.objects.filter(seguidor=obj, estado='aceptada').values_list('seguido_id', flat=True)
         amigos = Explorador.objects.filter(id__in=ids_amigos)

@@ -7,6 +7,8 @@ from .views import (
     recuperar_password_vista,
     csrf_token_vista,
     registro_vista,
+    activar_cuenta_vista,
+    reenviar_codigo_vista,
     login_vista,
     logout_vista,
     mi_perfil_vista,
@@ -17,7 +19,8 @@ from .views import (
     companeros_vista,
     seguidores_y_siguiendo_vista,
     notificaciones_vista,
-    forzar_notificacion_prueba_vista
+    forzar_notificacion_prueba_vista,
+    cambiar_password_vista
 )
 
 # Enrutador REST para exploradores y grupos
@@ -28,10 +31,14 @@ router.register(r'grupos', GrupoPrivacidadViewSet, basename='grupos-privacidad')
 urlpatterns = [
     # Endpoints de autenticación y sesión tradicional
     path('csrf/', csrf_token_vista, name='csrf-token'),
+    path('recuperar-password/', recuperar_password_vista, name='recuperar-password'),
     path('registro/', registro_vista, name='explorador-registro'),
+    path('activar-cuenta/', activar_cuenta_vista, name='activar-cuenta'),
+    path('reenviar-codigo/', reenviar_codigo_vista, name='reenviar-codigo'),
     path('login/', login_vista, name='explorador-login'),
     path('logout/', logout_vista, name='explorador-logout'),
     path('perfil/', mi_perfil_vista, name='explorador-perfil'),
+    path('cambiar-password/', cambiar_password_vista, name='cambiar-password'),
     path('companeros/', companeros_vista, name='explorador-companeros'),
     path('seguidores-siguiendo/', seguidores_y_siguiendo_vista, name='explorador-seguidores-siguiendo'),
     path('notificaciones/', notificaciones_vista, name='explorador-notificaciones'),

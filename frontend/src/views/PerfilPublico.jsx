@@ -1,7 +1,7 @@
 const formatearUsuario = (u) => {
   if (!u) return '';
   const s = String(u);
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 // Aquí implemento la vista del Perfil Público de un Explorador en Camplink,
 // mostrando en la cabecera principal sus trofeos destacados junto a su avatar y datos de viajero,
@@ -141,7 +141,7 @@ export default function PerfilPublico({ usuarioId, alVolver, alSeleccionarLugar 
               flexShrink: 0
             }}>
               {perfil.avatar ? (
-                <img src={perfil.avatar} alt={perfil.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img loading="lazy" decoding="async" src={perfil.avatar} alt={perfil.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 perfil.username?.charAt(0).toUpperCase()
               )}
@@ -309,7 +309,7 @@ export default function PerfilPublico({ usuarioId, alVolver, alSeleccionarLugar 
 
                 {pub.imagen && (
                   <div style={{ borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: '12px' }}>
-                    <img src={pub.imagen} alt="Foto de ruta" style={{ width: '100%', maxHeight: '350px', objectFit: 'cover' }} />
+                    <img loading="lazy" decoding="async" src={pub.imagen} alt="Foto de ruta" style={{ width: '100%', maxHeight: '350px', objectFit: 'cover' }} />
                   </div>
                 )}
 

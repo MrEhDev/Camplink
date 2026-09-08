@@ -67,10 +67,13 @@ class ViajeViewSet(viewsets.ModelViewSet):
         )
 
         recalcular_viaje(viaje)
+        viaje.refresh_from_db()
+        serializer = ViajeSerializer(viaje, context={'request': request})
         return Response({
             'mensaje': f'{lugar.nombre} ha sido añadido a {viaje.titulo}.',
             'checkin_id': checkin.id,
-            'viaje_id': viaje.id
+            'viaje_id': viaje.id,
+            'viaje': serializer.data
         })
 
     @action(detail=True, methods=['post'], url_path='reordenar-paradas')

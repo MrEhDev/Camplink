@@ -15,8 +15,8 @@ import { peticionApi } from '../services/api';
 
 const formatearUsuario = (u) => {
   if (!u) return '';
-  const s = String(u);
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  const s = String(u).trim();
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
 export default function Navbar({ 
@@ -25,15 +25,36 @@ export default function Navbar({
   abrirRadar, 
   abrirNuevoLugar, 
   abrirLoginModal, 
-  alVerPerfilUsuario 
+  alVerPerfilUsuario,
+  abrirTutorial
 }) {
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
   const [panelNotifsAbierto, setPanelNotifsAbierto] = useState(false);
   const [toastNotif, setToastNotif] = useState(null);
   const prevNoLeidasRef = React.useRef(0);
+  const notifWrapperRef = React.useRef(null);
+
+  // Cerrar panel de notificaciones al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickFuera = (e) => {
+      if (notifWrapperRef.current && !notifWrapperRef.current.contains(e.target)) {
+        setPanelNotifsAbierto(false);
+      }
+    };
+    if (panelNotifsAbierto) {
+      document.addEventListener('mousedown', handleClickFuera);
+    }
+    return () => document.removeEventListener('mousedown', handleClickFuera);
+  }, [panelNotifsAbierto]);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const { usuario, logout } = useAuth();
+
+  const manejarLogout = async () => {
+    setVistaActiva('landing');
+    setMenuMovilAbierto(false);
+    await logout();
+  };
   const { tema, cambiarTema } = useTheme();
   const { idioma, cambiarIdioma, t } = useTranslation();
 
@@ -125,7 +146,11 @@ export default function Navbar({
         return;
       }
     }
-    if (notif.enlace === '/diario' || notif.tipo === 'comentario' || notif.tipo === 'reaccion') {
+    if (notif.enlace?.includes('/diario') || notif.tipo === 'comentario' || notif.tipo === 'reaccion') {
+      if (notif.enlace && notif.enlace.includes('?')) {
+        const query = notif.enlace.substring(notif.enlace.indexOf('?'));
+        window.history.pushState({}, '', '/diario' + query);
+      }
       setVistaActiva('diario');
       return;
     }
@@ -143,7 +168,7 @@ export default function Navbar({
   return (
     <header className="camplink-navbar">
       <div className="camplink-container">
-        <div className="navbar-inner">
+        <div className="navbar-inner" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box' }}>
           
           {/* LADO IZQUIERDO: BOTÓN HAMBURGUESA MÓVIL + ISOTIPO LOGO */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -176,7 +201,7 @@ export default function Navbar({
               style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
               title="Camplink | Conectando Comunidad al Aire Libre"
             >
-              <img 
+              <img loading="lazy" decoding="async" 
                 src="/camplink-logo.png" 
                 alt="Camplink Logo" 
                 className="navbar-brand-logo"
@@ -200,12 +225,22 @@ export default function Navbar({
                 </li>
                 <li>
                   <button 
-                    className={`nav-link ${(vistaActiva === 'descubre' || vistaActiva === 'descubre_lista') ? 'active' : ''}`}
+                    className={`nav-link ${vistaActiva === 'descubre_lista' ? 'active' : ''}`}
+                    onClick={() => navegar('descubre_lista')}
+                    style={{ height: '38px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Navigation size={16} />
+                    <span>{t('nav_lugares', 'Lugares')}</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    className={`nav-link ${vistaActiva === 'descubre' ? 'active' : ''}`}
                     onClick={() => navegar('descubre')}
                     style={{ height: '38px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
                     <Map size={16} />
-                    <span>{t('nav_descubre')}</span>
+                    <span>{t('nav_descubre', 'Mapa')}</span>
                   </button>
                 </li>
                 <li>
@@ -243,7 +278,7 @@ export default function Navbar({
           )}
 
           {/* LADO DERECHO: ACCIONES RÁPIDAS + TEMA + IDIOMA + PERFIL */}
-          <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
             {/* SELECTOR DE TEMA */}
             <button 
               className="btn-icon theme-toggle-btn" 
@@ -292,7 +327,7 @@ export default function Navbar({
 
             {/* CAMPANA DE NOTIFICACIONES */}
             {usuario && (
-              <div style={{ position: 'relative' }} className="notif-wrapper">
+              <div ref={notifWrapperRef} style={{ position: 'relative' }} className="notif-wrapper">
                 <button
                   type="button"
                   className="btn-icon notif-bell-btn"
@@ -354,7 +389,7 @@ export default function Navbar({
                       border: '1px solid var(--border-color)',
                       borderRadius: 'var(--radius-md)',
                       boxShadow: '0 12px 35px rgba(0,0,0,0.3)',
-                      zIndex: 1000,
+                      zIndex: 3500,
                       display: 'flex',
                       flexDirection: 'column',
                       overflow: 'hidden',
@@ -367,25 +402,30 @@ export default function Navbar({
                         <Bell size={15} color="var(--accent-forest)" />
                         <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Notificaciones</span>
                         {noLeidas > 0 && (
-                          <span className="badge-camper badge-forest" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                          <span style={{
+                            fontSize: '0.70rem',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(35, 83, 52, 0.25)',
+                            color: 'var(--accent-forest)',
+                            border: '1px solid var(--accent-forest)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            lineHeight: 1
+                          }}>
                             {noLeidas} nuevas
                           </span>
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => forzarNotificacionPrueba('reaccion')}
-                          style={{ background: 'rgba(35, 83, 52, 0.2)', border: '1px solid var(--accent-forest)', color: 'var(--accent-forest)', fontSize: '0.72rem', fontWeight: 700, borderRadius: '4px', padding: '2px 6px', cursor: 'pointer' }}
-                          title="Enviar una notificación simulada de prueba para comprobar en vivo"
-                        >
-                          ⚡ Probar
-                        </button>
                         {noLeidas > 0 && (
                           <button
                             type="button"
                             onClick={() => marcarNotificacionesLeidas()}
-                            style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                           >
                             Marcar leídas
                           </button>
@@ -393,15 +433,16 @@ export default function Navbar({
                       </div>
                     </div>
 
-                    {/* Lista de Notificaciones */}
+                    {/* Lista de Notificaciones (Solo Pendientes/No Leídas en el desplegable) */}
                     <div style={{ overflowY: 'auto', flex: 1, maxHeight: '360px' }}>
-                      {notificaciones.length === 0 ? (
+                      {notificaciones.filter(n => !n.leida).length === 0 ? (
                         <div style={{ padding: '30px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
                           <Bell size={28} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
-                          <p style={{ margin: 0, fontSize: '0.84rem' }}>No tienes notificaciones aún.</p>
+                          <p style={{ margin: 0, fontSize: '0.84rem' }}>No tienes notificaciones pendientes.</p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.74rem', opacity: 0.8 }}>Todas las leídas están archivadas en tu perfil.</p>
                         </div>
                       ) : (
-                        notificaciones.map((n) => {
+                        notificaciones.filter(n => !n.leida).map((n) => {
                           const esSeguidor = n.tipo === 'seguimiento';
                           const esComentario = n.tipo === 'comentario';
                           const esReaccion = n.tipo === 'reaccion';
@@ -446,6 +487,32 @@ export default function Navbar({
                               </div>
 
                               <div style={{ flex: 1, minWidth: 0 }}>
+                                {n.usuario_origen && n.usuario_origen_nombre && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPanelNotifsAbierto(false);
+                                      if (alVerPerfilUsuario) alVerPerfilUsuario(n.usuario_origen);
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      padding: 0,
+                                      color: 'var(--accent-forest)',
+                                      fontWeight: 800,
+                                      fontSize: '0.78rem',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      marginBottom: '2px'
+                                    }}
+                                    title={`Ver perfil de ${n.usuario_origen_nombre}`}
+                                  >
+                                    <User size={12} /> @{n.usuario_origen_nombre}
+                                  </button>
+                                )}
                                 <div style={{ fontSize: '0.84rem', fontWeight: n.leida ? 600 : 700, color: 'var(--text-primary)', marginBottom: '2px' }}>
                                   {n.titulo}
                                 </div>
@@ -470,42 +537,48 @@ export default function Navbar({
               </div>
             )}
 
-            {/* ACCIONES DE ESCRITORIO (RADAR Y AÑADIR LUGAR) */}
+            {/* BOTÓN RADAR FUERA DEL MENÚ HAMBURGUESA EN MÓVIL Y ESCRITORIO */}
             {usuario && (
-              <>
-                <button 
-                  className="btn btn-secondary btn-sm desktop-only-action" 
-                  onClick={abrirRadar}
-                  style={{
-                    height: '36px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '0 10px',
-                    borderRadius: 'var(--radius-full)'
-                  }}
-                  title="Radar Nómada"
-                >
-                  <Radar size={14} color="var(--accent-earth)" />
-                  <span style={{ fontSize: '0.8rem' }}>Radar</span>
-                </button>
+              <button 
+                className="btn btn-secondary btn-sm nav-radar-btn" 
+                onClick={abrirRadar}
+                style={{
+                  height: '36px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '0 10px',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1.5px solid var(--accent-earth)',
+                  background: 'rgba(217, 119, 6, 0.14)',
+                  flexShrink: 0
+                }}
+                title="Radar Nómada: gasolineras, servicios y puntos clave"
+              >
+                <Radar size={16} color="var(--accent-earth)" />
+                <span className="nav-radar-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>Radar</span>
+              </button>
+            )}
 
-                <button 
-                  className="btn btn-primary btn-sm desktop-only-action" 
-                  onClick={abrirNuevoLugar}
-                  style={{
-                    height: '36px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '0 10px',
-                    borderRadius: 'var(--radius-full)'
-                  }}
-                >
-                  <PlusCircle size={14} />
-                  <span style={{ fontSize: '0.8rem' }}>Añadir</span>
-                </button>
-              </>
+
+
+            {/* AÑADIR LUGAR EN ESCRITORIO */}
+            {usuario && (
+              <button 
+                className="btn btn-primary btn-sm desktop-only-action" 
+                onClick={abrirNuevoLugar}
+                style={{
+                  height: '36px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '0 10px',
+                  borderRadius: 'var(--radius-full)'
+                }}
+              >
+                <PlusCircle size={14} />
+                <span style={{ fontSize: '0.8rem' }}>Añadir</span>
+              </button>
             )}
 
             {/* PERFIL O LOGIN */}
@@ -549,7 +622,7 @@ export default function Navbar({
             {usuario && (
               <button 
                 className="btn-icon desktop-only-action" 
-                onClick={logout} 
+                onClick={manejarLogout} 
                 title={t('nav_logout')}
                 style={{
                   height: '36px',
@@ -586,20 +659,13 @@ export default function Navbar({
             boxSizing: 'border-box'
           }}>
             {usuario && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => { abrirRadar(); setMenuMovilAbierto(false); }}
-                  style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.84rem' }}
-                >
-                  <Radar size={16} color="var(--accent-earth)" /> <span>Radar Nómada</span>
-                </button>
+              <div style={{ marginBottom: '12px' }}>
                 <button
                   className="btn btn-primary"
                   onClick={() => { abrirNuevoLugar(); setMenuMovilAbierto(false); }}
-                  style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.84rem' }}
+                  style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.84rem' }}
                 >
-                  <PlusCircle size={16} /> <span>Añadir Lugar</span>
+                  <PlusCircle size={16} /> <span>Añadir Nuevo Lugar</span>
                 </button>
               </div>
             )}
@@ -618,20 +684,20 @@ export default function Navbar({
                   </li>
                   <li>
                     <button 
-                      className={`nav-link ${vistaActiva === 'descubre' ? 'active' : ''}`}
-                      onClick={() => navegar('descubre')}
-                      style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', borderRadius: 'var(--radius-sm)' }}
-                    >
-                      <Map size={17} /> <span>🗺️ Descubre (Mapa)</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button 
                       className={`nav-link ${vistaActiva === 'descubre_lista' ? 'active' : ''}`}
                       onClick={() => navegar('descubre_lista')}
                       style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', borderRadius: 'var(--radius-sm)' }}
                     >
-                      <Navigation size={17} /> <span>📋 Descubre (Lista)</span>
+                      <Navigation size={17} /> <span>{t('nav_lugares', 'Lugares')}</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      className={`nav-link ${vistaActiva === 'descubre' ? 'active' : ''}`}
+                      onClick={() => navegar('descubre')}
+                      style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', borderRadius: 'var(--radius-sm)' }}
+                    >
+                      <Map size={17} /> <span>{t('nav_descubre', 'Mapa')}</span>
                     </button>
                   </li>
                   <li>
@@ -670,10 +736,11 @@ export default function Navbar({
                       <User size={17} /> <span className="user-capitalized">Mi Perfil ({formatearUsuario(usuario.username)})</span>
                     </button>
                   </li>
+
                   <li style={{ marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
                     <button 
                       className="nav-link"
-                      onClick={() => { logout(); setMenuMovilAbierto(false); }}
+                      onClick={manejarLogout}
                       style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', color: '#EF4444' }}
                     >
                       <LogOut size={17} /> <span>{t('nav_logout')}</span>

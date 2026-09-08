@@ -38,6 +38,10 @@ class Explorador(AbstractUser):
     avatar = models.ImageField(upload_to='avatares/', null=True, blank=True, verbose_name='Foto de Perfil')
     biografia = models.TextField(blank=True, default='', verbose_name='Biografía Camper')
     rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='explorador', verbose_name='Rol')
+    recibio_bienvenida = models.BooleanField(default=False, verbose_name='Recibió Notificaciones de Bienvenida')
+    email_verificado = models.BooleanField(default=False, verbose_name='Email Verificado')
+    codigo_verificacion = models.CharField(max_length=6, blank=True, null=True, verbose_name='Código de Verificación')
+    fecha_codigo_verificacion = models.DateTimeField(null=True, blank=True, verbose_name='Fecha Envío Código')
 
     capacidad_deposito_l = models.FloatField(default=60.0, verbose_name='Capacidad del Depósito (Litros)')
     consumo_medio_l_100km = models.FloatField(default=8.5, verbose_name='Consumo Medio (L/100km)')

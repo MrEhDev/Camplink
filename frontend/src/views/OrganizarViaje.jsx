@@ -3,7 +3,7 @@
 // cálculo de distancias reales por tramo por carretera, trazado OSRM real en el mapa,
 // diferenciación visual de Salida y Vuelta a Base, y aviso de repostaje al 80% de autonomía.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
@@ -82,6 +82,65 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   // Reordenación y gasolineras
   const [arrastrandoIdx, setArrastrandoIdx] = useState(null);
   const [panelGasolineras, setPanelGasolineras] = useState(null);
+
+  // Buscador integrado de lugares para añadir paradas a la ruta
+  const [buscadorLugarAbierto, setBuscadorLugarAbierto] = useState({});
+  const [textoBusquedaLugar, setTextoBusquedaLugar] = useState({});
+  const [resultadosLugar, setResultadosLugar] = useState({});
+  const [buscandoLugar, setBuscandoLugar] = useState({});
+  const [anadiendoLugarId, setAnadiendoLugarId] = useState(null);
+  const timerBusquedaLugar = useRef({});
+
+  const manejarBusquedaLugar = (viajeId, texto) => {
+    setTextoBusquedaLugar(prev => ({ ...prev, [viajeId]: texto }));
+    if (timerBusquedaLugar.current[viajeId]) {
+      clearTimeout(timerBusquedaLugar.current[viajeId]);
+    }
+    const termLimpio = texto.trim();
+    if (!termLimpio) {
+      setResultadosLugar(prev => ({ ...prev, [viajeId]: [] }));
+      return;
+    }
+    setBuscandoLugar(prev => ({ ...prev, [viajeId]: true }));
+    timerBusquedaLugar.current[viajeId] = setTimeout(async () => {
+      try {
+        const res = await peticionApi(`/api/lugares/puntos/?q=${encodeURIComponent(termLimpio)}`);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        setResultadosLugar(prev => ({ ...prev, [viajeId]: lista }));
+      } catch (err) {
+        console.error('Error buscando lugares para viaje:', err);
+        setResultadosLugar(prev => ({ ...prev, [viajeId]: [] }));
+      } finally {
+        setBuscandoLugar(prev => ({ ...prev, [viajeId]: false }));
+      }
+    }, 300);
+  };
+
+  const anadirLugarAViaje = async (viajeId, lugar) => {
+    setAnadiendoLugarId(lugar.id);
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/anadir-parada/`, {
+        method: 'POST',
+        body: { lugar_id: lugar.id }
+      });
+      // Limpiar cache OSRM para que recalcule con la nueva parada
+      setGeometriasRutas(prev => {
+        const copy = { ...prev };
+        delete copy[viajeId];
+        return copy;
+      });
+      if (res?.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      }
+      await cargarViajes();
+      setTextoBusquedaLugar(prev => ({ ...prev, [viajeId]: '' }));
+      setResultadosLugar(prev => ({ ...prev, [viajeId]: [] }));
+    } catch (err) {
+      alert(err.message || 'Error al añadir lugar al itinerario.');
+    } finally {
+      setAnadiendoLugarId(null);
+    }
+  };
 
   // Geometría de carreteras OSRM en tiempo real para mapa
   const [geometriasRutas, setGeometriasRutas] = useState({});
@@ -788,10 +847,155 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                           <Route size={16} color="var(--accent-earth)" />
                           <span>Itinerario de Etapas ({paradas.filter(p => !p.es_base).length} paradas planificadas):</span>
                         </div>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                          Usa las flechas ⬆⬇ a la izquierda de cada etapa para ordenar tu ruta
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            Usa las flechas ⬆⬇ para ordenar tu ruta
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => setBuscadorLugarAbierto(prev => ({ ...prev, [viaje.id]: !prev[viaje.id] }))}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '0.82rem',
+                              padding: '5px 12px',
+                              borderRadius: 'var(--radius-full)',
+                              boxShadow: '0 2px 8px rgba(35,83,52,0.3)',
+                              fontWeight: 700
+                            }}
+                            title="Buscar spots, áreas camper y pueblos para añadirlos a este viaje"
+                          >
+                            <Plus size={14} />
+                            <span>{buscadorLugarAbierto[viaje.id] ? 'Cerrar Buscador' : 'Añadir Parada (Buscar Lugar)'}</span>
+                          </button>
+                        </div>
                       </div>
+
+                      {/* BUSCADOR INTEGRADO DE LUGARES */}
+                      {buscadorLugarAbierto[viaje.id] && (
+                        <div className="camper-card" style={{
+                          padding: '16px',
+                          marginBottom: '16px',
+                          border: '1.5px solid var(--accent-forest)',
+                          background: 'var(--bg-surface-elevated)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.18)'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-forest)' }}>
+                              <Search size={16} />
+                              <span>Buscar lugares camper para añadir al viaje:</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              onClick={() => setBuscadorLugarAbierto(prev => ({ ...prev, [viaje.id]: false }))}
+                              style={{ width: '28px', height: '28px' }}
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+
+                          <div style={{ position: 'relative', marginBottom: '10px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Escribe el nombre del lugar, pueblo o provincia (ej: Santander, Potes, Cangas de Onís, Ordesa)..."
+                              value={textoBusquedaLugar[viaje.id] || ''}
+                              onChange={(e) => manejarBusquedaLugar(viaje.id, e.target.value)}
+                              autoFocus
+                              style={{ paddingLeft: '36px', height: '40px' }}
+                            />
+                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                          </div>
+
+                          {buscandoLugar[viaje.id] && (
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '6px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>Buscando spots en Camplink...</span>
+                            </div>
+                          )}
+
+                          {resultadosLugar[viaje.id] && resultadosLugar[viaje.id].length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', marginTop: '6px' }}>
+                              {resultadosLugar[viaje.id].slice(0, 10).map((lugar) => (
+                                <div
+                                  key={lugar.id}
+                                  onClick={() => alSeleccionarLugar && alSeleccionarLugar(lugar.id)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '10px 14px',
+                                    background: 'var(--bg-primary)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    border: '1px solid var(--border-color)',
+                                    gap: '12px',
+                                    flexWrap: 'wrap',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  title="Ver ficha detallada del lugar"
+                                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(35, 83, 52, 0.14)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '200px' }}>
+                                    {lugar.fotos && lugar.fotos.length > 0 ? (
+                                      <img
+                                        src={lugar.fotos[0].foto || lugar.fotos[0]}
+                                        alt={lugar.nombre}
+                                        style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}
+                                      />
+                                    ) : (
+                                      <div style={{ width: '44px', height: '44px', borderRadius: '6px', background: 'var(--bg-glass)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem' }}>
+                                        📍
+                                      </div>
+                                    )}
+
+                                    <div>
+                                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                                        {lugar.nombre}
+                                      </div>
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                                        {lugar.poblacion && <span>📍 {lugar.poblacion}</span>}
+                                        {lugar.provincia && <span>({lugar.provincia})</span>}
+                                        <span className="badge-camper badge-forest" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
+                                          {lugar.tipo_lugar_display || lugar.tipo_lugar || 'Punto Camper'}
+                                        </span>
+                                        {lugar.es_gratuito ? (
+                                          <span style={{ color: 'var(--accent-forest)', fontWeight: 600 }}>Gratis</span>
+                                        ) : lugar.precio_noche ? (
+                                          <span style={{ color: 'var(--accent-earth)', fontWeight: 600 }}>{lugar.precio_noche}€/n</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    disabled={anadiendoLugarId === lugar.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      anadirLugarAViaje(viaje.id, lugar);
+                                    }}
+                                    style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                  >
+                                    <Plus size={14} />
+                                    <span>{anadiendoLugarId === lugar.id ? 'Añadiendo...' : 'Añadir a la Ruta'}</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {textoBusquedaLugar[viaje.id] && textoBusquedaLugar[viaje.id].trim().length >= 2 && !buscandoLugar[viaje.id] && (!resultadosLugar[viaje.id] || resultadosLugar[viaje.id].length === 0) && (
+                            <div style={{ textAlign: 'center', padding: '14px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                              No se encontraron spots registrados con "{textoBusquedaLugar[viaje.id]}". Intenta buscar por localidad o provincia.
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {paradas.length === 0 ? (
                         <div style={{
@@ -804,15 +1008,26 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                           <p style={{ margin: '0 0 10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
                             Este viaje todavía no tiene paradas registradas.
                           </p>
-                          {alExplorarMapa && (
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={alExplorarMapa}
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => setBuscadorLugarAbierto(prev => ({ ...prev, [viaje.id]: true }))}
                               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
-                              <MapPin size={14} /> Explorar mapa para añadir pernoctas a este viaje
+                              <Search size={14} /> Buscar y añadir lugares a la ruta
                             </button>
-                          )}
+                            {alExplorarMapa && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={alExplorarMapa}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <MapPin size={14} /> Explorar mapa
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1044,8 +1259,32 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       </div>
                                     </div>
 
-                                    {/* INFORMACIÓN DE LA ETAPA */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '220px' }}>
+                                    {/* INFORMACIÓN DE LA ETAPA (WIDGET CLICABLE PARA IR AL DETALLE) */}
+                                    <div
+                                      onClick={() => {
+                                        if (parada.lugar_id && alSeleccionarLugar) {
+                                          alSeleccionarLugar(parada.lugar_id);
+                                        }
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        flex: 1,
+                                        minWidth: '220px',
+                                        cursor: parada.lugar_id ? 'pointer' : 'default',
+                                        padding: '4px 8px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        transition: 'background 0.2s ease'
+                                      }}
+                                      title={parada.lugar_id ? `Ver ficha completa de ${parada.nombre}` : parada.nombre}
+                                      onMouseEnter={(e) => {
+                                        if (parada.lugar_id) e.currentTarget.style.background = 'rgba(35, 83, 52, 0.12)';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (parada.lugar_id) e.currentTarget.style.background = 'transparent';
+                                      }}
+                                    >
                                       <div style={{
                                         width: '32px',
                                         height: '32px',
@@ -1065,17 +1304,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       <div>
                                         <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                           <span
-                                            onClick={() => {
-                                              if (parada.lugar_id && alSeleccionarLugar) {
-                                                alSeleccionarLugar(parada.lugar_id);
-                                              }
-                                            }}
                                             style={{
-                                              cursor: parada.lugar_id ? 'pointer' : 'default',
                                               color: parada.lugar_id ? 'var(--accent-forest)' : 'inherit',
                                               textDecoration: parada.lugar_id ? 'underline' : 'none'
                                             }}
-                                            title={parada.lugar_id ? `Ver detalles de ${parada.nombre}` : parada.nombre}
                                           >
                                             {parada.nombre}
                                           </span>
@@ -1101,13 +1333,16 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                     </div>
 
                                     {/* ACCIONES DE LA ETAPA: RADAR, REPOSTAJE Y ELIMINAR */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
                                       {/* Radar centrado en este lugar */}
                                       {parada.latitud != null && parada.longitud != null && (
                                         <button
                                           type="button"
                                           className="btn btn-secondary btn-sm"
-                                          onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre });
+                                          }}
                                           title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
                                           style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                                         >
@@ -1120,7 +1355,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       <button
                                         type="button"
                                         className={`btn ${parada.es_repostaje ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                                        onClick={() => alternarRepostaje(viaje.id, idx)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          alternarRepostaje(viaje.id, idx);
+                                        }}
                                         title={parada.es_repostaje ? 'Desmarcar repostaje' : 'Marcar que repostas aquí'}
                                         style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                                       >
@@ -1133,7 +1371,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         <button
                                           type="button"
                                           className="btn btn-secondary btn-sm"
-                                          onClick={() => abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre)}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            abrirBuscadorGasolineras(viaje.id, idx, parada.latitud, parada.longitud, parada.nombre);
+                                          }}
                                           title="Buscar gasolineras baratas cerca de esta etapa"
                                           style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
                                         >
@@ -1146,7 +1387,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       <button
                                         type="button"
                                         className="btn btn-danger btn-sm"
-                                        onClick={() => eliminarParada(viaje.id, idx, parada)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          eliminarParada(viaje.id, idx, parada);
+                                        }}
                                         title="Eliminar esta parada del viaje"
                                         style={{ padding: '4px 8px', background: 'rgba(239, 68, 68, 0.18)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.45)' }}
                                       >

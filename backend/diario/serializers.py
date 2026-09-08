@@ -48,7 +48,7 @@ class PublicacionSerializer(serializers.ModelSerializer):
     def get_mis_reacciones(self, obj):
         # Aquí devuelvo los tipos de reacción que el usuario conectado ha otorgado
         request = self.context.get('request')
-        if request and request.user.is_authenticated:
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
             return list(obj.reacciones.filter(usuario=request.user).values_list('tipo', flat=True))
         return []
 
@@ -76,7 +76,7 @@ class CheckInSerializer(serializers.ModelSerializer):
     def get_notas_privadas(self, obj):
         # Aquí garantizo la privacidad estricta: solo devuelvo las notas si el usuario autenticado es el autor
         request = self.context.get('request')
-        if request and request.user.is_authenticated and request.user.id == obj.explorador_id:
+        if request and hasattr(request, 'user') and request.user.is_authenticated and request.user.id == obj.explorador_id:
             return obj.notas_privadas
         return ''
 

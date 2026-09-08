@@ -1,18 +1,18 @@
 // Aquí implemento la Landing Page de Camplink con el isotipo oficial centrado,
 // 6 pilares nómadas equitativos en grid 3x2, y formularios de login/registro rápido.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
 import { 
   Compass, Map, Shield, Wrench, Sparkles, CheckCircle, 
   ArrowRight, UserCheck, Fuel, Calendar, Moon, Radio, 
   Droplets, Zap, Heart, MessageSquare, Star, Navigation,
-  HelpCircle, ChevronRight, Lock, User, Eye, Award
+  HelpCircle, ChevronRight, Lock, User, Eye, EyeOff, Award
 } from 'lucide-react';
 
 export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
-  const { usuario, login, registro, recuperarPassword } = useAuth();
+  const { usuario, login, registro, activarCuenta, reenviarCodigo, recuperarPassword, establecerUsuario } = useAuth();
   const { t } = useTranslation();
 
   const [modoAuth, setModoAuth] = useState('login'); // 'login' o 'registro'
@@ -24,6 +24,9 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   const [recordarUsuario, setRecordarUsuario] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [cargandoAuth, setCargandoAuth] = useState(false);
+  const [mostrarLoginPassword, setMostrarLoginPassword] = useState(false);
+  const [mostrarRegPassword, setMostrarRegPassword] = useState(false);
+  const [mostrarRegConfirmPassword, setMostrarRegConfirmPassword] = useState(false);
 
   // Estados de Recuperación de Contraseña / Usuario
   const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
@@ -46,9 +49,209 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
     codigo_postal: '',
     direccion_base: '',
     tipo_viajero: 'camper',
+    capacidad_deposito_l: '',
+    consumo_medio_l_100km: '',
     biografia: '',
   });
   const [fotoVehiculo, setFotoVehiculo] = useState(null);
+
+  // Estados de Autocompletado de Dirección y Código Postal
+  const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
+  const [buscandoDireccion, setBuscandoDireccion] = useState(false);
+  const [buscandoCp, setBuscandoCp] = useState(false);
+  const timerDireccion = useRef(null);
+  const timerCp = useRef(null);
+
+  // Estados de Verificación de Cuenta por Correo
+  const [modalVerificacionAbierto, setModalVerificacionAbierto] = useState(false);
+  const [emailVerificacion, setEmailVerificacion] = useState('');
+  const [codigoVerificacionInput, setCodigoVerificacionInput] = useState('');
+  const [mensajeVerificacion, setMensajeVerificacion] = useState('');
+  const [errorVerificacion, setErrorVerificacion] = useState('');
+  const [cargandoVerificacion, setCargandoVerificacion] = useState(false);
+  const [modalConfigurarVehiculoAbierto, setModalConfigurarVehiculoAbierto] = useState(false);
+  const [usuarioPendienteVehiculo, setUsuarioPendienteVehiculo] = useState(null);
+  const [guardandoVehiculo, setGuardandoVehiculo] = useState(false);
+  const [codigoDev, setCodigoDev] = useState('');
+
+  // Verificación automática por enlace en URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('activar_token');
+    const uid = params.get('uid');
+    const emailParam = params.get('email');
+    if (token && uid) {
+      setCargandoAuth(true);
+      activarCuenta({ uid, token, email: emailParam, autoLogin: false })
+        .then((res) => {
+          setUsuarioPendienteVehiculo(res.usuario);
+          setModalConfigurarVehiculoAbierto(true);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
+        .catch((err) => {
+          setAuthError(err.message || 'El enlace de activación es inválido o ha caducado.');
+        })
+        .finally(() => setCargandoAuth(false));
+    }
+  }, []);
+
+  const manejarCambioCodigoPostal = (cp) => {
+    setRegData(prev => ({ ...prev, codigo_postal: cp }));
+    if (timerCp.current) clearTimeout(timerCp.current);
+
+    const cpLimpio = cp.trim();
+    if (cpLimpio.length >= 4) {
+      timerCp.current = setTimeout(async () => {
+        setBuscandoCp(true);
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(cpLimpio)}&countrycodes=es&format=json&addressdetails=1&limit=1`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const addr = data[0].address || {};
+            const ciudad = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+            if (ciudad) {
+              setRegData(prev => ({ ...prev, poblacion: ciudad }));
+            }
+          }
+        } catch (e) {
+          console.warn('Error al autocompletar código postal:', e);
+        } finally {
+          setBuscandoCp(false);
+        }
+      }, 400);
+    }
+  };
+
+  const manejarCambioDireccion = (texto) => {
+    setRegData(prev => ({ ...prev, direccion_base: texto }));
+    if (timerDireccion.current) clearTimeout(timerDireccion.current);
+
+    if (!texto || texto.length < 3) {
+      setSugerenciasDireccion([]);
+      return;
+    }
+
+    timerDireccion.current = setTimeout(async () => {
+      setBuscandoDireccion(true);
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(texto)}&countrycodes=es&format=json&addressdetails=1&limit=6`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && Array.isArray(data)) {
+          const formateadas = data.map(item => {
+            const addr = item.address || {};
+            const ciudad = addr.city || addr.town || addr.village || addr.municipality || '';
+            const cp = addr.postcode || '';
+            const provincia = addr.state || addr.province || addr.county || '';
+            return {
+              etiqueta: item.display_name,
+              ciudad: ciudad,
+              codigo_postal: cp,
+              provincia: provincia,
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+            };
+          });
+          setSugerenciasDireccion(formateadas);
+        }
+      } catch (e) {
+        console.warn('Error en sugerencias de dirección:', e);
+      } finally {
+        setBuscandoDireccion(false);
+      }
+    }, 350);
+  };
+
+  const seleccionarSugerencia = (sug) => {
+    setRegData(prev => ({
+      ...prev,
+      direccion_base: sug.etiqueta,
+      poblacion: sug.ciudad || prev.poblacion,
+      codigo_postal: sug.codigo_postal || prev.codigo_postal,
+      lat_base: sug.lat,
+      lng_base: sug.lng
+    }));
+    setSugerenciasDireccion([]);
+  };
+
+  const manejarVerificarCodigo = async (e) => {
+    e.preventDefault();
+    if (!codigoVerificacionInput.trim()) return;
+    setErrorVerificacion('');
+    setMensajeVerificacion('');
+    setCargandoVerificacion(true);
+
+    try {
+      const res = await activarCuenta({
+        email: emailVerificacion,
+        codigo: codigoVerificacionInput.trim(),
+        autoLogin: false
+      });
+      setModalVerificacionAbierto(false);
+      setUsuarioPendienteVehiculo(res.usuario);
+      setModalConfigurarVehiculoAbierto(true);
+    } catch (err) {
+      setErrorVerificacion(err.message || 'Código incorrecto. Comprueba e inténtalo de nuevo.');
+    } finally {
+      setCargandoVerificacion(false);
+    }
+  };
+
+  const manejarGuardarVehiculo = async (e) => {
+    e.preventDefault();
+    setGuardandoVehiculo(true);
+    try {
+      const capFinal = parseFloat(regData.capacidad_deposito_l) > 0 ? parseFloat(regData.capacidad_deposito_l) : 50.0;
+      const consFinal = parseFloat(regData.consumo_medio_l_100km) > 0 ? parseFloat(regData.consumo_medio_l_100km) : 7.0;
+
+      const payload = {
+        tipo_viajero: regData.tipo_viajero || 'camper',
+        tipo_combustible: regData.tipo_combustible || 'gasoleo_a',
+        capacidad_deposito_l: capFinal,
+        consumo_medio_l_100km: consFinal,
+        codigo_postal: regData.codigo_postal || '',
+        poblacion: regData.poblacion || '',
+        direccion_base: regData.direccion_base || '',
+        lat_base: regData.lat_base,
+        lng_base: regData.lng_base
+      };
+
+      const usuarioActualizado = await peticionApi('/api/exploradores/perfil/', {
+        method: 'PATCH',
+        body: payload
+      });
+
+      setModalConfigurarVehiculoAbierto(false);
+      establecerUsuario(usuarioActualizado || usuarioPendienteVehiculo);
+      setVistaActiva('diario');
+    } catch (err) {
+      console.warn('Error al guardar datos del vehículo:', err);
+      setModalConfigurarVehiculoAbierto(false);
+      establecerUsuario(usuarioPendienteVehiculo);
+      setVistaActiva('diario');
+    } finally {
+      setGuardandoVehiculo(false);
+    }
+  };
+
+  const manejarOmitirVehiculo = () => {
+    setModalConfigurarVehiculoAbierto(false);
+    establecerUsuario(usuarioPendienteVehiculo);
+    setVistaActiva('diario');
+  };
+
+  const manejarReenviarCodigo = async () => {
+    setErrorVerificacion('');
+    setMensajeVerificacion('');
+    try {
+      const res = await reenviarCodigo(emailVerificacion);
+      setMensajeVerificacion(res.mensaje || 'Nuevo código enviado.');
+      if (res.codigo_dev) setCodigoDev(res.codigo_dev);
+    } catch (err) {
+      setErrorVerificacion(err.message || 'Error al reenviar el código.');
+    }
+  };
 
   const manejarLogin = async (e) => {
     e.preventDefault();
@@ -66,7 +269,14 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       await login(userMinusculas, loginPassword);
       setVistaActiva('diario');
     } catch (err) {
-      setAuthError(err.message || 'Error en las credenciales.');
+      if (err.data && err.data.requiere_verificacion) {
+        setEmailVerificacion(err.data.email || userMinusculas);
+        if (err.data.codigo_dev) setCodigoDev(err.data.codigo_dev);
+        setModalVerificacionAbierto(true);
+        setErrorVerificacion(err.message || 'Debes verificar tu código de 6 dígitos antes de entrar.');
+      } else {
+        setAuthError(err.message || 'Error en las credenciales.');
+      }
     } finally {
       setCargandoAuth(false);
     }
@@ -104,14 +314,19 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
 
     setCargandoAuth(true);
     try {
-      const formData = new FormData();
-      Object.keys(regData).forEach((k) => {
-        if (regData[k]) formData.append(k, regData[k]);
+      const res = await registro({
+        username: regData.username.trim().toLowerCase(),
+        email: regData.email.trim().toLowerCase(),
+        password: regData.password,
+        password_confirm: regData.password_confirm
       });
-      if (fotoVehiculo) formData.append('foto_vehiculo', fotoVehiculo);
-
-      await registro(formData);
-      setVistaActiva('diario');
+      if (res && res.requiere_verificacion) {
+        setEmailVerificacion(res.email || regData.email);
+        setCodigoDev(res.codigo_dev || '');
+        setModalVerificacionAbierto(true);
+      } else {
+        setVistaActiva('diario');
+      }
     } catch (err) {
       setAuthError(err.message || 'Error al completar el registro.');
     } finally {
@@ -132,21 +347,11 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         <div className="camplink-container" style={{ maxWidth: '880px', margin: '0 auto' }}>
           
           {/* LOGO ISOTIPO OFICIAL EN EL CENTRO */}
-          <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
-            <img 
+          <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'center' }}>
+            <img loading="lazy" decoding="async" 
               src="/camplink-logo.png" 
               alt="Camplink - Conectando Comunidad al Aire Libre" 
-              style={{
-                width: '130px',
-                height: '130px',
-                objectFit: 'contain',
-                borderRadius: '50%',
-                boxShadow: '0 12px 35px rgba(35, 83, 52, 0.45)',
-                border: '3px solid rgba(255, 255, 255, 0.15)',
-                transition: 'transform 0.3s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.06) rotate(3deg)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}
+              className="landing-hero-logo"
             />
           </div>
 
@@ -420,7 +625,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
             
             {/* CABECERA FORMULARIO */}
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <img 
+              <img loading="lazy" decoding="async" 
                 src="/camplink-logo.png" 
                 alt="Camplink" 
                 style={{ width: '64px', height: '64px', borderRadius: '50%', marginBottom: '12px' }} 
@@ -522,14 +727,36 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
-                  <input
-                    type="password"
-                    className="form-control"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={mostrarLoginPassword ? 'text' : 'password'}
+                      className="form-control"
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      style={{ paddingRight: '42px' }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMostrarLoginPassword(!mostrarLoginPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px'
+                      }}
+                      title={mostrarLoginPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    >
+                      {mostrarLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* RECORDAR USUARIO */}
@@ -616,151 +843,131 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
               </div>
             )}
 
-            {/* 3. FORMULARIO REGISTRO POR PASOS */}
+            {/* 3. FORMULARIO REGISTRO INICIAL (CREDENCIALES) */}
             {modoAuth === 'registro' && (
-              /* FORMULARIO REGISTRO POR PASOS */
               <form onSubmit={manejarRegistro} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {pasoRegistro === 1 ? (
-                  <>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700 }}>
-                      Paso 1 de 2: Credenciales de Acceso
-                    </div>
+                <div style={{
+                  fontSize: '0.80rem',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginBottom: '4px',
+                  fontWeight: 600
+                }}>
+                  <strong style={{ color: '#EF4444', fontSize: '1rem', lineHeight: 1 }}>*</strong>
+                  <span>: obligatorio</span>
+                </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Nombre de Usuario *</label>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Nombre de Usuario</span>
+                    <strong style={{ color: '#EF4444' }}>*</strong>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: rutero_norte"
+                    value={regData.username}
+                    onChange={(e) => setRegData({ ...regData, username: e.target.value.toLowerCase() })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Correo Electrónico</span>
+                    <strong style={{ color: '#EF4444' }}>*</strong>
+                  </label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    placeholder="tu@email.com"
+                    value={regData.email}
+                    onChange={(e) => setRegData({ ...regData, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Contraseña</span>
+                      <strong style={{ color: '#EF4444' }}>*</strong>
+                    </label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                       <input
-                        type="text"
+                        type={mostrarRegPassword ? 'text' : 'password'}
                         className="form-control"
-                        placeholder="Ej: rutero_norte"
-                        value={regData.username}
-                        onChange={(e) => setRegData({ ...regData, username: e.target.value })}
+                        value={regData.password}
+                        onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                        style={{ paddingRight: '36px' }}
                         required
                       />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Correo Electrónico *</label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        placeholder="tu@email.com"
-                        value={regData.email}
-                        onChange={(e) => setRegData({ ...regData, email: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div className="form-group">
-                        <label className="form-label">Contraseña *</label>
-                        <input
-                          type="password"
-                          className="form-control"
-                          value={regData.password}
-                          onChange={(e) => setRegData({ ...regData, password: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Confirmar *</label>
-                        <input
-                          type="password"
-                          className="form-control"
-                          value={regData.password_confirm}
-                          onChange={(e) => setRegData({ ...regData, password_confirm: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ width: '100%', height: '44px', fontWeight: 800, marginTop: '8px' }}
-                      onClick={() => {
-                        if (!regData.username || !regData.email || !regData.password) {
-                          setAuthError('Por favor completa usuario, correo y contraseña.');
-                          return;
-                        }
-                        setAuthError(null);
-                        setPasoRegistro(2);
-                      }}
-                    >
-                      Continuar: Datos de tu Vehículo <ArrowRight size={16} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700 }}>
-                      Paso 2 de 2: Vehículo y Punto de Partida
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Tipo de Viajero Nómada</label>
-                      <select
-                        className="form-control"
-                        value={regData.tipo_viajero}
-                        onChange={(e) => setRegData({ ...regData, tipo_viajero: e.target.value })}
-                      >
-                        <option value="camper">Furgoneta Camper</option>
-                        <option value="autocaravana">Autocaravana</option>
-                        <option value="acampada">Tienda / Acampada</option>
-                      </select>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div className="form-group">
-                        <label className="form-label">Población / Ciudad</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Ej: Santander"
-                          value={regData.poblacion}
-                          onChange={(e) => setRegData({ ...regData, poblacion: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Código Postal</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Ej: 39001"
-                          value={regData.codigo_postal}
-                          onChange={(e) => setRegData({ ...regData, codigo_postal: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Dirección Base (Para cálculo de etapas)</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Ej: Calle Alta 12"
-                        value={regData.direccion_base}
-                        onChange={(e) => setRegData({ ...regData, direccion_base: e.target.value })}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                       <button
                         type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setPasoRegistro(1)}
+                        onClick={() => setMostrarRegPassword(!mostrarRegPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '2px'
+                        }}
+                        title={mostrarRegPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                       >
-                        Atrás
-                      </button>
-                      <button
-                        type="submit"
-                        className="btn btn-primary"
-                        style={{ flex: 1, fontWeight: 800 }}
-                        disabled={cargandoAuth}
-                      >
-                        {cargandoAuth ? 'Creando cuenta...' : 'Finalizar y Entrar 🚐'}
+                        {mostrarRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
-                  </>
-                )}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Confirmar</span>
+                      <strong style={{ color: '#EF4444' }}>*</strong>
+                    </label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={mostrarRegConfirmPassword ? 'text' : 'password'}
+                        className="form-control"
+                        value={regData.password_confirm}
+                        onChange={(e) => setRegData({ ...regData, password_confirm: e.target.value })}
+                        style={{ paddingRight: '36px' }}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarRegConfirmPassword(!mostrarRegConfirmPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '2px'
+                        }}
+                        title={mostrarRegConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                      >
+                        {mostrarRegConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', height: '44px', fontWeight: 800, marginTop: '8px' }}
+                  disabled={cargandoAuth}
+                >
+                  {cargandoAuth ? 'Creando cuenta...' : 'Crear cuenta'}
+                </button>
               </form>
             )}
           </div>
@@ -835,6 +1042,299 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
           </div>
         </div>
       )}
-    </div>
+
+
+      {/* MODAL DE VERIFICACIÓN DE CUENTA POR CORREO */}
+      {modalVerificacionAbierto && (
+        <div className="modal-overlay">
+          <div className="camper-card" style={{ maxWidth: '460px', width: '100%', padding: '30px', border: '2px solid var(--accent-forest)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(35,83,52,0.15)', color: 'var(--accent-forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>
+              📩
+            </div>
+            
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, margin: '0 0 10px', color: 'var(--text-primary)' }}>
+              Confirma tu Correo
+            </h2>
+            
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: '0 0 20px' }}>
+              Hemos enviado un enlace y un código de 6 dígitos a:
+              <br />
+              <strong style={{ color: 'var(--text-primary)' }}>{emailVerificacion}</strong>
+            </p>
+
+            {codigoDev && (
+              <div style={{ background: 'rgba(245,158,11,0.15)', border: '1px dashed #F59E0B', color: '#D97706', padding: '8px 12px', borderRadius: '8px', fontSize: '0.78rem', marginBottom: '16px' }}>
+                🔑 Código de prueba (modo local): <strong>{codigoDev}</strong>
+              </div>
+            )}
+
+            {errorVerificacion && (
+              <div style={{ color: 'var(--accent-danger)', background: 'rgba(217,56,56,0.1)', padding: '10px', borderRadius: '8px', marginBottom: '14px', fontSize: '0.84rem' }}>
+                {errorVerificacion}
+              </div>
+            )}
+
+            {mensajeVerificacion && (
+              <div style={{ color: 'var(--accent-success)', background: 'rgba(46,139,87,0.1)', padding: '10px', borderRadius: '8px', marginBottom: '14px', fontSize: '0.84rem' }}>
+                {mensajeVerificacion}
+              </div>
+            )}
+
+            <form onSubmit={manejarVerificarCodigo}>
+              <div className="form-group" style={{ marginBottom: '18px' }}>
+                <label className="form-label" style={{ textAlign: 'center', display: 'block', fontSize: '0.80rem' }}>
+                  Introduce el Código de 6 Dígitos
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  maxLength={6}
+                  placeholder="Ej: 123456"
+                  value={codigoVerificacionInput}
+                  onChange={(e) => setCodigoVerificacionInput(e.target.value.replace(/\D/g, ''))}
+                  style={{
+                    fontSize: '1.5rem',
+                    letterSpacing: '8px',
+                    textAlign: 'center',
+                    fontWeight: 900,
+                    height: '52px',
+                    background: 'var(--bg-surface)'
+                  }}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', height: '46px', fontWeight: 800 }}
+                  disabled={cargandoVerificacion || codigoVerificacionInput.length < 6}
+                >
+                  {cargandoVerificacion ? 'Verificando...' : 'Verificar y Entrar 🚐'}
+                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.82rem' }}>
+                  <button
+                    type="button"
+                    onClick={manejarReenviarCodigo}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', cursor: 'pointer', fontWeight: 700, padding: 0 }}
+                  >
+                    ¿No te llegó? Reenviar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalVerificacionAbierto(false)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+                  >
+                    Volver
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    
+      {/* MODAL CONFIGURACIÓN DE VEHÍCULO Y PUNTO DE PARTIDA TRAS CONFIRMAR CORREO */}
+      {modalConfigurarVehiculoAbierto && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }}>
+          <div className="modal-content camper-card" style={{ maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', padding: '28px', border: '1.5px solid var(--accent-forest)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '6px' }}>🎉</div>
+              <h3 style={{ margin: '0 0 6px', fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                ¡Cuenta confirmada con éxito!
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                Configura ahora los datos de tu vehículo y punto de partida para calcular consumos, autonomías e itinerarios precisos en Camplink.
+              </p>
+            </div>
+
+            <form onSubmit={manejarGuardarVehiculo} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Tipo de Vehículo / Viajero</span>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>(Opcional)</span>
+                </label>
+                <select
+                  className="form-control"
+                  value={regData.tipo_viajero}
+                  onChange={(e) => setRegData({ ...regData, tipo_viajero: e.target.value })}
+                >
+                  <option value="camper">🚐 Furgoneta Camper</option>
+                  <option value="autocaravana">🚍 Autocaravana</option>
+                  <option value="acampada">⛺ Tienda / Acampada</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Combustible del Vehículo</span>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>(Opcional)</span>
+                </label>
+                <select
+                  className="form-control"
+                  value={regData.tipo_combustible}
+                  onChange={(e) => setRegData({ ...regData, tipo_combustible: e.target.value })}
+                >
+                  <option value="gasoleo_a">⛽ Diésel / Gasóleo A</option>
+                  <option value="gasolina_95">⛽ Gasolina 95 E5</option>
+                  <option value="gasolina_98">⛽ Gasolina 98 E5</option>
+                  <option value="glp">⛽ GLP / Autogás</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Capacidad Depósito</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-forest)', fontWeight: 600 }}>50L por defecto</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="number"
+                      className="form-control"
+                      placeholder="50 L"
+                      min="10"
+                      max="300"
+                      value={regData.capacidad_deposito_l}
+                      onChange={(e) => setRegData({ ...regData, capacidad_deposito_l: e.target.value })}
+                      style={{ paddingRight: '36px' }}
+                    />
+                    <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                      L
+                    </span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Consumo Medio</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-forest)', fontWeight: 600 }}>7.0L por defecto</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="form-control"
+                      placeholder="7.0 L/100"
+                      min="2"
+                      max="30"
+                      value={regData.consumo_medio_l_100km}
+                      onChange={(e) => setRegData({ ...regData, consumo_medio_l_100km: e.target.value })}
+                      style={{ paddingRight: '48px' }}
+                    />
+                    <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.72rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                      L/100
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Código Postal</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{buscandoCp ? 'Buscando...' : '(Opcional)'}</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: 39001"
+                    maxLength={10}
+                    value={regData.codigo_postal}
+                    onChange={(e) => manejarCambioCodigoPostal(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Población / Ciudad</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>(Opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej: Santander"
+                    value={regData.poblacion}
+                    onChange={(e) => setRegData({ ...regData, poblacion: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ position: 'relative' }}>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Dirección Base (Punto de partida)</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{buscandoDireccion ? 'Buscando...' : '(Opcional)'}</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Escribe calle, barrio o ciudad para sugerencias..."
+                  value={regData.direccion_base}
+                  onChange={(e) => manejarCambioDireccion(e.target.value)}
+                  autoComplete="off"
+                />
+
+                {sugerenciasDireccion.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1500,
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1.5px solid var(--accent-forest)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(20px)',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    marginTop: '4px'
+                  }}>
+                    {sugerenciasDireccion.map((sug, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => seleccionarSugerencia(sug)}
+                        style={{
+                          padding: '10px 14px',
+                          borderBottom: idx < sugerenciasDireccion.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                          cursor: 'pointer',
+                          fontSize: '0.82rem',
+                          color: 'var(--text-primary)'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(35,83,52,0.12)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        📍 {sug.etiqueta}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={manejarOmitirVehiculo}
+                  style={{ padding: '10px 18px' }}
+                >
+                  Omitir por ahora
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1, fontWeight: 800 }}
+                  disabled={guardandoVehiculo}
+                >
+                  {guardandoVehiculo ? 'Guardando...' : 'Guardar y Empezar a Explorar 🚀'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+</div>
   );
 }

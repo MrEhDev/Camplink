@@ -1,3 +1,4 @@
+import { obtenerImagenLugar } from '../utils/lugarImagenes';
 // Aquí implemento la vista Descubre: mapa interactivo a pantalla completa con Leaflet,
 // filtro principal multi-selección por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
 // cajón modal de filtros categorizados (Servicios, Entorno/Ocio, Terreno/Acceso, Puntuación),
@@ -5,7 +6,7 @@
 // capas de Relieve Topográfico, Satélite Natural, Radar de Lluvia y Contaminación Lumínica,
 // y modal directo para añadir a viaje planificado.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
@@ -15,7 +16,7 @@ import {
   Layers, Filter, Search, MapPin, CloudRain, 
   Moon, Users, Crosshair, Droplets, Zap, 
   Dog, Sparkles, Navigation, Calendar, Plus, X, Check, Route, Shield, 
-  TreePine, Home, Tent, Car, Waves, Compass, Trash2, Sun, Eye
+  TreePine, Home, Tent, Car, Waves, Compass, Trash2, Sun, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export const TIPOS_LUGAR_MAPA = [
@@ -133,6 +134,62 @@ function ControladorCentroMapa({ coords }) {
 export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCambiarALista }) {
   const { usuario } = useAuth();
   const [lugares, setLugares] = useState([]);
+
+  // Estado de chips de tipo de lugar y navegación scroll para PC
+  const chipsRef = useRef(null);
+  const [puedeScrollIzquierda, setPuedeScrollIzquierda] = useState(false);
+  const [puedeScrollDerecha, setPuedeScrollDerecha] = useState(true);
+  const [arrastrandoChips, setArrastrandoChips] = useState(false);
+  const [startXChips, setStartXChips] = useState(0);
+  const [scrollLeftChips, setScrollLeftChips] = useState(0);
+
+  const comprobarScrollChips = () => {
+    if (chipsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = chipsRef.current;
+      setPuedeScrollIzquierda(scrollLeft > 6);
+      setPuedeScrollDerecha(scrollLeft + clientWidth < scrollWidth - 10);
+    }
+  };
+
+  const scrollChips = (direccion) => {
+    if (chipsRef.current) {
+      chipsRef.current.scrollBy({ left: direccion * 220, behavior: 'smooth' });
+      setTimeout(comprobarScrollChips, 300);
+    }
+  };
+
+  useEffect(() => {
+    const el = chipsRef.current;
+    if (el) {
+      comprobarScrollChips();
+      el.addEventListener('scroll', comprobarScrollChips, { passive: true });
+      window.addEventListener('resize', comprobarScrollChips);
+      return () => {
+        el.removeEventListener('scroll', comprobarScrollChips);
+        window.removeEventListener('resize', comprobarScrollChips);
+      };
+    }
+  }, [lugares]);
+
+  const alIniciarArrastreChips = (e) => {
+    if (!chipsRef.current) return;
+    setArrastrandoChips(true);
+    setStartXChips(e.pageX - chipsRef.current.offsetLeft);
+    setScrollLeftChips(chipsRef.current.scrollLeft);
+  };
+
+  const alMoverArrastreChips = (e) => {
+    if (!arrastrandoChips || !chipsRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - chipsRef.current.offsetLeft;
+    const recorrido = (x - startXChips) * 1.5;
+    chipsRef.current.scrollLeft = scrollLeftChips - recorrido;
+    comprobarScrollChips();
+  };
+
+  const alFinalizarArrastreChips = () => {
+    setArrastrandoChips(false);
+  };
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
 
@@ -402,15 +459,41 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 56px)', overflow: 'hidden' }}>
       
+      {/* Estilo para asegurar que los controles de Leaflet (+/- y capas) no tapen el buscador y filtros */}
+      <style>{`
+        .leaflet-top.leaflet-left {
+          top: 142px !important;
+          left: 14px !important;
+          z-index: 990 !important;
+        }
+        .leaflet-top.leaflet-right {
+          top: 142px !important;
+          right: 14px !important;
+          z-index: 990 !important;
+        }
+        .chips-scroll-container {
+          overflow-x: auto !important;
+          overflow-y: hidden !important;
+          -webkit-overflow-scrolling: touch !important;
+          touch-action: pan-x !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+          pointer-events: auto !important;
+        }
+        .chips-scroll-container::-webkit-scrollbar {
+          display: none !important;
+        }
+      `}</style>
+
       {/* BARRA SUPERIOR DE BÚSQUEDA Y FILTRO PRINCIPAL (TIPO DE LUGAR) */}
       <div style={{
         position: 'absolute',
         top: '16px',
         left: '12px',
         right: '12px',
-        zIndex: 999,
+        zIndex: 1050,
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
@@ -515,17 +598,74 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           )}
         </div>
 
-        {/* FILTRO PRINCIPAL: SELECTOR MULTI-SELECCIÓN DE TIPO DE LUGAR (CHIPS DESPLAZABLES SIN CORTES) */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          overflowX: 'auto',
-          padding: '2px 4px 8px 4px',
-          WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'thin',
-          width: '100%',
-          boxSizing: 'border-box'
-        }}>
+        {/* FILTRO PRINCIPAL: SELECTOR MULTI-SELECCIÓN DE TIPO DE LUGAR CON BOTONES Y NAVEGACIÓN PC */}
+        <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+          {puedeScrollIzquierda && (
+            <button
+              type="button"
+              onClick={() => scrollChips(-1)}
+              className="chips-nav-arrow-btn"
+              title="Desplazar filtros a la izquierda"
+              style={{
+                position: 'absolute',
+                left: '-8px',
+                zIndex: 1300,
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(18, 28, 22, 0.96)',
+                color: '#FFFFFF',
+                border: '1.5px solid #6EE7B7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                backdropFilter: 'blur(12px)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+
+          <div 
+            ref={chipsRef}
+            className="chips-scroll-container"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              alIniciarArrastreChips(e);
+            }}
+            onMouseMove={alMoverArrastreChips}
+            onMouseUp={alFinalizarArrastreChips}
+            onMouseLeave={alFinalizarArrastreChips}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              e.stopPropagation();
+              if (e.deltaY !== 0 && chipsRef.current) {
+                chipsRef.current.scrollLeft += e.deltaY;
+                comprobarScrollChips();
+              }
+            }}
+            style={{
+              display: 'flex',
+              gap: '8px',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              padding: '6px 4px 10px 4px',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+              pointerEvents: 'auto',
+              cursor: arrastrandoChips ? 'grabbing' : 'default',
+              userSelect: 'none'
+            }}
+          >
           {TIPOS_LUGAR_MAPA.map((tipo) => {
             const esTodos = tipo.id === 'todos';
             const activo = esTodos 
@@ -575,7 +715,37 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
             );
           })}
           {/* Espacio derecho de resguardo */}
-          <div style={{ minWidth: '16px', flexShrink: 0 }} />
+          <div style={{ minWidth: '24px', flexShrink: 0 }} />
+        </div>
+
+          {puedeScrollDerecha && (
+            <button
+              type="button"
+              onClick={() => scrollChips(1)}
+              className="chips-nav-arrow-btn"
+              title="Ver más filtros de tipo de lugar (Área Recreativa, Solo Servicios...)"
+              style={{
+                position: 'absolute',
+                right: '-8px',
+                zIndex: 1300,
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(18, 28, 22, 0.96)',
+                color: '#FFFFFF',
+                border: '1.5px solid #6EE7B7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                backdropFilter: 'blur(12px)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ChevronRight size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -602,23 +772,23 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }}></span>
-          <span>4.1 - 5.0 ⭐ (Oro / Top)</span>
+          <span>4.1 - 5.0 🚐 (Oro / Top)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94A3B8', display: 'inline-block' }}></span>
-          <span>3.1 - 4.0 ⭐ (Plata)</span>
+          <span>3.1 - 4.0 🚐 (Plata)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D97706', display: 'inline-block' }}></span>
-          <span>2.1 - 3.0 ⭐ (Bronce)</span>
+          <span>2.1 - 3.0 🚐 (Bronce)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
-          <span>1.1 - 2.0 ⭐ (Básico / Verde)</span>
+          <span>1.1 - 2.0 🚐 (Básico / Verde)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
-          <span>&le; 1.0 ⭐ (No recomendado / Rojo)</span>
+          <span>&le; 1.0 🚐 (No recomendado / Rojo)</span>
         </div>
       </div>
 
@@ -865,14 +1035,14 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
               {/* 5. PUNTUACIÓN CAMPER MÍNIMA */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '10px', color: 'var(--accent-forest)' }}>
-                  ⭐ Puntuación Camper Mínima
+                  🚐 Puntuación Camper Mínima
                 </h4>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {[
                     { valor: 0, label: 'Cualquiera' },
-                    { valor: 4.1, label: '4.1+ ⭐ Oro (Top)' },
-                    { valor: 3.1, label: '3.1+ ⭐ Plata' },
-                    { valor: 2.1, label: '2.1+ ⭐ Bronce' },
+                    { valor: 4.1, label: '4.1+ 🚐 Oro (Top)' },
+                    { valor: 3.1, label: '3.1+ 🚐 Plata' },
+                    { valor: 2.1, label: '2.1+ 🚐 Bronce' },
                   ].map(p => (
                     <button
                       key={p.valor}
@@ -1011,7 +1181,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
         {/* Marcadores de Lugares con Tarjetas Mejoradas e Imagen */}
         {lugaresFiltrados.map((lugar) => {
-          const imagenLugar = lugar.foto_principal || (lugar.fotos && lugar.fotos.length > 0 ? lugar.fotos[0].imagen : null);
+          const imagenLugar = obtenerImagenLugar(lugar);
           const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
 
           return (
@@ -1026,7 +1196,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                   {/* FOTO DEL LUGAR O BANNER PAISAJÍSTICO */}
                   {imagenLugar ? (
                     <div style={{ position: 'relative', width: '100%', height: '135px', overflow: 'hidden', background: '#0D1A12' }}>
-                      <img 
+                      <img loading="lazy" decoding="async" 
                         src={imagenLugar} 
                         alt={lugar.nombre} 
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -1082,7 +1252,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                         borderRadius: '6px',
                         border: lugar.es_gratuito ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(251, 191, 36, 0.3)'
                       }}>
-                        {lugar.es_gratuito ? 'Gratis' : `${lugar.precio_noche || '0'} €/n`}
+                        {lugar.es_gratuito || (!parseFloat(lugar.precio) && !parseFloat(lugar.precio_noche)) ? 'Gratis' : `${parseFloat(lugar.precio || lugar.precio_noche)} €/n`}
                       </span>
                     </div>
 

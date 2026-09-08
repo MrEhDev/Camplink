@@ -54,10 +54,14 @@ export async function peticionApi(endpoint, opciones = {}) {
     opciones.body = opciones.data;
   }
 
-  // Si enviamos JSON y no es FormData
-  if (opciones.body && !(opciones.body instanceof FormData) && typeof opciones.body === 'object') {
-    headers['Content-Type'] = 'application/json';
-    opciones.body = JSON.stringify(opciones.body);
+  // Si enviamos cuerpo y no es FormData, asegurar Content-Type application/json
+  if (opciones.body && !(opciones.body instanceof FormData)) {
+    if (!headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (typeof opciones.body === 'object') {
+      opciones.body = JSON.stringify(opciones.body);
+    }
   }
 
   const configuracion = {
@@ -66,7 +70,13 @@ export async function peticionApi(endpoint, opciones = {}) {
     headers,
   };
 
-  const respuesta = await fetch(endpoint, configuracion);
+  // Normalizar endpoint para garantizar prefijo /api si fue omitido
+  let urlFinal = endpoint;
+  if (typeof urlFinal === 'string' && urlFinal.startsWith('/') && !urlFinal.startsWith('/api/') && !urlFinal.startsWith('/media/') && !urlFinal.startsWith('/static/')) {
+    urlFinal = `/api${urlFinal}`;
+  }
+
+  const respuesta = await fetch(urlFinal, configuracion);
 
   if (!respuesta.ok) {
     let errorData = {};
@@ -75,7 +85,28 @@ export async function peticionApi(endpoint, opciones = {}) {
     } catch {
       errorData = { error: respuesta.statusText };
     }
-    const err = new Error(errorData.error || errorData.detail || 'Error en la petición');
+
+    let mensajeError = errorData.error || errorData.detail;
+    if (!mensajeError && typeof errorData === 'object' && errorData !== null) {
+      const keys = Object.keys(errorData);
+      if (keys.length > 0) {
+        const field = keys[0];
+        const val = errorData[field];
+        const valStr = Array.isArray(val) ? val.join(', ') : String(val);
+        const fieldNameMap = {
+          username: 'Nombre de usuario',
+          email: 'Correo electrónico',
+          password: 'Contraseña',
+          password_confirm: 'Confirmación de contraseña',
+          non_field_errors: 'Error',
+          detail: 'Detalle'
+        };
+        const nombreCampo = fieldNameMap[field] || field;
+        mensajeError = `${nombreCampo}: ${valStr}`;
+      }
+    }
+
+    const err = new Error(mensajeError || 'Error en la petición.');
     err.status = respuesta.status;
     err.data = errorData;
     throw err;

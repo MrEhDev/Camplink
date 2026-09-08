@@ -45,6 +45,19 @@ class PublicacionViewSet(viewsets.ModelViewSet):
         autor_param = self.request.query_params.get('autor')
         if autor_param:
             qs = qs.filter(autor_id=autor_param)
+
+        lugar_param = self.request.query_params.get('lugar')
+        if lugar_param:
+            try:
+                from lugares.models import Lugar
+                lug = Lugar.objects.filter(id=lugar_param).first()
+                if lug and lug.nombre:
+                    qs = qs.filter(Q(lugar_id=lugar_param) | Q(contenido__icontains=lug.nombre))
+                else:
+                    qs = qs.filter(lugar_id=lugar_param)
+            except Exception:
+                qs = qs.filter(lugar_id=lugar_param)
+
         return qs
 
     def perform_create(self, serializer):
@@ -100,7 +113,7 @@ class PublicacionViewSet(viewsets.ModelViewSet):
                 tipo='comentario',
                 titulo='¡Nuevo comentario en tu vivencia!',
                 mensaje=f'{request.user.username.capitalize()} comentó: "{comentario.texto[:60]}..."',
-                enlace='/diario'
+                enlace=f'/diario?post={publicacion.id}&comentario={comentario.id}'
             )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -121,15 +134,13 @@ class PublicacionViewSet(viewsets.ModelViewSet):
             ReaccionPublicacion.objects.create(publicacion=publicacion, usuario=request.user, tipo=tipo)
             accion = 'agregada'
             if publicacion.autor:
-                iconos_tipo = {'fuego': '🔥 Buena ruta', 'pino': '🌲 Guardado', 'alerta': '⚠️ Alerta'}
-                icono_texto = iconos_tipo.get(tipo, '🔥 Reacción')
                 crear_notificacion(
                     usuario_destino=publicacion.autor,
                     usuario_origen=request.user,
                     tipo='reaccion',
                     titulo='¡Reacción a tu vivencia!',
-                    mensaje=f'A {request.user.username.capitalize()} le ha gustado ({icono_texto}) tu publicación en el Diario.',
-                    enlace='/diario'
+                    mensaje=f'A {request.user.username.capitalize()} le ha gustado tu publicación en el Diario.',
+                    enlace=f'/diario?post={publicacion.id}'
                 )
 
         from django.db.models import Count

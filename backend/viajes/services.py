@@ -88,29 +88,60 @@ def recalcular_viaje(viaje):
 
     # Si ya tiene un resumen_ruta personalizado (con gasolineras reordenadas), conservamos las etapas intermedias
     if viaje.resumen_ruta:
+        ids_presentes = set()
         for p in viaje.resumen_ruta:
             if p.get('tipo') not in ['base', 'base_salida', 'base_vuelta']:
                 puntos_ruta.append(p)
                 if p.get('provincia'):
                     comunidades.add(p.get('provincia'))
+                if p.get('id'):
+                    ids_presentes.add(p.get('id'))
+                if p.get('checkin_id'):
+                    ids_presentes.add(p.get('checkin_id'))
+        # Incorporar checkins que aún no estén en la ruta guardada
+        for ch in checkins:
+            if ch.id not in ids_presentes:
+                lug = ch.lugar
+                puntos_ruta.append({
+                    'nombre': lug.nombre if lug else 'Parada',
+                    'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
+                    'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
+                    'poblacion': lug.poblacion if lug else '',
+                    'provincia': lug.provincia if lug else '',
+                    'fecha': ch.fecha_llegada.strftime('%Y-%m-%d') if ch.fecha_llegada else '',
+                    'dias': ch.dias_previstos,
+                    'tipo': 'parada',
+                    'lugar_id': lug.id if lug else None,
+                    'id': ch.id,
+                    'checkin_id': ch.id,
+                    'es_repostaje': False,
+                    'es_base': False
+                })
+                if lug and lug.comunidad_autonoma:
+                    comunidades.add(lug.comunidad_autonoma)
+                if lug and lug.pais:
+                    paises.add(lug.pais)
     else:
         for ch in checkins:
             lug = ch.lugar
             puntos_ruta.append({
-                'nombre': lug.nombre,
-                'lat': lug.latitud,
-                'lng': lug.longitud,
-                'poblacion': lug.poblacion,
-                'provincia': lug.provincia,
+                'nombre': lug.nombre if lug else 'Parada',
+                'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
+                'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
+                'poblacion': lug.poblacion if lug else '',
+                'provincia': lug.provincia if lug else '',
                 'fecha': ch.fecha_llegada.strftime('%Y-%m-%d') if ch.fecha_llegada else '',
                 'dias': ch.dias_previstos,
                 'tipo': 'parada',
-                'lugar_id': lug.id,
-                'id': ch.id
+                'lugar_id': lug.id if lug else None,
+                'id': ch.id,
+                'checkin_id': ch.id,
+                'es_repostaje': False,
+                'es_base': False
             })
-            if lug.comunidad_autonoma:
+            if lug and lug.comunidad_autonoma:
                 comunidades.add(lug.comunidad_autonoma)
-            if lug.pais:
+            if lug and lug.pais:
                 paises.add(lug.pais)
 
     # Añadimos el retorno final a la base camper para cerrar la ruta y contabilizar la vuelta
@@ -275,6 +306,9 @@ CATEGORIAS_TROFEOS = [
 
 
 def inicializar_catalogo_trofeos():
+    # Optimización de alto rendimiento: Si el catálogo ya existe en la base de datos, no repetir 65 queries
+    if Trofeo.objects.count() >= 65:
+        return
     # Aquí creo o actualizo el catálogo formal de 64 trofeos (16 categorías x 4 niveles) + Platino supremo
     for cat in CATEGORIAS_TROFEOS:
         for nivel, umbral in cat['umbrales']:

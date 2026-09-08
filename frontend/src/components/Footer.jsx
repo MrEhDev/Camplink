@@ -14,7 +14,7 @@ export default function Footer({ setVistaActiva }) {
         }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <img src="/camplink-logo.png" alt="Camplink" style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
+              <img loading="lazy" decoding="async" src="/camplink-logo.png" alt="Camplink" style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
               <h3 style={{ fontSize: '1.25rem', color: 'var(--accent-forest)', margin: 0, fontWeight: 800 }}>Camplink</h3>
             </div>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.6', margin: 0 }}>

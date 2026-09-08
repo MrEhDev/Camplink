@@ -291,10 +291,26 @@ def poblar_comunidad():
 
     lugares_creados = {}
     for lug in lugares_data:
+        nom = lug['nombre'].lower()
+        if 'camping' in nom:
+            tl = 'camping'
+        elif any(k in nom for k in ['área autocaravanas', 'área camper', 'area camper', 'área municipal', 'área nómada', 'eco-área']):
+            tl = 'area_autocaravanas'
+        elif 'parking' in nom:
+            tl = 'parking_urbano'
+        elif 'recreativa' in nom or 'merendero' in nom:
+            tl = 'area_recreativa'
+        elif 'solo servicios' in nom:
+            tl = 'solo_servicios'
+        else:
+            tl = 'pernocta_libre'
+
         obj, _ = Lugar.objects.update_or_create(
             nombre=lug['nombre'],
             defaults={
                 'creador': admin_user,
+                'tipo_lugar': tl,
+                'foto_principal': f'lugares/{tl}.jpg',
                 'poblacion': lug['poblacion'],
                 'provincia': lug['provincia'],
                 'comunidad_autonoma': lug['comunidad_autonoma'],

@@ -34,11 +34,11 @@ export default function RadarNomadaModal({ alCerrar, alSeleccionarLugar, alHacer
   const [cargandoGasolineras, setCargandoGasolineras] = useState(false);
 
   const serviciosConfig = [
-    { id: 'supermercados', nombre: 'Supermercados', icono: ShoppingBag, color: '#8A63D2', queryMaps: 'supermercado' },
-    { id: 'glp', nombre: 'Gasolineras con GLP', icono: Fuel, color: 'var(--accent-earth)', queryMaps: 'gasolinera GLP autogas' },
-    { id: 'agua', nombre: 'Puntos de Agua', icono: Droplet, color: 'var(--accent-forest)', filtroProp: 'tiene_agua', queryMaps: 'fuente agua potable' },
-    { id: 'vaciado', nombre: 'Vaciado de Aguas', icono: Trash2, color: '#0284C7', filtroProp: 'tiene_vaciado_aguas_grises', queryMaps: 'area autocaravanas vaciado aguas' },
-    { id: 'duchas', nombre: 'Duchas / Lavandería', icono: ShowerHead, color: '#F59E0B', filtroProp: 'tiene_duchas', queryMaps: 'lavanderia autoservicio' },
+    { id: 'supermercados', nombre: 'Supermercados', icono: ShoppingBag, color: '#8A63D2', queryMaps: 'supermercados' },
+    { id: 'gasolineras', nombre: 'Gasolineras', icono: Fuel, color: 'var(--accent-earth)', queryMaps: 'gasolineras' },
+    { id: 'agua', nombre: 'Puntos de Agua', icono: Droplet, color: 'var(--accent-forest)', filtroProp: 'tiene_agua', queryMaps: 'fuentes agua potable' },
+    { id: 'vaciado', nombre: 'Vaciado de Aguas', icono: Trash2, color: '#0284C7', filtroProp: 'tiene_vaciado_aguas_grises', queryMaps: 'areas autocaravanas vaciado aguas' },
+    { id: 'duchas', nombre: 'Duchas / Lavandería', icono: ShowerHead, color: '#F59E0B', filtroProp: 'tiene_duchas', queryMaps: 'lavanderias autoservicio o duchas' },
   ];
 
   useEffect(() => {
@@ -50,7 +50,11 @@ export default function RadarNomadaModal({ alCerrar, alSeleccionarLugar, alHacer
       };
       setGps(coords);
       setCargandoGps(false);
-      setUbicacionTexto(ubicacionInicial.nombre || 'Ubicación seleccionada');
+      if (ubicacionInicial.nombre) {
+        setUbicacionTexto(ubicacionInicial.nombre);
+      } else {
+        obtenerMunicipioReal(coords.lat, coords.lng);
+      }
       buscarCercanos(coords.lat, coords.lng);
       consultarGasolineras(coords.lat, coords.lng, radioGasolinera, combustibleSeleccionado);
       return;
@@ -209,14 +213,21 @@ export default function RadarNomadaModal({ alCerrar, alSeleccionarLugar, alHacer
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {serviciosConfig.map((s) => {
                   const Icono = s.icono;
+                  // Búsqueda limpia en Google Maps: utiliza el municipio/zona o coordenadas exactas sin palabras clave en inglés
+                  const zonaBusqueda = (ubicacionInicial?.poblacion || ubicacionInicial?.municipio || ubicacionTexto)
+                    ? `${s.queryMaps} en ${ubicacionInicial?.poblacion || ubicacionInicial?.municipio || ubicacionTexto}`
+                    : (gps ? `${s.queryMaps} ${gps.lat},${gps.lng}` : s.queryMaps);
+                  const enlaceMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(zonaBusqueda)}`;
+
                   return (
                     <a
                       key={s.id}
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.queryMaps)}`}
+                      href={enlaceMaps}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                      title={`Buscar ${s.nombre.toLowerCase()} en ${ubicacionTexto || 'esta zona'}`}
                     >
                       <Icono size={14} color={s.color} />
                       <span>{s.nombre}</span>

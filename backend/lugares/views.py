@@ -5,7 +5,7 @@ from django.db.models import Q
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from .models import Lugar, FotoLugar, ValoracionLugar
+from .models import Lugar, FotoLugar, ValoracionLugar, NotaPersonalLugar
 from .serializers import LugarSerializer, ValoracionLugarSerializer, FotoLugarSerializer
 
 class LugarViewSet(viewsets.ModelViewSet):
@@ -83,6 +83,113 @@ class LugarViewSet(viewsets.ModelViewSet):
         usuario = self.request.user if self.request.user.is_authenticated else None
         serializer.save(creador=usuario)
 
+    def update(self, request, *args, **kwargs):
+        lugar = self.get_object()
+        es_admin = request.user.is_staff or request.user.is_superuser or getattr(request.user, 'es_admin', False) or getattr(request.user, 'es_administrador', False) or request.user.username == 'admin'
+        es_creador = lugar.creador_id == request.user.id
+        if not (es_admin or es_creador):
+            # Si no es admin ni autor, cualquier usuario autenticado puede colaborar editando equipamiento y entorno
+            return self.actualizar_equipamiento(request, pk=lugar.pk)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        lugar = self.get_object()
+        es_admin = request.user.is_staff or request.user.is_superuser or getattr(request.user, 'es_admin', False) or getattr(request.user, 'es_administrador', False) or request.user.username == 'admin'
+        es_creador = lugar.creador_id == request.user.id
+        if not (es_admin or es_creador):
+            return Response({'error': 'Solo los administradores o el creador del lugar pueden eliminarlo.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['patch', 'post'], permission_classes=[permissions.IsAuthenticated])
+    def actualizar_equipamiento(self, request, pk=None):
+        lugar = self.get_object()
+        campos_permitidos = [
+            'tiene_agua', 'tiene_lavabo', 'tiene_electricidad', 'tiene_wifi',
+            'tiene_basuras', 'tiene_duchas', 'tiene_vaciado_aguas_grises', 'tiene_vaciado_aguas_negras',
+            'ideal_familias', 'tiene_senderismo', 'playa_cercana', 'rutas_en_bici', 'admite_mascotas',
+            'acceso_asfaltado', 'mucha_sombra', 'muy_soleado', 'terreno_nivelado',
+            'apto_grandes_autocaravanas', 'permite_sacar_toldo',
+            'tiene_mesas_picnic', 'es_zona_recreativa', 'tiene_senderos_sencillos', 'ideal_ninos_10_anos'
+        ]
+        for campo in campos_permitidos:
+            if campo in request.data:
+                setattr(lugar, campo, bool(request.data[campo]))
+        lugar.save()
+        return Response(LugarSerializer(lugar, context={'request': request}).data)
+
+    @action(detail=True, methods=['get', 'post', 'delete'], permission_classes=[permissions.IsAuthenticated])
+    def nota_personal(self, request, pk=None):
+        lugar = self.get_object()
+        if request.method == 'POST':
+            contenido = request.data.get('contenido', request.data.get('nota', '')).strip()
+            nota_id = request.data.get('id')
+            if nota_id:
+                nota_obj = NotaPersonalLugar.objects.filter(id=nota_id, lugar=lugar, explorador=request.user).first()
+                if nota_obj:
+                    nota_obj.contenido = contenido
+                    nota_obj.save()
+                else:
+                    nota_obj = NotaPersonalLugar.objects.create(
+                        lugar=lugar,
+                        explorador=request.user,
+                        contenido=contenido
+                    )
+            else:
+                nota_obj = NotaPersonalLugar.objects.create(
+                    lugar=lugar,
+                    explorador=request.user,
+                    contenido=contenido
+                )
+            notas = NotaPersonalLugar.objects.filter(lugar=lugar, explorador=request.user).order_by('-fecha_creacion')
+            return Response({
+                'id': nota_obj.id,
+                'contenido': nota_obj.contenido,
+                'fecha_creacion': nota_obj.fecha_creacion.isoformat() if nota_obj.fecha_creacion else None,
+                'fecha_modificacion': nota_obj.fecha_modificacion.isoformat() if nota_obj.fecha_modificacion else None,
+                'notas': [
+                    {
+                        'id': n.id,
+                        'contenido': n.contenido,
+                        'fecha_creacion': n.fecha_creacion.isoformat(),
+                        'fecha_modificacion': n.fecha_modificacion.isoformat()
+                    } for n in notas
+                ]
+            }, status=status.HTTP_200_OK)
+        elif request.method == 'DELETE':
+            nota_id = request.query_params.get('nota_id') or request.data.get('nota_id') or request.data.get('id')
+            if nota_id:
+                NotaPersonalLugar.objects.filter(id=nota_id, lugar=lugar, explorador=request.user).delete()
+            else:
+                NotaPersonalLugar.objects.filter(lugar=lugar, explorador=request.user).delete()
+            notas = NotaPersonalLugar.objects.filter(lugar=lugar, explorador=request.user).order_by('-fecha_creacion')
+            return Response({
+                'mensaje': 'Nota personal eliminada.',
+                'notas': [
+                    {
+                        'id': n.id,
+                        'contenido': n.contenido,
+                        'fecha_creacion': n.fecha_creacion.isoformat(),
+                        'fecha_modificacion': n.fecha_modificacion.isoformat()
+                    } for n in notas
+                ]
+            }, status=status.HTTP_200_OK)
+        else:
+            notas = NotaPersonalLugar.objects.filter(lugar=lugar, explorador=request.user).order_by('-fecha_creacion')
+            nota_obj = notas.first()
+            return Response({
+                'contenido': nota_obj.contenido if nota_obj else '',
+                'fecha_creacion': nota_obj.fecha_creacion.isoformat() if nota_obj and nota_obj.fecha_creacion else None,
+                'fecha_modificacion': nota_obj.fecha_modificacion.isoformat() if nota_obj and nota_obj.fecha_modificacion else None,
+                'notas': [
+                    {
+                        'id': n.id,
+                        'contenido': n.contenido,
+                        'fecha_creacion': n.fecha_creacion.isoformat(),
+                        'fecha_modificacion': n.fecha_modificacion.isoformat()
+                    } for n in notas
+                ]
+            }, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def valorar(self, request, pk=None):
         lugar = self.get_object()
@@ -92,13 +199,17 @@ class LugarViewSet(viewsets.ModelViewSet):
         if not (1 <= puntuacion <= 5):
             return Response({'error': 'La puntuación camper debe estar entre 1 y 5.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        defaults_data = {
+            'puntuacion_camper': puntuacion,
+            'comentario': comentario,
+        }
+        if 'foto' in request.FILES:
+            defaults_data['foto'] = request.FILES['foto']
+
         valoracion, creada = ValoracionLugar.objects.update_or_create(
             lugar=lugar,
             explorador=request.user,
-            defaults={
-                'puntuacion_camper': puntuacion,
-                'comentario': comentario,
-            }
+            defaults=defaults_data
         )
         serializer = ValoracionLugarSerializer(valoracion)
         return Response(serializer.data, status=status.HTTP_201_CREATED if creada else status.HTTP_200_OK)
@@ -130,7 +241,7 @@ class LugarViewSet(viewsets.ModelViewSet):
             'CALSCALE:GREGORIAN',
             'METHOD:PUBLISH',
             'BEGIN:VEVENT',
-            f'UID:camplink-lugar-{lugar.id}-{dtstamp}@camplink.es',
+            f'UID:camplink-lugar-{lugar.id}-{dtstamp}@camplinkapp.com',
             f'DTSTAMP:{dtstamp}',
             f'DTSTART:{dtstart}',
             f'DTEND:{dtend}',
@@ -180,3 +291,53 @@ def lugares_cercanos_vista(request):
 
     cercanos.sort(key=lambda x: x['distancia_km'])
     return Response(cercanos)
+
+
+@api_view(['PUT', 'PATCH', 'DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def gestionar_valoracion_vista(request, val_id):
+    """
+    Permite al autor de la opinión o a un administrador editar o eliminar una valoración.
+    """
+    try:
+        val = ValoracionLugar.objects.select_related('lugar', 'explorador').get(id=val_id)
+    except ValoracionLugar.DoesNotExist:
+        return Response({'error': 'La opinión solicitada no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    es_autor = request.user.id == val.explorador_id
+    es_admin = bool(
+        getattr(request.user, 'es_admin', False) or
+        request.user.is_staff or
+        request.user.is_superuser or
+        request.user.username == 'admin' or
+        (request.user.username and request.user.username.lower() == 'admin')
+    )
+
+    if not (es_autor or es_admin):
+        return Response({'error': 'No tienes permisos para modificar o eliminar esta opinión.'}, status=status.HTTP_403_FORBIDDEN)
+
+    lugar = val.lugar
+
+    if request.method == 'DELETE':
+        val.delete()
+        lugar.actualizar_valoracion()
+        return Response({'mensaje': 'Opinión eliminada con éxito.'}, status=status.HTTP_200_OK)
+
+    # PUT / PATCH: Editar comentario y/o puntuación
+    comentario = request.data.get('comentario', None)
+    puntuacion = request.data.get('puntuacion_camper', None)
+
+    if comentario is not None:
+        val.comentario = str(comentario).strip()
+    if puntuacion is not None:
+        try:
+            p_val = int(puntuacion)
+            if 1 <= p_val <= 5:
+                val.puntuacion_camper = p_val
+        except (ValueError, TypeError):
+            pass
+
+    val.save()
+    lugar.actualizar_valoracion()
+    serializer = ValoracionLugarSerializer(val, context={'request': request})
+    return Response({'mensaje': 'Opinión actualizada con éxito.', 'valoracion': serializer.data}, status=status.HTTP_200_OK)

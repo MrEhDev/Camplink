@@ -113,6 +113,7 @@ class ValoracionLugar(models.Model):
     explorador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='mis_valoraciones_lugares')
     puntuacion_camper = models.IntegerField(default=5, verbose_name='Puntuación Camper (1-5)')
     comentario = models.TextField(verbose_name='Opinión del Explorador')
+    foto = models.ImageField(upload_to='valoraciones/', null=True, blank=True, verbose_name='Foto de la Opinión')
     fecha = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -124,3 +125,18 @@ class ValoracionLugar(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self.lugar.actualizar_valoracion()
+
+class NotaPersonalLugar(models.Model):
+    lugar = models.ForeignKey(Lugar, on_delete=models.CASCADE, related_name='notas_personales', verbose_name='Lugar')
+    explorador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notas_lugares', verbose_name='Explorador')
+    contenido = models.TextField(blank=True, default='', verbose_name='Nota Personal y Privada')
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Nota Personal de Lugar'
+        verbose_name_plural = 'Notas Personales de Lugares'
+
+    def __str__(self):
+        return f'Nota de {self.explorador.username} en {self.lugar.nombre}'

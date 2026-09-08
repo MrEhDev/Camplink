@@ -292,7 +292,7 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
                       {/* Fotografía de la Pernocta */}
                       {ch.foto && (
                         <div style={{ marginLeft: '38px', marginTop: '6px' }}>
-                          <img 
+                          <img loading="lazy" decoding="async" 
                             src={ch.foto} 
                             alt={ch.lugar_nombre} 
                             style={{ 
@@ -323,7 +323,7 @@ export default function ModalViajeDetallePdf({ viaje, alCerrar }) {
               color: '#889E90'
             }}>
               <span>Generado con Camplink • La Red Social de la Comunidad Camper</span>
-              <span>www.camplink.es</span>
+              <span>www.camplinkapp.com</span>
             </div>
           </div>
         </div>

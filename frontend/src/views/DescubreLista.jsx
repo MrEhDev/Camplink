@@ -1,3 +1,4 @@
+import { obtenerImagenLugar } from '../utils/lugarImagenes';
 // Aquí implemento la vista Descubre Lista: listado completo de lugares y pernoctas camper en formato tarjetas,
 // con filtro principal multi-selección por tipo_lugar (Pernocta Libre, Área Autocaravanas, Camping, Parking Urbano, Área Recreativa, Solo Servicios),
 // imágenes destacadas por lugar, buscador inteligente de ancho completo, filtros estructurados por categorías,
@@ -11,7 +12,7 @@ import {
   Search, Filter, MapPin, Map, Route, Bookmark, 
   Check, Navigation, Sparkles, Plus, X, Star,
   Droplets, Zap, Users, Dog, Sun, ArrowRight, Eye,
-  Trash2, SlidersHorizontal
+  Trash2, SlidersHorizontal, ArrowUpDown
 } from 'lucide-react';
 
 export const TIPOS_LUGAR_LISTA = [
@@ -49,6 +50,21 @@ export const obtenerEtiquetaTipoLugar = (lugar) => {
   const nombre = NOMBRES_TIPO[lugar.tipo_lugar] || 'Lugar Camper';
   return `${emoji} ${nombre}`;
 };
+
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
 
 export default function DescubreLista({ 
   alSeleccionarLugar, 
@@ -98,6 +114,7 @@ export default function DescubreLista({
   });
 
   const [lugaresGuardados, setLugaresGuardados] = useState([]);
+  const [soloGuardados, setSoloGuardados] = useState(false);
 
   // Modal para añadir a viaje planificado
   const [modalAnadirViajeAbierto, setModalAnadirViajeAbierto] = useState(false);
@@ -115,10 +132,37 @@ export default function DescubreLista({
 
   // Paginación
   const [paginaActual, setPaginaActual] = useState(1);
+  const [ubicacionUsuario, setUbicacionUsuario] = useState(null);
+  const [criterioOrden, setCriterioOrden] = useState('recientes');
   const lugaresPorPagina = 12;
 
   useEffect(() => {
     cargarLugares();
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUbicacionUsuario({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          });
+        },
+        () => {
+          if (usuario?.lat_base && usuario?.lng_base) {
+            setUbicacionUsuario({
+              lat: parseFloat(usuario.lat_base),
+              lng: parseFloat(usuario.lng_base)
+            });
+          }
+        },
+        { enableHighAccuracy: false, timeout: 8000 }
+      );
+    } else if (usuario?.lat_base && usuario?.lng_base) {
+      setUbicacionUsuario({
+        lat: parseFloat(usuario.lat_base),
+        lng: parseFloat(usuario.lng_base)
+      });
+    }
     try {
       const guardados = JSON.parse(localStorage.getItem('camplink_lugares_guardados') || '[]');
       setLugaresGuardados(guardados);
@@ -186,6 +230,7 @@ export default function DescubreLista({
       puntuacion_minima: 0,
     });
     setBusqueda('');
+    setSoloGuardados(false);
     setPaginaActual(1);
   };
 
@@ -295,6 +340,12 @@ export default function DescubreLista({
 
   // FILTRADO
   const lugaresFiltrados = lugares.filter(l => {
+    // 0. Filtro de Solo Guardados
+    if (soloGuardados) {
+      const idsGuardados = new Set(lugaresGuardados.map(g => g.id));
+      if (!idsGuardados.has(l.id)) return false;
+    }
+
     // 1. Tipo de Lugar Principal (Multi-selección)
     if (tiposLugarSeleccionados.length > 0 && !tiposLugarSeleccionados.includes(l.tipo_lugar)) {
       return false;
@@ -344,10 +395,30 @@ export default function DescubreLista({
     return true;
   });
 
+  // Ordenación dinámica
+  const lugaresOrdenados = [...lugaresFiltrados].sort((a, b) => {
+    if (criterioOrden === 'distancia') {
+      const distA = ubicacionUsuario && a.latitud != null && a.longitud != null
+        ? calcularDistanciaKm(ubicacionUsuario.lat, ubicacionUsuario.lng, a.latitud, a.longitud)
+        : 999999;
+      const distB = ubicacionUsuario && b.latitud != null && b.longitud != null
+        ? calcularDistanciaKm(ubicacionUsuario.lat, ubicacionUsuario.lng, b.latitud, b.longitud)
+        : 999999;
+      return (distA ?? 999999) - (distB ?? 999999);
+    }
+    if (criterioOrden === 'valoracion') {
+      return (parseFloat(b.valoracion_media) || 0) - (parseFloat(a.valoracion_media) || 0);
+    }
+    if (criterioOrden === 'alfabetico') {
+      return (a.nombre || '').localeCompare(b.nombre || '');
+    }
+    return (b.id || 0) - (a.id || 0);
+  });
+
   // Paginación
-  const totalPaginas = Math.ceil(lugaresFiltrados.length / lugaresPorPagina) || 1;
+  const totalPaginas = Math.ceil(lugaresOrdenados.length / lugaresPorPagina) || 1;
   const indiceInicio = (paginaActual - 1) * lugaresPorPagina;
-  const lugaresPaginados = lugaresFiltrados.slice(indiceInicio, indiceInicio + lugaresPorPagina);
+  const lugaresPaginados = lugaresOrdenados.slice(indiceInicio, indiceInicio + lugaresPorPagina);
 
   return (
     <div className="container" style={{ padding: '24px 16px', maxWidth: '1240px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
@@ -365,7 +436,35 @@ export default function DescubreLista({
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Botón Lugares Guardados */}
+            <button
+              type="button"
+              onClick={() => {
+                setSoloGuardados(!soloGuardados);
+                setPaginaActual(1);
+              }}
+              className={`btn ${soloGuardados ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.86rem',
+                fontWeight: 700,
+                background: soloGuardados ? 'var(--accent-earth)' : undefined,
+                borderColor: soloGuardados ? 'var(--accent-earth)' : undefined,
+                color: soloGuardados ? '#FFFFFF' : undefined
+              }}
+              title={soloGuardados ? "Ver todos los lugares" : "Ver solo lugares guardados"}
+            >
+              <Bookmark 
+                size={16} 
+                fill={soloGuardados ? "#FFFFFF" : (lugaresGuardados.length > 0 ? "var(--accent-earth)" : "none")} 
+                color={soloGuardados ? "#FFFFFF" : "var(--accent-earth)"} 
+              />
+              <span>{soloGuardados ? "Ver Todos" : `Guardados (${lugaresGuardados.length})`}</span>
+            </button>
+
             {alCambiarAMapa && (
               <button
                 onClick={alCambiarAMapa}
@@ -398,18 +497,41 @@ export default function DescubreLista({
               placeholder="Buscar por nombre, población o provincia (ej: Pirineos, Cabo de Gata, Llanes)..."
               value={busqueda}
               onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
-              className="input"
+              className="form-control"
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
-                paddingLeft: '42px',
-                paddingRight: '12px',
-                height: '44px',
+                paddingLeft: '44px',
+                paddingRight: busqueda ? '38px' : '16px',
+                height: '46px',
                 fontSize: '0.90rem',
+                borderRadius: 'var(--radius-full)',
                 display: 'block'
               }}
             />
-            <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+            <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-forest)', pointerEvents: 'none' }} />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => { setBusqueda(''); setPaginaActual(1); }}
+                style={{
+                  position: 'absolute',
+                  right: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'var(--text-muted)'
+                }}
+                title="Limpiar búsqueda"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
 
           <button
@@ -419,10 +541,11 @@ export default function DescubreLista({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              height: '44px',
-              padding: '0 16px',
+              height: '46px',
+              padding: '0 18px',
               fontSize: '0.88rem',
               fontWeight: 700,
+              borderRadius: 'var(--radius-full)',
               flexShrink: 0
             }}
           >
@@ -804,9 +927,29 @@ export default function DescubreLista({
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            <span>Mostrando {lugaresPaginados.length} de {lugaresFiltrados.length} lugares</span>
-            <span>Página {paginaActual} de {totalPaginas}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '10px' }}>
+            <span>Mostrando {lugaresPaginados.length} de {lugaresOrdenados.length} lugares</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ArrowUpDown size={14} color="var(--accent-forest)" />
+                <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Ordenar por:</span>
+                <select
+                  className="form-control"
+                  style={{ width: 'auto', padding: '4px 10px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
+                  value={criterioOrden}
+                  onChange={(e) => {
+                    setCriterioOrden(e.target.value);
+                    setPaginaActual(1);
+                  }}
+                >
+                  <option value="recientes">Más recientes</option>
+                  <option value="distancia">📍 Distancia: más cercanos</option>
+                  <option value="valoracion">⭐ Mejor valorados</option>
+                  <option value="alfabetico">🔤 Alfabético (A-Z)</option>
+                </select>
+              </div>
+              <span>Página {paginaActual} de {totalPaginas}</span>
+            </div>
           </div>
 
           <div style={{
@@ -817,7 +960,10 @@ export default function DescubreLista({
           }}>
             {lugaresPaginados.map(lugar => {
               const guardado = lugaresGuardados.some(g => g.id === lugar.id);
-              const imagenLugar = lugar.foto_principal || (lugar.fotos && lugar.fotos.length > 0 ? lugar.fotos[0].imagen : null);
+              const distanciaKm = ubicacionUsuario && lugar.latitud != null && lugar.longitud != null
+                ? calcularDistanciaKm(ubicacionUsuario.lat, ubicacionUsuario.lng, lugar.latitud, lugar.longitud)
+                : null;
+              const imagenLugar = obtenerImagenLugar(lugar);
               const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
               const val = parseFloat(lugar.valoracion_media) || 0;
 
@@ -841,7 +987,7 @@ export default function DescubreLista({
                   {/* IMAGEN DEL LUGAR O BANNER PAISAJÍSTICO */}
                   <div style={{ position: 'relative', width: '100%', height: '170px', background: '#0D1A12', overflow: 'hidden' }}>
                     {imagenLugar ? (
-                      <img 
+                      <img loading="lazy" decoding="async" 
                         src={imagenLugar} 
                         alt={lugar.nombre} 
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -907,7 +1053,7 @@ export default function DescubreLista({
                           border: lugar.es_gratuito ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(251, 191, 36, 0.4)',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
                         }}>
-                          {lugar.es_gratuito ? 'Gratis' : `${lugar.precio_noche || '0'} €/n`}
+                          {lugar.es_gratuito || (!parseFloat(lugar.precio) && !parseFloat(lugar.precio_noche)) ? 'Gratis' : `${parseFloat(lugar.precio || lugar.precio_noche)} €/n`}
                         </span>
 
                         <button
@@ -952,9 +1098,14 @@ export default function DescubreLista({
                         {lugar.nombre}
                       </h3>
 
-                      <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
                         <MapPin size={14} color="#10B981" /> 
                         <span>{lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}</span>
+                        {distanciaKm != null && (
+                          <span style={{ color: '#10B981', fontWeight: 800, background: 'rgba(16, 185, 129, 0.12)', padding: '1px 7px', borderRadius: '4px', fontSize: '0.78rem' }}>
+                            • a {distanciaKm} km
+                          </span>
+                        )}
                       </p>
 
                       {/* Puntuación Camper */}
@@ -1102,7 +1253,7 @@ export default function DescubreLista({
                   <div>
                     <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Selecciona tu viaje:</label>
                     <select
-                      className="input"
+                      className="form-control"
                       value={viajeSeleccionadoId}
                       onChange={(e) => setViajeSeleccionadoId(e.target.value)}
                       required
@@ -1125,7 +1276,7 @@ export default function DescubreLista({
                       <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Título del nuevo viaje:</label>
                       <input
                         type="text"
-                        className="input"
+                        className="form-control"
                         placeholder="Ej: Ruta Costa Norte en Camper"
                         value={nuevoViajeTitulo}
                         onChange={(e) => setNuevoViajeTitulo(e.target.value)}
@@ -1136,7 +1287,7 @@ export default function DescubreLista({
                       <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Fecha de inicio:</label>
                       <input
                         type="date"
-                        className="input"
+                        className="form-control"
                         value={nuevoViajeFecha}
                         onChange={(e) => setNuevoViajeFecha(e.target.value)}
                         required
@@ -1159,7 +1310,7 @@ export default function DescubreLista({
                     <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Fecha parada:</label>
                     <input
                       type="date"
-                      className="input"
+                      className="form-control"
                       value={fechaParada}
                       onChange={(e) => setFechaParada(e.target.value)}
                       required
@@ -1171,7 +1322,7 @@ export default function DescubreLista({
                       type="number"
                       min="1"
                       max="30"
-                      className="input"
+                      className="form-control"
                       value={diasParada}
                       onChange={(e) => setDiasParada(parseInt(e.target.value) || 1)}
                       required
@@ -1183,7 +1334,7 @@ export default function DescubreLista({
                   <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Notas de la parada (opcional):</label>
                   <input
                     type="text"
-                    className="input"
+                    className="form-control"
                     placeholder="Ej: Cargar agua limpia y dormir bajo los pinos"
                     value={notasParada}
                     onChange={(e) => setNotasParada(e.target.value)}

@@ -53,8 +53,37 @@ export const AuthProvider = ({ children }) => {
       method: 'POST',
       body: formData
     });
-    setUsuario(res.usuario);
+    if (res && res.usuario && !res.requiere_verificacion) {
+      setUsuario(res.usuario);
+    }
     return res;
+  };
+
+  const activarCuenta = async ({ email, codigo, uid, token, autoLogin = true }) => {
+    const res = await peticionApi('/api/exploradores/activar-cuenta/', {
+      method: 'POST',
+      body: {
+        email: email ? String(email).trim().toLowerCase() : '',
+        codigo: codigo ? String(codigo).trim() : '',
+        uid: uid ? String(uid).trim() : '',
+        token: token ? String(token).trim() : ''
+      }
+    });
+    if (res && res.usuario && autoLogin) {
+      setUsuario(res.usuario);
+    }
+    return res;
+  };
+
+  const establecerUsuario = (nuevoUsuario) => {
+    setUsuario(nuevoUsuario);
+  };
+
+  const reenviarCodigo = async (email) => {
+    return await peticionApi('/api/exploradores/reenviar-codigo/', {
+      method: 'POST',
+      body: { email: String(email || '').trim().toLowerCase() }
+    });
   };
 
   const recuperarPassword = async (emailOUsuario) => {
@@ -74,7 +103,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, registro, logout, cargarPerfil, recuperarPassword }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, registro, activarCuenta, reenviarCodigo, logout, cargarPerfil, recuperarPassword }}>
       {children}
     </AuthContext.Provider>
   );

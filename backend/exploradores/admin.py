@@ -4,15 +4,23 @@ from .models import Explorador, RelacionSeguimiento, GrupoPrivacidad, Notificaci
 
 @admin.register(Explorador)
 class ExploradorAdmin(UserAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'poblacion', 'is_staff', 'is_superuser')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'tipo_combustible')
-    search_fields = ('username', 'email', 'first_name', 'last_name', 'poblacion', 'vehiculo_marca', 'vehiculo_modelo')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'poblacion', 'tipo_viajero', 'email_verificado', 'is_staff', 'is_superuser')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'email_verificado', 'tipo_viajero', 'tipo_combustible')
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'poblacion', 'direccion_base')
     ordering = ('username',)
     
     fieldsets = UserAdmin.fieldsets + (
         ('Datos Camper & Vehículo', {
-            'fields': ('biografia', 'avatar', 'poblacion', 'codigo_postal', 'vehiculo_marca', 'vehiculo_modelo', 
-                       'consumo_medio_100km', 'capacidad_deposito_l', 'autonomia_km', 'tipo_combustible')
+            'fields': (
+                'tipo_viajero', 'foto_vehiculo', 'biografia', 'avatar',
+                'poblacion', 'codigo_postal', 'direccion_base', 'lat_base', 'lng_base',
+                'capacidad_deposito_l', 'consumo_medio_l_100km', 'tipo_combustible'
+            )
+        }),
+        ('Estado de Cuenta & Verificación', {
+            'fields': (
+                'rol', 'email_verificado', 'codigo_verificacion', 'fecha_codigo_verificacion', 'recibio_bienvenida'
+            )
         }),
     )
 

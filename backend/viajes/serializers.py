@@ -72,7 +72,7 @@ class ViajeSerializer(serializers.ModelSerializer):
     def get_checkins_resumen(self, obj):
         # Aquí obtengo una lista detallada de los check-ins vinculados a este viaje (etapas, fotos, notas privadas si es dueño)
         request = self.context.get('request')
-        es_dueno = request and request.user.is_authenticated and (request.user == obj.explorador or request.user.id == obj.explorador_id)
+        es_dueno = request and hasattr(request, 'user') and request.user.is_authenticated and (request.user == obj.explorador or request.user.id == obj.explorador_id)
         return [
             {
                 'id': ch.id,

@@ -3,7 +3,8 @@
 export const es = {
   // Navegación
   nav_inicio: 'Inicio',
-  nav_descubre: 'Descubre Mapa',
+  nav_descubre: 'Mapa',
+  nav_lugares: 'Lugares',
   nav_diario: 'Diario de Ruta',
   nav_viajes: 'Mis Viajes',
   nav_trofeos: 'Vitrina Trofeos',

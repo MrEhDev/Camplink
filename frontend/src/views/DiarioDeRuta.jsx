@@ -1,3 +1,4 @@
+import { comprimirImagen } from '../utils/imageCompressor';
 import React, { useState, useEffect } from 'react';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -11,10 +12,10 @@ import {
 const formatearUsuario = (u) => {
   if (!u) return '';
   const s = String(u);
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario }) {
+export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario, abrirTutorial }) {
   const { usuario } = useAuth();
   const [publicaciones, setPublicaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -38,6 +39,61 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
   const [compartidoId, setCompartidoId] = useState(null);
 
   const [filtroFeed, setFiltroFeed] = useState('todos');
+  const [toastCopiado, setToastCopiado] = useState(null);
+
+  const copiarAlPortapapeles = (url, mensaje) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setToastCopiado(mensaje);
+        setTimeout(() => setToastCopiado(null), 3000);
+      }).catch(() => {
+        prompt('Copia este enlace directo:', url);
+      });
+    } else {
+      prompt('Copia este enlace directo:', url);
+    }
+  };
+
+  const compartirPublicacion = (pubId) => {
+    const url = `${window.location.origin}/diario?post=${pubId}`;
+    copiarAlPortapapeles(url, '¡Enlace a la publicación copiado al portapapeles! 📋');
+  };
+
+  const compartirComentario = (pubId, comId) => {
+    const url = `${window.location.origin}/diario?post=${pubId}&comentario=${comId}`;
+    copiarAlPortapapeles(url, '¡Enlace al comentario copiado al portapapeles! 📋');
+  };
+
+  // Efecto para saltar directamente a la publicación o comentario compartido mediante la URL
+  useEffect(() => {
+    if (!cargando && publicaciones.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const postId = params.get('post');
+      const comId = params.get('comentario');
+
+      if (postId && comId) {
+        setComentariosAbiertos(prev => ({ ...prev, [postId]: true }));
+        setTimeout(() => {
+          const el = document.getElementById(`comentario-${comId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('comentario-resaltado');
+            setTimeout(() => el.classList.remove('comentario-resaltado'), 4000);
+          }
+        }, 400);
+      } else if (postId) {
+        setTimeout(() => {
+          const el = document.getElementById(`post-${postId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('post-resaltado');
+            setTimeout(() => el.classList.remove('post-resaltado'), 4000);
+          }
+        }, 300);
+      }
+    }
+  }, [cargando, publicaciones.length]);
+
 
   const [comentariosAbiertos, setComentariosAbiertos] = useState({});
   const [textoComentario, setTextoComentario] = useState({});
@@ -54,7 +110,8 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
     setCargando(true);
     try {
       const data = await peticionApi('/api/diario/publicaciones/');
-      setPublicaciones(data.results || data);
+      const lista = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      setPublicaciones(lista);
     } catch (err) {
       console.error('Error al cargar publicaciones del diario:', err);
     } finally {
@@ -66,7 +123,8 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
     if (!usuario) return;
     try {
       const data = await peticionApi('/api/exploradores/grupos/');
-      setGruposUsuario(data.results || data);
+      const lista = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      setGruposUsuario(lista);
     } catch (err) {
       console.error('Error al cargar grupos:', err);
     }
@@ -88,7 +146,8 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
   const cargarLugaresDisponibles = async () => {
     try {
       const data = await peticionApi('/api/lugares/puntos/');
-      setLugaresDisponibles(data.results || data || []);
+      const lista = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      setLugaresDisponibles(lista);
     } catch (e) {
       console.error('Error al cargar lugares disponibles:', e);
     }
@@ -103,10 +162,11 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
     }
   }, [usuario]);
 
-  const manejarSeleccionFoto = (archivo) => {
+  const manejarSeleccionFoto = async (archivo) => {
     if (archivo) {
-      setFoto(archivo);
-      setPreviewFoto(URL.createObjectURL(archivo));
+      const archivoComprimido = await comprimirImagen(archivo, { maxAncho: 1600, maxAlto: 1600, calidad: 0.82 });
+      setFoto(archivoComprimido);
+      setPreviewFoto(URL.createObjectURL(archivoComprimido));
     } else {
       setFoto(null);
       setPreviewFoto(null);
@@ -128,7 +188,8 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
     setBuscandoExploradores(true);
     try {
       const data = await peticionApi(`/api/exploradores/lista/?q=${encodeURIComponent(query)}`);
-      setResultadosBusqueda(data.results || data);
+      const lista = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      setResultadosBusqueda(lista);
     } catch (err) {
       console.error('Error al buscar exploradores:', err);
     } finally {
@@ -317,7 +378,9 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
     if (alVerPerfilUsuario && autorId) alVerPerfilUsuario(autorId);
   };
 
-  const publicacionesFiltradas = publicaciones.filter(pub => {
+  const listaPubs = Array.isArray(publicaciones) ? publicaciones : [];
+  const publicacionesFiltradas = listaPubs.filter(pub => {
+    if (!pub) return false;
     const autorId = pub.autor_detalle?.id || pub.autor;
     if (filtroFeed === 'mis_posts') return usuario && autorId === usuario.id;
     if (filtroFeed === 'companeros') return pub.visibilidad === 'seguidores' || pub.visibilidad === 'grupo_privado';
@@ -335,11 +398,11 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
           </p>
         </div>
         <button className={`btn ${mostrarBuscador ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                onClick={() => setMostrarBuscador(!mostrarBuscador)}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Search size={15} />
-          <span>{mostrarBuscador ? 'Ocultar Buscador' : 'Buscar Compañeros de Ruta'}</span>
-        </button>
+                  onClick={() => setMostrarBuscador(!mostrarBuscador)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Search size={15} />
+            <span>{mostrarBuscador ? 'Ocultar Buscador' : 'Buscar Compañeros de Ruta'}</span>
+          </button>
       </div>
 
       {/* Buscador de exploradores */}
@@ -407,7 +470,7 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
                       required />
             {previewFoto && (
               <div style={{ position: 'relative', marginTop: '12px', display: 'inline-block', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                <img src={previewFoto} alt="Vista previa de foto" style={{ maxHeight: '180px', maxWidth: '100%', objectFit: 'cover', display: 'block' }} />
+                <img loading="lazy" decoding="async" src={previewFoto} alt="Vista previa de foto" style={{ maxHeight: '180px', maxWidth: '100%', objectFit: 'cover', display: 'block' }} />
                 <button type="button" onClick={descartarFoto}
                         style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', color: '#fff', border: 'none', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Eliminar foto"><X size={16} /></button>
               </div>
@@ -499,11 +562,11 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
             const resumen = pub.reacciones_resumen || { fuego: 0, pino: 0, alerta: 0 };
             const misReacciones = pub.mis_reacciones || [];
             return (
-              <article key={pub.id} className="camper-card" style={{ padding: '24px' }}>
+              <article id={`post-${pub.id}`} key={pub.id} className="camper-card" style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div className="clickable-user" onClick={() => irAlPerfil(autorId)} title={`Ver perfil público de ${formatearUsuario(autorNombre)}`}
-                         style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'var(--accent-forest)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.25rem', boxShadow: '0 3px 10px rgba(35,83,52,0.3)' }}>{autorNombre.charAt(0).toUpperCase()}</div>
+                         style={{ width: '46px', height: '46px', borderRadius: '50%', background: 'var(--accent-forest)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.25rem', boxShadow: '0 3px 10px rgba(35,83,52,0.3)' }}>{(autorNombre || 'E').charAt(0).toUpperCase()}</div>
                     <div>
                       <div className="clickable-user" onClick={() => irAlPerfil(autorId)} title={`Ver perfil público de ${formatearUsuario(autorNombre)}`}
                            style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>{formatearUsuario(autorNombre)}</div>
@@ -539,7 +602,7 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
                 {/* Imagen */}
                 {pub.imagen && (
                   <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '16px' }}>
-                    <img src={pub.imagen} alt="Foto de ruta" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover' }} />
+                    <img loading="lazy" decoding="async" src={pub.imagen} alt="Foto de ruta" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover' }} />
                   </div>
                 )}
                 {/* Reacciones y acciones */}
@@ -556,11 +619,7 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
                       <span>{resumen.alerta || 0}</span>
                     </button>
                     
-                    <button className="btn btn-secondary btn-sm" onClick={() => { navigator.clipboard?.writeText(window.location.href); setCompartidoId(pub.id); setTimeout(() => setCompartidoId(null), 2000); }}
-                            style={{ padding: '5px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: 'var(--radius-full)' }} title="Copiar enlace a esta vivencia">
-                      {compartidoId === pub.id ? <Check size={14} color="var(--accent-forest)" /> : <Share2 size={14} />}
-                      <span>{compartidoId === pub.id ? '¡Copiado!' : 'Compartir'}</span>
-                    </button>
+
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     {/* Botón Comentarios con alto contraste garantizado */}
@@ -587,6 +646,30 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
                       <span style={{ color: 'var(--text-primary)' }}>
                         {pub.total_comentarios || pub.comentarios?.length || 0} Comentarios
                       </span>
+                    </button>
+
+                    {/* Botón Compartir Publicación */}
+                    <button
+                      type="button"
+                      onClick={() => compartirPublicacion(pub.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-full)',
+                        padding: '6px 14px',
+                        fontSize: '0.84rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      title="Compartir enlace directo a esta publicación"
+                    >
+                      {compartidoId === pub.id ? <Check size={15} color="var(--accent-forest)" /> : <Share2 size={15} color="var(--accent-forest)" />}
+                      <span>{compartidoId === pub.id ? '¡Copiado!' : 'Compartir'}</span>
                     </button>
 
                     {/* Botones de Editar y Eliminar para autor o admin/staff */}
@@ -655,14 +738,15 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
                             const estaEditandoEste = editandoComentarioId === c.id;
 
                             return (
-                              <div key={c.id} style={{
+                              <div id={`comentario-${c.id}`} key={c.id} style={{
                                 background: 'var(--bg-primary)',
                                 padding: '10px 14px',
                                 borderRadius: 'var(--radius-sm)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'flex-start',
-                                gap: '10px'
+                                gap: '10px',
+                                transition: 'all 0.3s ease'
                               }}>
                                 <div style={{ flex: 1 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px', flexWrap: 'wrap' }}>
@@ -715,29 +799,40 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
                                   )}
                                 </div>
 
-                                {/* Acciones de Comentario para Autor o Admin */}
-                                {puedeModificar && !estaEditandoEste && (
-                                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                    <button
-                                      type="button"
-                                      className="btn-icon"
-                                      onClick={() => iniciarEdicionComentario(c)}
-                                      title={esAdmin && !esMiComentario ? "Moderar / Editar comentario (Admin)" : "Editar comentario"}
-                                      style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                    >
-                                      <Edit3 size={13} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn-icon"
-                                      onClick={() => eliminarComentario(pub.id, c.id)}
-                                      title={esAdmin && !esMiComentario ? "Eliminar comentario (Admin)" : "Eliminar comentario"}
-                                      style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-                                )}
+                                {/* Acciones de Comentario (Compartir, Editar, Eliminar) */}
+                                <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-icon"
+                                    onClick={() => compartirComentario(pub.id, c.id)}
+                                    title="Compartir enlace directo a este comentario"
+                                    style={{ width: '28px', height: '28px', color: 'var(--text-muted)' }}
+                                  >
+                                    <Share2 size={13} />
+                                  </button>
+                                  {puedeModificar && !estaEditandoEste && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="btn-icon"
+                                        onClick={() => iniciarEdicionComentario(c)}
+                                        title={esAdmin && !esMiComentario ? "Moderar / Editar comentario (Admin)" : "Editar comentario"}
+                                        style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                      >
+                                        <Edit3 size={13} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-icon"
+                                        onClick={() => eliminarComentario(pub.id, c.id)}
+                                        title={esAdmin && !esMiComentario ? "Eliminar comentario (Admin)" : "Eliminar comentario"}
+                                        style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -805,6 +900,29 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario })
               </article>
             );
           })}
+        </div>
+      )}
+      {/* TOAST FLOTANTE DE ENLACE COPIADO */}
+      {toastCopiado && (
+        <div style={{
+          position: 'fixed',
+          bottom: '30px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          background: 'var(--accent-forest)',
+          color: '#FFFFFF',
+          padding: '12px 24px',
+          borderRadius: 'var(--radius-full)',
+          fontWeight: 800,
+          fontSize: '0.88rem',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <Check size={18} />
+          <span>{toastCopiado}</span>
         </div>
       )}
     </div>

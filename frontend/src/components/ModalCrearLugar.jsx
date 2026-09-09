@@ -58,6 +58,47 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
 
   const [guardando, setGuardando] = useState(false);
 
+  // Estados para importar automáticamente desde Google Maps
+  const [urlMaps, setUrlMaps] = useState('');
+  const [extrayendoMaps, setExtrayendoMaps] = useState(false);
+  const [mensajeMapsExito, setMensajeMapsExito] = useState('');
+  const [errorMaps, setErrorMaps] = useState('');
+
+  const extraerDatosMaps = async (urlAProcesar) => {
+    const url = (urlAProcesar || urlMaps || '').trim();
+    if (!url) return;
+    setExtrayendoMaps(true);
+    setErrorMaps('');
+    setMensajeMapsExito('');
+
+    try {
+      const res = await peticionApi('/api/lugares/puntos/extraer-maps/', {
+        method: 'POST',
+        body: { url }
+      });
+
+      if (res?.exito) {
+        if (res.nombre) setNombre(res.nombre);
+        if (res.latitud != null) setLatitud(res.latitud);
+        if (res.longitud != null) setLongitud(res.longitud);
+        if (res.poblacion) setPoblacion(res.poblacion);
+        if (res.provincia) setProvincia(res.provincia);
+        if (res.tipo_lugar_sugerido) setTipoLugar(res.tipo_lugar_sugerido);
+        if (res.descripcion_sugerida && (!descripcion || descripcion.trim() === '')) {
+          setDescripcion(res.descripcion_sugerida);
+        }
+        setMensajeMapsExito(`¡Datos extraídos con éxito! Coordenadas: ${res.latitud}, ${res.longitud} • ${res.poblacion || ''}`);
+      } else {
+        setErrorMaps(res?.error || 'No se pudieron extraer datos de la URL proporcionada.');
+      }
+    } catch (err) {
+      console.error('Error al extraer datos de Google Maps:', err);
+      setErrorMaps(err.message || 'Error al conectar con el servicio de extracción.');
+    } finally {
+      setExtrayendoMaps(false);
+    }
+  };
+
     const manejarCambioFoto = async (e) => {
     const archivo = e.target.files[0];
     if (archivo) {
@@ -152,6 +193,97 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
         </div>
 
         <form onSubmit={manejarEnvio} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* AUTO-COMPLETAR DESDE GOOGLE MAPS */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(46, 139, 87, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%)',
+            border: '1.5px solid var(--accent-forest)',
+            borderRadius: 'var(--radius-md)',
+            padding: '14px 16px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                <Sparkles size={16} color="var(--accent-forest)" />
+                <span>Rellenar automáticamente desde Google Maps</span>
+              </label>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Soporta enlaces cortos, lugares y coordenadas
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Pega aquí la URL (ej: https://maps.app.goo.gl/CDHyovNjceX89hqy6)"
+                value={urlMaps}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setUrlMaps(val);
+                  if (val.includes('maps.app.goo.gl') || val.includes('google.com/maps') || val.includes('goo.gl/maps')) {
+                    extraerDatosMaps(val);
+                  }
+                }}
+                onPaste={(e) => {
+                  const textoPegado = e.clipboardData?.getData('text') || '';
+                  if (textoPegado.includes('maps.app.goo.gl') || textoPegado.includes('google.com/maps') || textoPegado.includes('goo.gl/maps')) {
+                    setTimeout(() => extraerDatosMaps(textoPegado), 50);
+                  }
+                }}
+                style={{ fontSize: '0.82rem', padding: '7px 12px', flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={extrayendoMaps || !urlMaps.trim()}
+                onClick={() => extraerDatosMaps(urlMaps)}
+                style={{ whiteSpace: 'nowrap', fontWeight: 700, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {extrayendoMaps ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm" style={{ width: '13px', height: '13px' }} />
+                    <span>Extrayendo...</span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin size={14} />
+                    <span>Extraer datos</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {mensajeMapsExito && (
+              <div style={{
+                marginTop: '8px',
+                fontSize: '0.78rem',
+                color: '#4ADE80',
+                background: 'rgba(46, 139, 87, 0.2)',
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <Check size={14} />
+                <span>{mensajeMapsExito}</span>
+              </div>
+            )}
+
+            {errorMaps && (
+              <div style={{
+                marginTop: '8px',
+                fontSize: '0.78rem',
+                color: '#F87171',
+                background: 'rgba(239, 68, 68, 0.15)',
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-sm)'
+              }}>
+                ⚠️ {errorMaps}
+              </div>
+            )}
+          </div>
+
           {/* TIPO DE LUGAR */}
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
@@ -314,7 +446,22 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
           {/* Nombre */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Nombre del Lugar *</label>
-            <input type="text" className="form-control" required placeholder="Ej: Mirador de los Acantilados" value={nombre} onChange={e => setNombre(e.target.value)} />
+            <input 
+              type="text" 
+              className="form-control" 
+              required 
+              placeholder="Ej: Mirador de los Acantilados" 
+              value={nombre} 
+              onChange={e => {
+                const val = e.target.value;
+                if (val.includes('maps.app.goo.gl') || val.includes('google.com/maps') || val.includes('goo.gl/maps')) {
+                  setUrlMaps(val);
+                  extraerDatosMaps(val);
+                } else {
+                  setNombre(val);
+                }
+              }} 
+            />
           </div>
 
           {/* Coordenadas GPS */}

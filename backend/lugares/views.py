@@ -13,6 +13,11 @@ class LugarViewSet(viewsets.ModelViewSet):
     serializer_class = LugarSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    def get_permissions(self):
+        if self.action in ['extraer_maps']:
+            return [permissions.AllowAny()]
+        return super().get_permissions()
+
     def get_queryset(self):
         qs = Lugar.objects.all()
         q = self.request.query_params.get('q', None)
@@ -259,6 +264,165 @@ class LugarViewSet(viewsets.ModelViewSet):
         response = HttpResponse(ics_content, content_type='text/calendar; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="pernocta_{lugar.id}.ics"'
         return response
+
+
+    @action(detail=False, methods=['get', 'post'], url_path='extraer-maps', permission_classes=[permissions.AllowAny])
+    def extraer_maps(self, request):
+        # Aquí extraigo automáticamente las coordenadas, población, provincia y nombre a partir de una URL de Google Maps
+        url_recibida = request.data.get('url') if request.method == 'POST' else request.query_params.get('url')
+        if not url_recibida:
+            return Response({'exito': False, 'error': 'Debes proporcionar una URL de Google Maps.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        import requests
+        import re
+        import urllib.parse
+
+        entrada_url = str(url_recibida).strip()
+
+        # 1. Si son coordenadas directas (ej: "41.653176, 2.221018")
+        m_direct = re.match(r"^\s*(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)\s*$", entrada_url)
+        lat, lng = None, None
+        nombre_extraido = None
+
+        if m_direct:
+            lat = float(m_direct.group(1))
+            lng = float(m_direct.group(2))
+        else:
+            # Petición con requests siguiendo redirecciones
+            s = requests.Session()
+            s.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
+            })
+            # Consent cookie para evitar la pantalla de consentimiento de Google en Europa
+            s.cookies.set("SOCS", "CAESHAgBEhJnd3NfMjAyNDA2MTAtMF9SQzEaAmVuIAEaBgiA_L20Bg", domain=".google.com")
+
+            try:
+                r = s.get(entrada_url, allow_redirects=True, timeout=12)
+                url_final = urllib.parse.unquote(r.url)
+            except Exception as e:
+                return Response({'exito': False, 'error': f'Error al consultar el enlace: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Extraer nombre si viene en la ruta /maps/place/NOMBRE/
+            m_place = re.search(r"/maps/place/([^/@?]+)", url_final)
+            if m_place:
+                nombre_extraido = m_place.group(1).replace("+", " ").strip()
+
+            # Extraer coordenadas de la URL final
+            # 1. /search/41.653176,+2.221018 o /search/41.653176,2.221018
+            m_search = re.search(r"/search/(-?\d+\.\d+),[\+\s]*(-?\d+\.\d+)", url_final)
+            if m_search:
+                lat = float(m_search.group(1))
+                lng = float(m_search.group(2))
+
+            # 2. /@41.653176,2.221018
+            if lat is None:
+                m_at = re.search(r"@(-?\d+\.\d+),(-?\d+\.\d+)", url_final)
+                if m_at:
+                    lat = float(m_at.group(1))
+                    lng = float(m_at.group(2))
+
+            # 3. !3d41.653176!4d2.221018
+            if lat is None:
+                m_3d = re.search(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)", url_final)
+                if m_3d:
+                    lat = float(m_3d.group(1))
+                    lng = float(m_3d.group(2))
+
+            # 4. q=41.653176,2.221018 o ll=41.653176,2.221018
+            if lat is None:
+                m_q = re.search(r"[?&](?:q|ll)=(-?\d+\.\d+),(-?\d+\.\d+)", url_final)
+                if m_q:
+                    lat = float(m_q.group(1))
+                    lng = float(m_q.group(2))
+
+            # 5. HTML fallback
+            if lat is None and r.text:
+                m_html = re.search(r"\[null,null,(-?\d+\.\d+),(-?\d+\.\d+)\]", r.text)
+                if m_html:
+                    lat = float(m_html.group(1))
+                    lng = float(m_html.group(2))
+
+        if lat is None or lng is None:
+            return Response({'exito': False, 'error': 'No se pudieron extraer coordenadas válidas del enlace de Google Maps.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Geocodificación inversa vía Nominatim / Photon
+        poblacion = ""
+        provincia = ""
+        comunidad = ""
+        pais = ""
+        direccion = ""
+        nombre_geo = ""
+
+        try:
+            headers_nom = {"User-Agent": "CamplinkApp/1.0 (contact@camplink.com)"}
+            r_geo = requests.get(
+                f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json&addressdetails=1",
+                headers=headers_nom,
+                timeout=6
+            )
+            if r_geo.status_code == 200:
+                geo_data = r_geo.json()
+                addr = geo_data.get("address", {})
+                poblacion = addr.get("village") or addr.get("town") or addr.get("city") or addr.get("municipality") or addr.get("hamlet") or ""
+                provincia = addr.get("province") or addr.get("state_district") or addr.get("county") or ""
+                comunidad = addr.get("state") or ""
+                pais = addr.get("country") or "España"
+                direccion = addr.get("road") or addr.get("pedestrian") or ""
+                nombre_geo = geo_data.get("name") or ""
+        except Exception:
+            pass
+
+        if not poblacion:
+            try:
+                r_ph = requests.get(f"https://photon.komoot.io/reverse?lat={lat}&lon={lng}", timeout=5)
+                if r_ph.status_code == 200:
+                    ph_data = r_ph.json()
+                    if ph_data.get("features"):
+                        props = ph_data["features"][0].get("properties", {})
+                        poblacion = props.get("city") or props.get("locality") or props.get("district") or poblacion
+                        provincia = props.get("county") or props.get("state") or provincia
+                        pais = props.get("country") or pais
+                        direccion = props.get("street") or direccion
+                        if not nombre_geo:
+                            nombre_geo = props.get("name") or ""
+            except Exception:
+                pass
+
+        # Sugerencia de tipo de lugar si se detectan palabras clave
+        tipo_sugerido = 'pernocta_libre'
+        nombre_check = (nombre_extraido or nombre_geo or '').lower()
+        if 'camping' in nombre_check:
+            tipo_sugerido = 'camping'
+        elif any(w in nombre_check for w in ['área', 'area', 'autocaravana', 'camper']):
+            tipo_sugerido = 'area_autocaravanas'
+        elif any(w in nombre_check for w in ['parking', 'aparcamiento']):
+            tipo_sugerido = 'parking_urbano'
+        elif any(w in nombre_check for w in ['recreativa', 'merendero', 'picnic']):
+            tipo_sugerido = 'area_recreativa'
+
+        nombre_final = nombre_extraido or nombre_geo
+        if not nombre_final:
+            if direccion and poblacion:
+                nombre_final = f"Pernocta en {direccion} ({poblacion})"
+            elif poblacion:
+                nombre_final = f"Pernocta en {poblacion}"
+            else:
+                nombre_final = f"Punto Camper {round(lat, 4)}, {round(lng, 4)}"
+
+        return Response({
+            'exito': True,
+            'nombre': nombre_final,
+            'latitud': round(lat, 6),
+            'longitud': round(lng, 6),
+            'poblacion': poblacion,
+            'provincia': provincia,
+            'comunidad_autonoma': comunidad,
+            'pais': pais,
+            'direccion': direccion,
+            'tipo_lugar_sugerido': tipo_sugerido,
+            'descripcion_sugerida': f"Lugar importado desde Google Maps en {poblacion or 'entorno natural'}{f' ({provincia})' if provincia else ''}."
+        })
 
 
 @api_view(['GET'])

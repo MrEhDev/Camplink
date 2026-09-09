@@ -498,7 +498,9 @@ export default function App() {
         {usuario && modalNuevoLugarAbierto && (
           <ModalCrearLugar
             alCerrar={() => setModalNuevoLugarAbierto(false)}
+            cerrado={() => setModalNuevoLugarAbierto(false)}
             alCompletar={() => {
+              setModalNuevoLugarAbierto(false);
               setVistaActiva('descubre');
             }}
           />

@@ -86,7 +86,27 @@ class LugarViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         usuario = self.request.user if self.request.user.is_authenticated else None
-        serializer.save(creador=usuario)
+        lugar = serializer.save(creador=usuario)
+
+        # Si se proporcionó una URL externa de imagen y no hay archivo directo
+        url_foto = self.request.data.get('url_foto') or self.request.data.get('foto_url')
+        if url_foto and not lugar.foto_principal:
+            try:
+                import requests
+                from django.core.files.base import ContentFile
+                clean_url = str(url_foto).strip()
+                resp = requests.get(clean_url, timeout=12, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                ctype = resp.headers.get('Content-Type', '').lower()
+                if resp.status_code == 200 and ('image' in ctype or any(clean_url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp'])):
+                    ext = 'jpg'
+                    if 'png' in ctype or clean_url.lower().endswith('.png'):
+                        ext = 'png'
+                    elif 'webp' in ctype or clean_url.lower().endswith('.webp'):
+                        ext = 'webp'
+                    nombre_archivo = f"lugar_{lugar.id}_web.{ext}"
+                    lugar.foto_principal.save(nombre_archivo, ContentFile(resp.content), save=True)
+            except Exception as e:
+                print("Error al descargar foto externa:", e)
 
     def update(self, request, *args, **kwargs):
         lugar = self.get_object()

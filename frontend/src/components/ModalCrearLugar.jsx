@@ -1,22 +1,26 @@
 import { comprimirImagen } from '../utils/imageCompressor';
 // Aquí implemento el Modal de Creación de Lugar Camper con subida de imagen principal,
-// clasificación oficial por tipo_lugar y categorías completas de servicios, entorno y terreno.
+// soporte para URL externa de foto, extracción automática desde Google Maps,
+// autocompletado bloqueado de población y provincia por GPS, y diseño responsive.
 
-import React, { useState } from 'react';
-import { X, MapPin, Plus, Sparkles, Check, Info, Camera, Image, UploadCloud, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, MapPin, Plus, Sparkles, Check, Info, Camera, UploadCloud, Trash2, Link } from 'lucide-react';
 import { peticionApi } from '../services/api';
 import { IMAGENES_PREESTABLECIDAS_POR_TIPO } from '../utils/lugarImagenes';
 
 const TIPOS_LUGAR_OPCIONES = [
-  { valor: 'pernocta_libre', emoji: '🌲', label: 'Pernocta Libre (Naturaleza)', desc: 'Montaña, bosque, playa o acantilados sin servicios. Cielos oscuros y sin contaminación lumínica.' },
-  { valor: 'area_autocaravanas', emoji: '🚐', label: 'Área de Autocaravanas', desc: 'Espacios habilitados específicamente para vehículos vivienda, con servicios de agua y vaciado.' },
-  { valor: 'camping', emoji: '⛺', label: 'Camping', desc: 'Establecimientos de pago con todos los servicios, piscinas y ocio familiar.' },
-  { valor: 'parking_urbano', emoji: '🅿️', label: 'Parking Urbano / Mixto', desc: 'Aparcamientos en pueblos/ciudades. Solo dormir dentro del vehículo (sin desplegar toldos).' },
-  { valor: 'area_recreativa', emoji: '🏞️', label: 'Área Recreativa / Merendero', desc: 'Zonas de picnic con mesas de madera, fuentes, barbacoas y senderos.' },
-  { valor: 'solo_servicios', emoji: '💧', label: 'Solo Servicios', desc: 'Punto de logística para vaciado de aguas grises/negras y carga de agua limpia (no pernocta).' },
+  { valor: 'pernocta_libre', emoji: '🌲', label: 'Pernocta Libre (Naturaleza)' },
+  { valor: 'area_autocaravanas', emoji: '🚐', label: 'Área de Autocaravanas' },
+  { valor: 'camping', emoji: '⛺', label: 'Camping' },
+  { valor: 'parking_urbano', emoji: '🅿️', label: 'Parking Urbano / Mixto' },
+  { valor: 'area_recreativa', emoji: '🏞️', label: 'Área Recreativa / Merendero' },
+  { valor: 'solo_servicios', emoji: '💧', label: 'Solo Servicios' },
 ];
 
-export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIniciales = null }) {
+export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alCompletar, coordenadasIniciales = null }) {
+  const cerrarModal = alCerrar || cerrado;
+  const onGuardarExito = alCompletar || alGuardarLugar;
+
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [tipoLugar, setTipoLugar] = useState('pernocta_libre');
@@ -27,9 +31,18 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
   const [precio, setPrecio] = useState('0');
   const [esGratuito, setEsGratuito] = useState(true);
 
-  // Foto principal
+  // Estados para importar automáticamente desde Google Maps
+  const [urlMaps, setUrlMaps] = useState('');
+  const [extrayendoMaps, setExtrayendoMaps] = useState(false);
+  const [mensajeMapsExito, setMensajeMapsExito] = useState('');
+  const [errorMaps, setErrorMaps] = useState('');
+
+  // Foto principal (archivo o URL externa)
   const [fotoPrincipal, setFotoPrincipal] = useState(null);
+  const [urlFotoExterna, setUrlFotoExterna] = useState('');
   const [fotoPreview, setFotoPreview] = useState(null);
+  const [modoFoto, setModoFoto] = useState('archivo'); // 'archivo' | 'url'
+  const [mostrarInfoFoto, setMostrarInfoFoto] = useState(false);
 
   // Servicios
   const [tieneAgua, setTieneAgua] = useState(false);
@@ -58,12 +71,44 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
 
   const [guardando, setGuardando] = useState(false);
 
-  // Estados para importar automáticamente desde Google Maps
-  const [urlMaps, setUrlMaps] = useState('');
-  const [extrayendoMaps, setExtrayendoMaps] = useState(false);
-  const [mensajeMapsExito, setMensajeMapsExito] = useState('');
-  const [errorMaps, setErrorMaps] = useState('');
+  // Geocodificación inversa automática al cambiar coordenadas GPS
+  useEffect(() => {
+    if (!latitud || !longitud) return;
+    const lat = parseFloat(latitud);
+    const lng = parseFloat(longitud);
+    if (isNaN(lat) || isNaN(lng)) return;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
 
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`, {
+          headers: { 'Accept-Language': 'es' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data.address || {};
+          const pob = addr.village || addr.town || addr.city || addr.municipality || addr.hamlet || '';
+          const prov = addr.province || addr.state_district || addr.county || '';
+          if (pob) setPoblacion(pob);
+          if (prov) setProvincia(prov);
+        }
+      } catch (e) {
+        try {
+          const resPh = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+          if (resPh.ok) {
+            const dataPh = await resPh.json();
+            const props = dataPh.features?.[0]?.properties || {};
+            if (props.city || props.locality) setPoblacion(props.city || props.locality);
+            if (props.county || props.state) setProvincia(props.county || props.state);
+          }
+        } catch (err) {}
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [latitud, longitud]);
+
+  // Extracción de datos desde Google Maps
   const extraerDatosMaps = async (urlAProcesar) => {
     const url = (urlAProcesar || urlMaps || '').trim();
     if (!url) return;
@@ -84,9 +129,7 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
         if (res.poblacion) setPoblacion(res.poblacion);
         if (res.provincia) setProvincia(res.provincia);
         if (res.tipo_lugar_sugerido) setTipoLugar(res.tipo_lugar_sugerido);
-        if (res.descripcion_sugerida && (!descripcion || descripcion.trim() === '')) {
-          setDescripcion(res.descripcion_sugerida);
-        }
+        // NOTA: No rellenar la descripción según requerimiento del usuario
         setMensajeMapsExito(`¡Datos extraídos con éxito! Coordenadas: ${res.latitud}, ${res.longitud} • ${res.poblacion || ''}`);
       } else {
         setErrorMaps(res?.error || 'No se pudieron extraer datos de la URL proporcionada.');
@@ -99,18 +142,20 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
     }
   };
 
-    const manejarCambioFoto = async (e) => {
+  const manejarCambioFoto = async (e) => {
     const archivo = e.target.files[0];
     if (archivo) {
       const archivoComprimido = await comprimirImagen(archivo, { maxAncho: 1600, maxAlto: 1600, calidad: 0.82 });
       setFotoPrincipal(archivoComprimido);
+      setUrlFotoExterna('');
       setFotoPreview(URL.createObjectURL(archivoComprimido));
     }
   };
 
   const quitarFoto = () => {
     setFotoPrincipal(null);
-    if (fotoPreview) {
+    setUrlFotoExterna('');
+    if (fotoPreview && fotoPreview.startsWith('blob:')) {
       URL.revokeObjectURL(fotoPreview);
     }
     setFotoPreview(null);
@@ -138,6 +183,8 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
 
       if (fotoPrincipal) {
         formData.append('foto_principal', fotoPrincipal);
+      } else if (urlFotoExterna && (urlFotoExterna.startsWith('http://') || urlFotoExterna.startsWith('https://'))) {
+        formData.append('url_foto', urlFotoExterna.trim());
       }
 
       // Servicios
@@ -170,8 +217,8 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
         body: formData
       });
 
-      if (alGuardarLugar) alGuardarLugar(creado);
-      if (cerrado) cerrado();
+      if (onGuardarExito) onGuardarExito(creado);
+      if (cerrarModal) cerrarModal();
     } catch (err) {
       console.error('Error al crear lugar:', err);
       alert('Error al registrar el lugar. Verifica los campos requeridos.');
@@ -187,9 +234,9 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
       <div className="camper-card" style={{ maxWidth: '680px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '26px', background: 'var(--bg-surface)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <h2 style={{ fontSize: '1.3rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Plus size={20} color="var(--accent-forest)" /> Publicar Nuevo Lugar de Pernocta
+            <Plus size={20} color="var(--accent-forest)" /> Publicar Nuevo Lugar
           </h2>
-          <button onClick={cerrado} className="btn-icon" style={{ cursor: 'pointer' }}><X size={18} /></button>
+          <button type="button" onClick={cerrarModal} className="btn-icon" style={{ cursor: 'pointer' }} title="Cerrar"><X size={18} /></button>
         </div>
 
         <form onSubmit={manejarEnvio} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -284,12 +331,12 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
             )}
           </div>
 
-          {/* TIPO DE LUGAR */}
+          {/* TIPO DE LUGAR (SOLO ICONO Y TÍTULO) */}
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
               Tipo de Lugar Camper *
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
               {TIPOS_LUGAR_OPCIONES.map(tipo => {
                 const seleccionado = tipoLugar === tipo.valor;
                 return (
@@ -299,9 +346,9 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
                     onClick={() => setTipoLugar(tipo.valor)}
                     style={{
                       display: 'flex',
-                      alignItems: 'flex-start',
+                      alignItems: 'center',
                       gap: '8px',
-                      padding: '10px 12px',
+                      padding: '9px 12px',
                       borderRadius: 'var(--radius-md)',
                       background: seleccionado ? 'rgba(40, 167, 69, 0.15)' : 'var(--bg-primary)',
                       border: `1.5px solid ${seleccionado ? 'var(--accent-forest)' : 'var(--border-color)'}`,
@@ -310,31 +357,98 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>{tipo.emoji}</span>
-                    <div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: seleccionado ? 'var(--accent-forest)' : 'var(--text-primary)' }}>
-                        {tipo.label}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.25 }}>
-                        {tipo.desc}
-                      </div>
-                    </div>
+                    <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{tipo.emoji}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: seleccionado ? 'var(--accent-forest)' : 'var(--text-primary)' }}>
+                      {tipo.label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* FOTO PRINCIPAL DEL LUGAR */}
+          {/* FOTO PRINCIPAL DEL LUGAR (ARCHIVO O URL EXTERNA) */}
           <div style={{
             background: 'var(--bg-primary)',
             borderRadius: 'var(--radius-md)',
             padding: '14px',
             border: '1px solid var(--border-color)'
           }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, marginBottom: '8px' }}>
-              <Camera size={16} color="var(--accent-forest)" /> Foto Principal del Lugar
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={16} color="var(--accent-forest)" />
+                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Foto Principal del Lugar</span>
+                <button
+                  type="button"
+                  onClick={() => setMostrarInfoFoto(prev => !prev)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '2px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    color: mostrarInfoFoto ? 'var(--accent-forest)' : 'var(--text-muted)'
+                  }}
+                  title="Información sobre la imagen del lugar"
+                >
+                  <Info size={15} />
+                </button>
+              </div>
+
+              {/* Selector de Modo Foto */}
+              {!fotoPreview && (
+                <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.06)', padding: '2px', borderRadius: 'var(--radius-sm)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setModoFoto('archivo')}
+                    style={{
+                      border: 'none',
+                      background: modoFoto === 'archivo' ? 'var(--accent-forest)' : 'transparent',
+                      color: modoFoto === 'archivo' ? '#fff' : 'var(--text-secondary)',
+                      fontSize: '0.74rem',
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    Subir archivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoFoto('url')}
+                    style={{
+                      border: 'none',
+                      background: modoFoto === 'url' ? 'var(--accent-forest)' : 'transparent',
+                      color: modoFoto === 'url' ? '#fff' : 'var(--text-secondary)',
+                      fontSize: '0.74rem',
+                      padding: '3px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    URL externa
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {mostrarInfoFoto && (
+              <div style={{
+                fontSize: '0.76rem',
+                color: '#B5C9BE',
+                background: 'rgba(46, 139, 87, 0.15)',
+                border: '1px solid rgba(46, 139, 87, 0.3)',
+                padding: '7px 10px',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: '10px',
+                lineHeight: 1.35
+              }}>
+                💡 Si no adjuntas una foto propia ni pegas una URL externa, se asignará automáticamente la imagen preestablecida para <strong>{tipoSeleccionadoObj.label}</strong>.
+              </div>
+            )}
 
             {fotoPreview ? (
               <div style={{ position: 'relative', width: '100%', height: '180px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
@@ -377,7 +491,36 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
                   fontSize: '0.75rem',
                   fontWeight: 600
                 }}>
-                  ✅ Foto seleccionada lista para subir
+                  ✅ Foto lista para publicar
+                </div>
+              </div>
+            ) : modoFoto === 'url' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="url"
+                    className="form-control"
+                    placeholder="Pega el enlace directo de una foto (ej: https://.../foto.jpg)"
+                    value={urlFotoExterna}
+                    onChange={(e) => {
+                      const u = e.target.value;
+                      setUrlFotoExterna(u);
+                      if (u.startsWith('http://') || u.startsWith('https://')) {
+                        setFotoPreview(u);
+                      }
+                    }}
+                    style={{ fontSize: '0.82rem' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      if (urlFotoExterna) setFotoPreview(urlFotoExterna);
+                    }}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    Cargar
+                  </button>
                 </div>
               </div>
             ) : (
@@ -438,9 +581,6 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
                 </div>
               </div>
             )}
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', margin: '8px 0 0' }}>
-              💡 Si no adjuntas una foto propia, se asignará automáticamente la imagen preestablecida para <strong>{tipoSeleccionadoObj.label}</strong>.
-            </p>
           </div>
 
           {/* Nombre */}
@@ -464,7 +604,7 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
             />
           </div>
 
-          {/* Coordenadas GPS */}
+          {/* Coordenadas GPS, Población y Provincia (Población y Provincia bloqueadas y automáticas) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Latitud GPS *</label>
@@ -475,12 +615,32 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
               <input type="number" step="any" className="form-control" required placeholder="-4.5678" value={longitud} onChange={e => setLongitud(e.target.value)} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Población</label>
-              <input type="text" className="form-control" placeholder="Ej: San Vicente" value={poblacion} onChange={e => setPoblacion(e.target.value)} />
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>
+                Población <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>(Auto GPS)</span>
+              </label>
+              <input 
+                type="text" 
+                className="form-control" 
+                readOnly 
+                placeholder="Automática por GPS" 
+                value={poblacion} 
+                style={{ background: 'rgba(255,255,255,0.05)', cursor: 'not-allowed', color: 'var(--text-secondary)' }}
+                title="La población se calcula automáticamente según las coordenadas GPS o el enlace de Maps"
+              />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Provincia</label>
-              <input type="text" className="form-control" placeholder="Ej: Cantabria" value={provincia} onChange={e => setProvincia(e.target.value)} />
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>
+                Provincia <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>(Auto GPS)</span>
+              </label>
+              <input 
+                type="text" 
+                className="form-control" 
+                readOnly 
+                placeholder="Automática por GPS" 
+                value={provincia} 
+                style={{ background: 'rgba(255,255,255,0.05)', cursor: 'not-allowed', color: 'var(--text-secondary)' }}
+                title="La provincia se calcula automáticamente según las coordenadas GPS o el enlace de Maps"
+              />
             </div>
           </div>
 
@@ -498,18 +658,18 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
             )}
           </div>
 
-          {/* Descripción */}
+          {/* Descripción & Consejos */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Descripción & Consejos de Pernocta</label>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Descripción & Consejos</label>
             <textarea className="form-control" rows="3" placeholder="Acceso, tipo de suelo, sombras, vistas y recomendaciones para la comunidad..." value={descripcion} onChange={e => setDescripcion(e.target.value)} />
           </div>
 
           {/* SERVICIOS */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, marginBottom: '6px' }}>🚰 Servicios Disponibles:</label>
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, marginBottom: '6px' }}>🛠️ Servicios Disponibles:</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={tieneAgua} onChange={e => setTieneAgua(e.target.checked)} /> 🚰 Agua potable
+                <input type="checkbox" checked={tieneAgua} onChange={e => setTieneAgua(e.target.checked)} /> 🚰 Agua Potable
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
                 <input type="checkbox" checked={tieneLavabo} onChange={e => setTieneLavabo(e.target.checked)} /> 🚽 Lavabos
@@ -527,10 +687,10 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
                 <input type="checkbox" checked={tieneDuchas} onChange={e => setTieneDuchas(e.target.checked)} /> 🚿 Duchas
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={tieneVaciadoGrises} onChange={e => setTieneVaciadoGrises(e.target.checked)} /> 🔄 Aguas Grises
+                <input type="checkbox" checked={tieneVaciadoGrises} onChange={e => setTieneVaciadoGrises(e.target.checked)} /> 🔄 Vaciado Grises
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={tieneVaciadoNegras} onChange={e => setTieneVaciadoNegras(e.target.checked)} /> 🚽 Aguas Negras
+                <input type="checkbox" checked={tieneVaciadoNegras} onChange={e => setTieneVaciadoNegras(e.target.checked)} /> 🚽 Vaciado Negras
               </label>
             </div>
           </div>
@@ -583,7 +743,7 @@ export default function ModalCrearLugar({ cerrado, alGuardarLugar, coordenadasIn
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-            <button type="button" onClick={cerrado} className="btn btn-secondary">Cancelar</button>
+            <button type="button" onClick={cerrarModal} className="btn btn-secondary">Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={guardando}>
               {guardando ? 'Publicando...' : 'Publicar Lugar'}
             </button>

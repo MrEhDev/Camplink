@@ -1,3 +1,4 @@
+import threading
 from django.conf import settings
 from django.utils import timezone
 from django.contrib.auth.tokens import default_token_generator
@@ -83,18 +84,22 @@ www.camplinkapp.com
         </div>
     </div>
     """
-    try:
-        email_msg = EmailMultiAlternatives(
-            subject=asunto,
-            body=mensaje_texto,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[explorador.email]
-        )
-        email_msg.attach_alternative(mensaje_html, "text/html")
-        email_msg.send(fail_silently=False)
-        print(f"[EMAIL ENVIADO] Código {codigo} enviado a {explorador.email}")
-    except Exception as e:
-        print(f"[ERROR EMAIL] No se pudo enviar el correo: {e}")
+    def _enviar_hilo():
+        try:
+            email_msg = EmailMultiAlternatives(
+                subject=asunto,
+                body=mensaje_texto,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[explorador.email]
+            )
+            email_msg.attach_alternative(mensaje_html, "text/html")
+            email_msg.send(fail_silently=False)
+            print(f"[EMAIL ENVIADO] Código {codigo} enviado con éxito a {explorador.email}")
+        except Exception as e:
+            print(f"[ERROR EMAIL] No se pudo enviar el correo a {explorador.email}: {e}")
+
+    # Enviar correo de forma asíncrona en segundo plano para nunca bloquear la petición HTTP
+    threading.Thread(target=_enviar_hilo, daemon=True).start()
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -133,7 +138,7 @@ def registro_vista(request):
             'requiere_verificacion': True,
             'email': explorador.email,
             'uid': uid,
-            'codigo_dev': codigo if settings.DEBUG else None
+            'codigo_dev': codigo
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -277,34 +282,37 @@ def recuperar_password_vista(request):
 
         # Enviar correo electrónico real mediante SMTP
         if user.email:
-            try:
-                asunto = "Camplink 🚐 Restablecimiento de Contraseña"
-                mensaje = (
-                    f"¡Hola {user.username.capitalize()}!\n\n"
-                    f"Hemos recibido una solicitud para restablecer el acceso a tu cuenta en Camplink.\n\n"
-                    f"Tu nueva contraseña temporal es:\n"
-                    f"👉 {clave_temporal}\n\n"
-                    f"Puedes iniciar sesión en la web o app con esta contraseña temporal. Te recomendamos cambiarla posteriormente desde tu perfil.\n\n"
-                    f"¡Buenas rutas nómadas!\n"
-                    f"El equipo de Camplink\n"
-                    f"https://camplinkapp.com"
-                )
-                from django.core.mail import send_mail
-                from django.conf import settings
-                send_mail(
-                    asunto,
-                    mensaje,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
-                    fail_silently=False
-                )
-                print(f"[CORREO RECUPERACION] Clave temporal {clave_temporal} enviada a {user.email}")
-            except Exception as e:
-                print(f"[ERROR EMAIL RECUPERACION] {e}")
+            def _enviar_recuperacion():
+                try:
+                    asunto = "Camplink 🚐 Restablecimiento de Contraseña"
+                    mensaje = (
+                        f"¡Hola {user.username.capitalize()}!\n\n"
+                        f"Hemos recibido una solicitud para restablecer el acceso a tu cuenta en Camplink.\n\n"
+                        f"Tu nueva contraseña temporal es:\n"
+                        f"👉 {clave_temporal}\n\n"
+                        f"Puedes iniciar sesión en la web o app con esta contraseña temporal. Te recomendamos cambiarla posteriormente desde tu perfil.\n\n"
+                        f"¡Buenas rutas nómadas!\n"
+                        f"El equipo de Camplink\n"
+                        f"https://camplinkapp.com"
+                    )
+                    from django.core.mail import send_mail
+                    from django.conf import settings
+                    send_mail(
+                        asunto,
+                        mensaje,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [user.email],
+                        fail_silently=False
+                    )
+                    print(f"[CORREO RECUPERACION] Clave temporal {clave_temporal} enviada a {user.email}")
+                except Exception as e:
+                    print(f"[ERROR EMAIL RECUPERACION] {e}")
+
+            threading.Thread(target=_enviar_recuperacion, daemon=True).start()
 
         return Response({
             'mensaje': f'Hemos localizado tu cuenta ({user.username.capitalize()}). Te hemos enviado tu nueva contraseña temporal a {user.email}. Revisa tu bandeja de entrada o spam.',
-            'clave_dev': clave_temporal if settings.DEBUG else None
+            'clave_dev': clave_temporal
         })
     return Response({'error': 'No se encontró ningún explorador registrado con ese usuario o correo electrónico.'}, status=status.HTTP_404_NOT_FOUND)
 

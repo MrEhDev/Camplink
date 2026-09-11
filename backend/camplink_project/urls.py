@@ -27,9 +27,21 @@ def robots_txt_vista(request):
     ]
     return HttpResponse("\n".join(lineas), content_type="text/plain")
 
+from django.shortcuts import redirect
+
 admin_ruta = getattr(settings, 'ADMIN_URL', 'panel-camplink-gestion/')
 
+def redirigir_admin(request, subpath=""):
+    destino = f"/{admin_ruta}{subpath}"
+    if request.META.get('QUERY_STRING'):
+        destino += f"?{request.META['QUERY_STRING']}"
+    return redirect(destino)
+
 urlpatterns = [
+    # Redirección automática de rutas /admin/... hacia el panel seguro configurado
+    path('admin/', redirigir_admin, {'subpath': ''}),
+    path('admin/<path:subpath>', redirigir_admin),
+
     # Panel de administración de Django con ruta segura configurable
     path(admin_ruta, admin.site.urls),
 

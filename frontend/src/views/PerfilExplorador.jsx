@@ -1534,7 +1534,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <a
-                    href="http://localhost:8000/admin/"
+                    href="/panel-camplink-gestion/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-primary"
@@ -1543,7 +1543,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                     Abrir Django Admin ↗
                   </a>
                   <a
-                    href="http://localhost:8000/admin/exploradores/explorador/"
+                    href="/panel-camplink-gestion/exploradores/explorador/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary"
@@ -1552,7 +1552,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                     Gestionar Usuarios
                   </a>
                   <a
-                    href="http://localhost:8000/admin/lugares/lugar/"
+                    href="/panel-camplink-gestion/lugares/lugar/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary"

@@ -286,10 +286,10 @@ def registro_vista(request):
 @permission_classes([permissions.AllowAny])
 @csrf_exempt
 def activar_cuenta_vista(request):
-    email = request.data.get('email', '').strip().lower()
-    codigo = request.data.get('codigo', '').strip()
-    uid = request.data.get('uid', '').strip()
-    token = request.data.get('token', '').strip()
+    email = str(request.data.get('email') or '').strip().lower()
+    codigo = str(request.data.get('codigo') or '').strip()
+    uid = str(request.data.get('uid') or '').strip()
+    token = str(request.data.get('token') or '').strip()
     
     explorador = None
     
@@ -343,7 +343,7 @@ def activar_cuenta_vista(request):
 @permission_classes([permissions.AllowAny])
 @csrf_exempt
 def reenviar_codigo_vista(request):
-    email = request.data.get('email', '').strip().lower()
+    email = str(request.data.get('email') or '').strip().lower()
     if not email:
         return Response({'error': 'Introduce tu correo electrónico.'}, status=status.HTTP_400_BAD_REQUEST)
     
@@ -428,7 +428,7 @@ def login_vista(request):
 @csrf_exempt
 def recuperar_password_vista(request):
     # Aquí permito solicitar la recuperación de contraseña generando una clave temporal y enviándola por correo SMTP
-    email_o_usuario = request.data.get('email_o_usuario', '').strip().lower()
+    email_o_usuario = str(request.data.get('email_o_usuario') or '').strip().lower()
     if not email_o_usuario:
         return Response({'error': 'Ingresa tu correo electrónico o nombre de usuario.'}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -93,3 +93,62 @@ class TrofeoExplorador(models.Model):
     def __str__(self):
         # Aquí indico el explorador que obtuvo el trofeo
         return f'{self.explorador.username} desbloqueó {self.trofeo.nombre}'
+
+
+class InvitacionViaje(models.Model):
+    # Aquí gestiono las invitaciones para compartir un viaje planificado entre exploradores.
+    # Cuando el destinatario acepta, se crea una copia editable del viaje en su cuenta.
+    ESTADOS = [
+        ('pendiente', 'Pendiente'),
+        ('aceptada', 'Aceptada'),
+        ('rechazada', 'Rechazada'),
+    ]
+
+    viaje_origen = models.ForeignKey(
+        'Viaje',
+        on_delete=models.CASCADE,
+        related_name='invitaciones_enviadas',
+        verbose_name='Viaje compartido'
+    )
+    remitente = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='invitaciones_enviadas_viaje',
+        verbose_name='Explorador que comparte'
+    )
+    destinatario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='invitaciones_recibidas_viaje',
+        verbose_name='Explorador destinatario'
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS,
+        default='pendiente',
+        verbose_name='Estado de la invitación'
+    )
+    mensaje = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Mensaje opcional'
+    )
+    fecha_envio = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de envío')
+    fecha_respuesta = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de respuesta')
+    viaje_copia = models.ForeignKey(
+        'Viaje',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='origen_invitacion',
+        verbose_name='Viaje creado al aceptar'
+    )
+
+    class Meta:
+        ordering = ['-fecha_envio']
+        verbose_name = 'Invitación de Viaje'
+        verbose_name_plural = 'Invitaciones de Viaje'
+        unique_together = ('viaje_origen', 'destinatario')
+
+    def __str__(self):
+        return f'{self.remitente.username} → {self.destinatario.username}: {self.viaje_origen.titulo} [{self.estado}]'

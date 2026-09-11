@@ -70,6 +70,33 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
   const [permiteToldo, setPermiteToldo] = useState(false);
 
   const [guardando, setGuardando] = useState(false);
+  const [obteniendoUbicacion, setObteniendoUbicacion] = useState(false);
+
+  // Obtener coordenadas GPS actuales del dispositivo
+  const usarMiUbicacion = () => {
+    if (!navigator.geolocation) {
+      alert('Tu navegador no admite geolocalización.');
+      return;
+    }
+    setObteniendoUbicacion(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitud(pos.coords.latitude.toFixed(6));
+        setLongitud(pos.coords.longitude.toFixed(6));
+        setObteniendoUbicacion(false);
+      },
+      (err) => {
+        setObteniendoUbicacion(false);
+        const mensajes = {
+          1: 'Permiso de ubicación denegado. Permite el acceso en la configuración del navegador.',
+          2: 'No se pudo obtener la ubicación. Verifica tu conexión GPS.',
+          3: 'Se agotó el tiempo para obtener la ubicación. Inténtalo de nuevo.',
+        };
+        alert(mensajes[err.code] || 'Error al obtener la ubicación.');
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  };
 
   // Geocodificación inversa automática al cambiar coordenadas GPS
   useEffect(() => {
@@ -574,6 +601,59 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
           </div>
 
           {/* Coordenadas GPS, Población y Provincia (Población y Provincia bloqueadas y automáticas) */}
+          {/* Cabecera con título y botón GPS */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              📍 Coordenadas GPS *
+            </label>
+            <button
+              type="button"
+              onClick={usarMiUbicacion}
+              disabled={obteniendoUbicacion}
+              title="Usar las coordenadas de mi ubicación actual"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-full)',
+                background: obteniendoUbicacion
+                  ? 'var(--bg-glass)'
+                  : 'linear-gradient(135deg, var(--accent-forest) 0%, var(--accent-forest-light) 100%)',
+                color: obteniendoUbicacion ? 'var(--text-muted)' : '#FFFFFF',
+                border: '1px solid rgba(255,255,255,0.18)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: obteniendoUbicacion ? 'not-allowed' : 'pointer',
+                boxShadow: obteniendoUbicacion ? 'none' : '0 4px 12px rgba(35,83,52,0.35)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {obteniendoUbicacion ? (
+                <>
+                  <span style={{
+                    display: 'inline-block',
+                    width: '12px',
+                    height: '12px',
+                    border: '2px solid rgba(0,0,0,0.15)',
+                    borderTopColor: 'var(--accent-forest)',
+                    borderRadius: '50%',
+                    animation: 'gpsSpinner 0.7s linear infinite',
+                  }} />
+                  Obteniendo...
+                </>
+              ) : (
+                <>📍 Usar mi ubicación</>
+              )}
+            </button>
+          </div>
+          <style>{`
+            @keyframes gpsSpinner {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '4px' }}>Latitud GPS *</label>

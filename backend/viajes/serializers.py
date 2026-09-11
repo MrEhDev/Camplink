@@ -3,7 +3,7 @@
 
 from django.utils import timezone
 from rest_framework import serializers
-from .models import Viaje, Trofeo, TrofeoExplorador
+from .models import Viaje, Trofeo, TrofeoExplorador, InvitacionViaje
 from exploradores.serializers import ExploradorPerfilSerializer
 
 class TrofeoSerializer(serializers.ModelSerializer):
@@ -180,4 +180,52 @@ class ViajeSerializer(serializers.ModelSerializer):
                 'fecha_legible': p.fecha_creacion.strftime('%d/%m/%Y'),
             }
             for p in posts
+        ]
+
+
+class InvitacionViajeSerializer(serializers.ModelSerializer):
+    # Aquí serializo los datos de la invitación para compartir un viaje planificado
+    remitente_username = serializers.SerializerMethodField()
+    remitente_id = serializers.IntegerField(source='remitente.id', read_only=True)
+    remitente_avatar = serializers.SerializerMethodField()
+    destinatario_username = serializers.SerializerMethodField()
+
+    def get_remitente_username(self, obj):
+        return obj.remitente.username.capitalize() if obj.remitente and obj.remitente.username else ''
+
+    def get_destinatario_username(self, obj):
+        return obj.destinatario.username.capitalize() if obj.destinatario and obj.destinatario.username else ''
+    viaje_titulo = serializers.CharField(source='viaje_origen.titulo', read_only=True)
+    viaje_fecha_inicio = serializers.DateField(source='viaje_origen.fecha_inicio', read_only=True)
+    viaje_fecha_fin = serializers.DateField(source='viaje_origen.fecha_fin', read_only=True)
+    viaje_paradas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InvitacionViaje
+        fields = [
+            'id', 'estado', 'mensaje', 'fecha_envio', 'fecha_respuesta',
+            'remitente_id', 'remitente_username', 'remitente_avatar',
+            'destinatario_username',
+            'viaje_origen', 'viaje_titulo', 'viaje_fecha_inicio', 'viaje_fecha_fin',
+            'viaje_paradas', 'viaje_copia',
+        ]
+        read_only_fields = ['fecha_envio', 'fecha_respuesta', 'viaje_copia', 'estado']
+
+    def get_remitente_avatar(self, obj):
+        request = self.context.get('request')
+        avatar = getattr(obj.remitente, 'avatar', None)
+        if avatar and request:
+            return request.build_absolute_uri(avatar.url)
+        return None
+
+    def get_viaje_paradas(self, obj):
+        # Aquí resumo las paradas del viaje compartido para la previsualización en la invitación
+        return [
+            {
+                'lugar_nombre': ch.lugar.nombre,
+                'poblacion': ch.lugar.poblacion,
+                'fecha_llegada': ch.fecha_llegada.strftime('%d/%m/%Y') if ch.fecha_llegada else None,
+                'dias_previstos': ch.dias_previstos,
+            }
+            for ch in obj.viaje_origen.checkins_asociados.all().order_by('fecha_llegada')[:6]
         ]

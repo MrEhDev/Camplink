@@ -228,7 +228,7 @@ export default function Navbar({
             {/* ISOTIPO LOGO DE LA WEB (SUSTITUYE AL NOMBRE) */}
             <div 
               className="navbar-brand" 
-              onClick={() => navegar(usuario ? 'diario' : 'landing')} 
+              onClick={() => navegar(usuario ? 'home' : 'landing')} 
               style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
               title="Camplink | Conectando Comunidad al Aire Libre"
             >

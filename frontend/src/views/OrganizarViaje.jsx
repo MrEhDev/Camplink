@@ -10,12 +10,14 @@ import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
 import { buscarGasolinerasCercanas } from '../services/gasolineras';
+import ModalCompartirViaje from '../components/ModalCompartirViaje';
 import { 
   Calendar, MapPin, Plus, Route, 
   Map, Compass, Trash2, Edit2, Edit3, 
   Check, X, ChevronDown, ChevronUp, 
   Sparkles, Fuel, ArrowRight, Eye,
-  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation, Info
+  ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation, Info,
+  Share2, CheckCircle, Mail, UserCheck
 } from 'lucide-react';
 
 // Icono de pernocta para el trazado de paradas en el mapa
@@ -398,6 +400,12 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   const [arrastrandoIdx, setArrastrandoIdx] = useState(null);
   const [panelGasolineras, setPanelGasolineras] = useState(null);
 
+  // Estados de compartir viaje e invitaciones
+  const [viajeACompartir, setViajeACompartir] = useState(null);
+  const [invitacionesRecibidas, setInvitacionesRecibidas] = useState([]);
+  const [procesandoInvId, setProcesandoInvId] = useState(null);
+  const [notificacionExito, setNotificacionExito] = useState('');
+
   // Buscador integrado de lugares para añadir paradas a la ruta
   const [buscadorLugarAbierto, setBuscadorLugarAbierto] = useState({});
   const [textoBusquedaLugar, setTextoBusquedaLugar] = useState({});
@@ -498,9 +506,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       const data = await peticionApi('/api/viajes/viajes/?mis_viajes=true');
       const lista = data.results || data || [];
       setViajes(lista);
-      const exp = {};
-      lista.forEach(v => { exp[v.id] = true; });
-      setViajesExpandidos(exp);
+      setViajesExpandidos({}); // Cerradas por defecto al cargar
     } catch (err) {
       console.error('Error al cargar viajes en organizador:', err);
     } finally {
@@ -508,8 +514,46 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
     }
   };
 
+  const cargarInvitaciones = async () => {
+    if (!usuario) return;
+    try {
+      const data = await peticionApi('/api/viajes/invitaciones/');
+      setInvitacionesRecibidas(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn('Error al cargar invitaciones de viaje:', err);
+    }
+  };
+
+  const aceptarInvitacion = async (invId) => {
+    setProcesandoInvId(invId);
+    try {
+      const res = await peticionApi(`/api/viajes/invitaciones/${invId}/aceptar/`, { method: 'POST' });
+      setInvitacionesRecibidas(prev => prev.filter(inv => inv.id !== invId));
+      setNotificacionExito(res?.mensaje || '¡Viaje añadido a tus viajes planificados!');
+      await cargarViajes();
+      setTimeout(() => setNotificacionExito(''), 4500);
+    } catch (err) {
+      alert(err.message || 'Error al aceptar la invitación.');
+    } finally {
+      setProcesandoInvId(null);
+    }
+  };
+
+  const rechazarInvitacion = async (invId) => {
+    setProcesandoInvId(invId);
+    try {
+      await peticionApi(`/api/viajes/invitaciones/${invId}/rechazar/`, { method: 'POST' });
+      setInvitacionesRecibidas(prev => prev.filter(inv => inv.id !== invId));
+    } catch (err) {
+      alert(err.message || 'Error al rechazar la invitación.');
+    } finally {
+      setProcesandoInvId(null);
+    }
+  };
+
   useEffect(() => {
     cargarViajes();
+    cargarInvitaciones();
   }, [usuario]);
 
   // Carga el trazado real por carretera desde OSRM cuando hay paradas con coordenadas
@@ -850,6 +894,187 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         </button>
       </div>
 
+      {/* NOTIFICACIÓN TOAST DE ÉXITO */}
+      {notificacionExito && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          background: 'rgba(16, 185, 129, 0.15)',
+          border: '1.5px solid #10B981',
+          color: '#10B981',
+          padding: '12px 18px',
+          borderRadius: 'var(--radius-md)',
+          fontWeight: 700,
+          fontSize: '0.92rem',
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <CheckCircle size={20} />
+          <span>{notificacionExito}</span>
+        </div>
+      )}
+
+      {/* BANNER DE INVITACIONES PARA COMPARTIR VIAJES RECIBIDAS */}
+      {invitacionesRecibidas.length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(35, 83, 52, 0.25) 0%, rgba(217, 119, 54, 0.18) 100%)',
+          border: '1.5px solid var(--accent-forest)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '20px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.6rem' }}>📬</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Invitaciones para compartir viaje ({invitacionesRecibidas.length})
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  Otros exploradores quieren viajar contigo. Al aceptar, el viaje se copiará a tus viajes planificados.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {invitacionesRecibidas.map((inv) => (
+              <div
+                key={inv.id}
+                className="camper-card"
+                style={{
+                  padding: '16px 20px',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '280px' }}>
+                  {inv.remitente_avatar ? (
+                    <img
+                      src={inv.remitente_avatar}
+                      alt={inv.remitente_username}
+                      style={{ width: '46px', height: '46px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-forest)' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '50%',
+                      background: 'rgba(35, 83, 52, 0.2)',
+                      border: '2px solid var(--accent-forest)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.3rem'
+                    }}>
+                      🚐
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                      <strong>@{inv.remitente_username ? (inv.remitente_username.charAt(0).toUpperCase() + inv.remitente_username.slice(1)) : ''}</strong> te invita a compartir:
+                    </div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {inv.viaje_titulo}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', flexWrap: 'wrap' }}>
+                      {inv.viaje_fecha_inicio && <span>📅 Salida: {formatearFecha(inv.viaje_fecha_inicio)}</span>}
+                      {inv.viaje_fecha_fin && <span>🏁 Fin: {formatearFecha(inv.viaje_fecha_fin)}</span>}
+                      {inv.viaje_paradas && inv.viaje_paradas.length > 0 && (
+                        <span>🏕️ {inv.viaje_paradas.length} parada(s) planificada(s)</span>
+                      )}
+                    </div>
+
+                    {/* Mensaje remitente */}
+                    {inv.mensaje && (
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '6px 12px',
+                        background: 'var(--bg-glass)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.84rem',
+                        fontStyle: 'italic',
+                        color: 'var(--text-primary)',
+                        borderLeft: '3px solid var(--accent-earth)'
+                      }}>
+                        "{inv.mensaje}"
+                      </div>
+                    )}
+
+                    {/* Chips de paradas si existen */}
+                    {inv.viaje_paradas && inv.viaje_paradas.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                        {inv.viaje_paradas.map((p, pIdx) => (
+                          <span
+                            key={pIdx}
+                            style={{
+                              fontSize: '0.74rem',
+                              padding: '2px 8px',
+                              background: 'rgba(35, 83, 52, 0.12)',
+                              color: 'var(--accent-forest)',
+                              borderRadius: '12px',
+                              fontWeight: 600
+                            }}
+                          >
+                            📍 {p.lugar_nombre}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Acciones Aceptar / Rechazar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => rechazarInvitacion(inv.id)}
+                    disabled={procesandoInvId === inv.id}
+                    style={{ fontSize: '0.82rem', padding: '7px 14px' }}
+                  >
+                    Rechazar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => aceptarInvitacion(inv.id)}
+                    disabled={procesandoInvId === inv.id}
+                    style={{
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
+                      padding: '7px 16px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    {procesandoInvId === inv.id ? (
+                      <span>Añadiendo...</span>
+                    ) : (
+                      <>
+                        <Check size={16} />
+                        <span>Aceptar Viaje</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* MODAL PARA CREAR NUEVO VIAJE */}
       {modalNuevoViajeAbierto && (
         <div style={{
@@ -977,7 +1202,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {[...viajesFuturos, ...otrosViajesAbiertos].map((viaje) => {
-            const expandido = viajesExpandidos[viaje.id] !== false;
+            const expandido = Boolean(viajesExpandidos[viaje.id]);
             const paradas = obtenerParadasViaje(viaje);
 
             const renderPanelGasolineras = (widgetKey) => {
@@ -1245,6 +1470,30 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Botón Compartir viaje con otro explorador */}
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViajeACompartir(viaje);
+                      }}
+                      title="Compartir este viaje planificado con otro explorador de Camplink"
+                      style={{
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        padding: '6px 12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        borderRadius: 'var(--radius-sm)'
+                      }}
+                    >
+                      <Share2 size={15} color="var(--accent-forest)" />
+                      <span>Compartir</span>
+                    </button>
+
                     {/* Botón Calendario (.ics) para descargar e importar todo el itinerario */}
                     <button
                       type="button"
@@ -2409,6 +2658,17 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
             );
           })}
         </div>
+      )}
+      {/* MODAL PARA COMPARTIR VIAJE */}
+      {viajeACompartir && (
+        <ModalCompartirViaje
+          viaje={viajeACompartir}
+          alCerrar={() => setViajeACompartir(null)}
+          alCompartirExito={(destinatario) => {
+            setNotificacionExito(`¡Invitación enviada a @${destinatario}! En cuanto acepte se le verá en sus viajes planificados.`);
+            setTimeout(() => setNotificacionExito(''), 5000);
+          }}
+        />
       )}
     </div>
   );

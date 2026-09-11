@@ -4,11 +4,12 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from .models import Viaje, Trofeo, TrofeoExplorador
-from .serializers import ViajeSerializer, TrofeoSerializer, TrofeoExploradorSerializer
+from .models import Viaje, Trofeo, TrofeoExplorador, InvitacionViaje
+from .serializers import ViajeSerializer, TrofeoSerializer, TrofeoExploradorSerializer, InvitacionViajeSerializer
 from .services import inicializar_catalogo_trofeos, verificar_y_desbloquear_trofeos, recalcular_viaje
 from lugares.models import Lugar
 from diario.models import CheckIn
+from django.utils import timezone
 
 class ViajeViewSet(viewsets.ModelViewSet):
     # Aquí configuro el ViewSet para gestionar los viajes agrupados y planificados del explorador
@@ -615,3 +616,209 @@ def destacar_trofeos_vista(request):
     TrofeoExplorador.objects.filter(explorador=request.user).update(es_destacado=False)
     TrofeoExplorador.objects.filter(explorador=request.user, trofeo_id__in=trofeo_ids).update(es_destacado=True)
     return Response({'mensaje': 'Trofeos destacados actualizados con éxito.'})
+
+
+# ─────────────────────────────────────────────
+# Compartir Viajes: Invitaciones entre exploradores
+# ─────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def compartir_viaje(request, viaje_id):
+    # Aquí el explorador envía una invitación para compartir su viaje planificado con otro usuario.
+    try:
+        viaje = Viaje.objects.get(id=viaje_id, explorador=request.user)
+    except Viaje.DoesNotExist:
+        return Response({'error': 'Viaje no encontrado o no tienes permiso.'}, status=status.HTTP_404_NOT_FOUND)
+
+    destinatario_username = request.data.get('destinatario_username', '').strip()
+    mensaje = request.data.get('mensaje', '').strip()
+
+    if not destinatario_username:
+        return Response({'error': 'Debes indicar el nombre de usuario del destinatario.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    try:
+        destinatario = User.objects.get(username__iexact=destinatario_username)
+    except User.DoesNotExist:
+        return Response({'error': f'No se encontró al explorador "{destinatario_username}".'}, status=status.HTTP_404_NOT_FOUND)
+
+    if destinatario == request.user:
+        return Response({'error': 'No puedes compartir un viaje contigo mismo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    remitente_cap = request.user.username.capitalize()
+    destinatario_cap = destinatario.username.capitalize()
+
+    # Comprobar si ya existe una invitación previa para este viaje y destinatario
+    existente = InvitacionViaje.objects.filter(
+        viaje_origen=viaje,
+        destinatario=destinatario
+    ).first()
+
+    if existente:
+        # 1. Si sigue pendiente, avisar
+        if existente.estado == 'pendiente':
+            return Response({'error': f'Ya existe una invitación pendiente para {destinatario_cap}.'}, status=status.HTTP_409_CONFLICT)
+
+        # 2. Si ya fue aceptada, comprobar si el destinatario todavía conserva el viaje en su cuenta
+        if existente.estado == 'aceptada' and existente.viaje_copia_id:
+            if Viaje.objects.filter(id=existente.viaje_copia_id).exists():
+                return Response({'error': f'{destinatario_cap} ya tiene este viaje en sus viajes planificados.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. Si fue rechazada o el viaje copia fue eliminado por el destinatario, reactivamos la invitación limpiamente
+        existente.estado = 'pendiente'
+        existente.mensaje = mensaje
+        existente.fecha_envio = timezone.now()
+        existente.fecha_respuesta = None
+        existente.viaje_copia = None
+        existente.save()
+        invitacion = existente
+    else:
+        invitacion = InvitacionViaje.objects.create(
+            viaje_origen=viaje,
+            remitente=request.user,
+            destinatario=destinatario,
+            mensaje=mensaje,
+        )
+
+    # Notificación y correo al usuario invitado
+    try:
+        from exploradores.models import Notificacion
+        Notificacion.objects.create(
+            usuario_destino=destinatario,
+            usuario_origen=request.user,
+            tipo='sistema',
+            titulo=f'🚐 {remitente_cap} quiere compartir un viaje contigo',
+            mensaje=f'{remitente_cap} te ha invitado a unirte a su viaje "{viaje.titulo}". Puedes revisarlo y aceptarlo en Organizar Viajes.',
+            enlace='/organizar',
+        )
+    except Exception as e:
+        print('Error creando notificacion compartir viaje:', e)
+
+    serializer = InvitacionViajeSerializer(invitacion, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def mis_invitaciones_recibidas(request):
+    # Aquí devuelvo las invitaciones de viaje pendientes recibidas por el explorador autenticado.
+    invitaciones = InvitacionViaje.objects.filter(
+        destinatario=request.user,
+        estado='pendiente'
+    ).select_related('viaje_origen', 'remitente')
+    serializer = InvitacionViajeSerializer(invitaciones, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def aceptar_invitacion(request, inv_id):
+    # Aquí el explorador acepta la invitación: se crea una copia editable del viaje en su cuenta.
+    try:
+        inv = InvitacionViaje.objects.get(id=inv_id, destinatario=request.user, estado='pendiente')
+    except InvitacionViaje.DoesNotExist:
+        return Response({'error': 'Invitación no encontrada o ya procesada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    viaje_orig = inv.viaje_origen
+    if not Viaje.objects.filter(id=viaje_orig.id).exists():
+        inv.estado = 'rechazada'
+        inv.fecha_respuesta = timezone.now()
+        inv.save()
+        return Response({'error': 'El viaje original ya no existe.'}, status=status.HTTP_404_NOT_FOUND)
+
+    remitente_cap = inv.remitente.username.capitalize() if inv.remitente and inv.remitente.username else 'Explorador'
+    destinatario_cap = request.user.username.capitalize() if request.user and request.user.username else 'Explorador'
+
+    # Crear copia del viaje para el destinatario con remitente Capitalize
+    copia = Viaje.objects.create(
+        explorador=request.user,
+        titulo=f'{viaje_orig.titulo} (compartido por {remitente_cap})',
+        descripcion=viaje_orig.descripcion,
+        fecha_inicio=viaje_orig.fecha_inicio,
+        fecha_fin=viaje_orig.fecha_fin,
+        esta_cerrado=False,
+        km_totales=viaje_orig.km_totales,
+        comunidades_visitadas=list(viaje_orig.comunidades_visitadas or []),
+        paises_visitados=list(viaje_orig.paises_visitados or []),
+        resumen_ruta=list(viaje_orig.resumen_ruta or []),
+    )
+
+    # Copiar las paradas (check-ins planificados) del viaje original
+    for checkin in viaje_orig.checkins_asociados.all().order_by('fecha_llegada'):
+        CheckIn.objects.create(
+            explorador=request.user,
+            lugar=checkin.lugar,
+            viaje=copia,
+            fecha_llegada=checkin.fecha_llegada,
+            dias_previstos=checkin.dias_previstos,
+            comentario_publico='',
+            notas_privadas=checkin.notas_privadas or '',
+            valoracion_camper=checkin.valoracion_camper or 5,
+        )
+
+    try:
+        from viajes.services import recalcular_viaje
+        recalcular_viaje(copia)
+        copia.refresh_from_db()
+    except Exception as e:
+        print('Error recalculando copia viaje:', e)
+
+    inv.estado = 'aceptada'
+    inv.fecha_respuesta = timezone.now()
+    inv.viaje_copia = copia
+    inv.save()
+
+    try:
+        from exploradores.models import Notificacion
+        Notificacion.objects.create(
+            usuario_destino=inv.remitente,
+            usuario_origen=request.user,
+            tipo='sistema',
+            titulo=f'🎉 {destinatario_cap} ha aceptado tu viaje compartido',
+            mensaje=f'{destinatario_cap} ha añadido el viaje "{viaje_orig.titulo}" a sus viajes planificados.',
+            enlace='/organizar',
+        )
+    except Exception as e:
+        print('Error notificando aceptacion:', e)
+
+    serializer = ViajeSerializer(copia, context={'request': request})
+    return Response({'mensaje': f'Viaje añadido a tus viajes planificados.', 'viaje': serializer.data}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def rechazar_invitacion(request, inv_id):
+    # Aquí el explorador rechaza la invitación de compartir viaje.
+    try:
+        inv = InvitacionViaje.objects.get(id=inv_id, destinatario=request.user, estado='pendiente')
+    except InvitacionViaje.DoesNotExist:
+        return Response({'error': 'Invitación no encontrada o ya procesada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    inv.estado = 'rechazada'
+    inv.fecha_respuesta = timezone.now()
+    inv.save()
+    return Response({'mensaje': 'Invitación rechazada.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def buscar_exploradores(request):
+    # Aquí busco exploradores por nombre de usuario para el buscador del modal de compartir.
+    q = request.query_params.get('q', '').strip()
+    if len(q) < 2:
+        return Response([])
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    usuarios = User.objects.filter(
+        username__icontains=q
+    ).exclude(id=request.user.id)[:10]
+    return Response([
+        {
+            'id': u.id,
+            'username': u.username,
+            'avatar': request.build_absolute_uri(u.avatar.url) if getattr(u, 'avatar', None) and u.avatar else None,
+        }
+        for u in usuarios
+    ])

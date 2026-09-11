@@ -212,62 +212,50 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
                 f"Gestiona qué correos recibir desde tu perfil en Camplink."
             )
 
+            if instance.usuario_origen and instance.usuario_origen.username:
+                u_raw = instance.usuario_origen.username
+                u_cap = u_raw.capitalize()
+                import re
+                asunto = re.sub(rf'\b{re.escape(u_raw)}\b', u_cap, asunto)
+
             mensaje_html = f"""
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 28px 24px; background-color: #121815; color: #E5E7EB; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
-              <div style="text-align: center; margin-bottom: 24px;">
-                <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                  <tr>
-                    <td style="vertical-align: middle; padding-right: 10px;">
-                      <img src="cid:camplink_logo" alt="Logo" width="28" height="28" style="display: block; border-radius: 50%; width: 28px; height: 28px;" />
-                    </td>
-                    <td style="vertical-align: middle;">
-                      <span style="color: #2D5A27; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Camplink</span>
-                    </td>
-                  </tr>
-                </table>
-              </div>
-
-              <div style="background-color: rgba(255,255,255,0.04); padding: 22px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                <h3 style="margin: 0 0 14px; color: #F9FAFB; font-size: 17px;">¡Hola, {dest_nombre}!</h3>
-                <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.65; color: #E5E7EB; font-weight: 500;">{mensaje_limpio}</p>
-                <div style="text-align: center; margin: 20px 0 16px;">
-                  <a href="{enlace_completo}" style="display: inline-block; background-color: #2D5A27; color: #ffffff; padding: 13px 30px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 15px;">{texto_boton} &rarr;</a>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
+                <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
+                        <tr>
+                            <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
+                                <img src="cid:camplink-logo.png" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                            </td>
+                        </tr>
+                    </table>
+                    <h1 style="margin: 0; font-size: 22px; color: #FFFFFF;">{asunto}</h1>
+                    <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; color: #FFFFFF;">La Red Social de la Comunidad Camper</p>
                 </div>
-                <div style="height: 18px; line-height: 18px;">&nbsp;</div>
-                <p style="margin: 0; font-size: 13px; color: #9CA3AF; text-align: center;">🌲 Buenas rutas y feliz acampada.</p>
-              </div>
-
-              <div style="text-align: center; font-size: 10.5px; color: #6B7280; line-height: 1.5; margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);">
-                <p style="margin: 0;">Gestiona tus preferencias de notificaciones por email desde tu perfil de usuario en Camplink.</p>
-              </div>
+                <div style="background: white; padding: 24px; border-radius: 12px; margin-top: 16px; border: 1px solid #ddd;">
+                    <h2 style="color: #17241A; font-size: 18px; margin-top: 0;">Hola, {dest_nombre}:</h2>
+                    <p style="color: #4A5B4F; line-height: 1.6; font-size: 15px;">
+                        {mensaje_limpio}
+                    </p>
+                    <div style="text-align: center; margin: 24px 0 16px;">
+                        <a href="{enlace_completo}" style="display: inline-block; background: #235334; color: white; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px;">
+                            {texto_boton} &rarr;
+                        </a>
+                    </div>
+                    <div style="height: 12px; line-height: 12px;">&nbsp;</div>
+                    <p style="margin: 0; font-size: 13px; color: #7E9183; text-align: center;">🌲 ¡Buenas rutas y feliz acampada!</p>
+                </div>
+                <div style="text-align: center; margin-top: 16px; color: #7E9183; font-size: 12px;">
+                    © 2026 Camplink • <a href="https://camplinkapp.com" style="color: #235334; text-decoration: none;">www.camplinkapp.com</a>
+                </div>
             </div>
             """
 
-            msg = EmailMultiAlternatives(
-                asunto,
-                mensaje_texto,
-                remitente,
-                [destinatario.email]
-            )
-            msg.attach_alternative(mensaje_html, "text/html")
-
-            # Adjuntar el logotipo en línea (CID) para que siempre cargue sin depender de URLs externas
-            posibles_rutas_logo = [
-                Path(settings.BASE_DIR) / 'camplink-logo.png',
-                Path(settings.BASE_DIR).parent / 'frontend' / 'public' / 'camplink-logo.png'
-            ]
-            for ruta in posibles_rutas_logo:
-                if ruta.exists():
-                    try:
-                        with open(ruta, 'rb') as f:
-                            logo_img = MIMEImage(f.read())
-                            logo_img.add_header('Content-ID', '<camplink_logo>')
-                            logo_img.add_header('Content-Disposition', 'inline', filename='camplink-logo.png')
-                            msg.attach(logo_img)
-                            break
-                    except Exception as e_img:
-                        logger.warning(f"No se pudo adjuntar imagen de logo: {e_img}")
-
-            msg.send(fail_silently=True)
+            import threading
+            from exploradores.views import enviar_email_transaccional
+            threading.Thread(
+                target=enviar_email_transaccional,
+                args=(destinatario.email, asunto, mensaje_texto, mensaje_html),
+                daemon=True
+            ).start()
         except Exception as e:
             logger.warning(f"No se pudo enviar email de notificación a {destinatario.email}: {e}")

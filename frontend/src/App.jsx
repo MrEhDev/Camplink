@@ -21,6 +21,7 @@ const PerfilExplorador = lazy(() => import('./views/PerfilExplorador'));
 const PerfilPublico = lazy(() => import('./views/PerfilPublico'));
 const OrganizarViaje = lazy(() => import('./views/OrganizarViaje'));
 const VitrinaTrofeos = lazy(() => import('./views/VitrinaTrofeos'));
+const HomeDashboard = lazy(() => import('./views/HomeDashboard'));
 
 // Modales con Lazy Loading
 const ModalCheckIn = lazy(() => import('./components/ModalCheckIn'));
@@ -84,7 +85,7 @@ export default function App() {
 
   const inicial = parsearRutaActual();
   const [vistaActiva, setVistaActiva] = useState(
-    inicial.vista !== 'landing' ? inicial.vista : (usuario ? 'diario' : 'landing')
+    inicial.vista !== 'landing' ? inicial.vista : (usuario ? 'home' : 'landing')
   );
   const [lugarSeleccionadoId, setLugarSeleccionadoId] = useState(inicial.lugarId || null);
   const [usuarioSeleccionadoId, setUsuarioSeleccionadoId] = useState(inicial.usuarioId || null);
@@ -160,7 +161,7 @@ export default function App() {
       const ruta = parsearRutaActual();
       if (ruta.lugarId) setLugarSeleccionadoId(ruta.lugarId);
       if (ruta.usuarioId) setUsuarioSeleccionadoId(ruta.usuarioId);
-      setVistaActiva(ruta.vista === 'landing' && usuario ? 'diario' : ruta.vista);
+      setVistaActiva(ruta.vista === 'landing' && usuario ? 'home' : ruta.vista);
     };
     window.addEventListener('popstate', manejarPopState);
     return () => window.removeEventListener('popstate', manejarPopState);
@@ -179,6 +180,7 @@ export default function App() {
     else if (vistaActiva === 'trofeos') targetPath = '/trofeos';
     else if (vistaActiva === 'lugar_detalle' && lugarSeleccionadoId) targetPath = `/lugar/${lugarSeleccionadoId}`;
     else if (vistaActiva === 'perfil_publico' && usuarioSeleccionadoId) targetPath = `/explorador/${usuarioSeleccionadoId}`;
+    else if (vistaActiva === 'home') targetPath = '/';
     else if (vistaActiva === 'landing') targetPath = '/';
 
     const currentPath = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
@@ -196,7 +198,7 @@ export default function App() {
     if (authCargando) return; // Esperar a que la autenticación inicial finalice
 
     if (usuario && vistaActiva === 'landing' && (window.location.pathname === '/' || window.location.pathname === '')) {
-      setVistaActiva('diario');
+      setVistaActiva('home');
     } else if (!usuario && vistaActiva !== 'landing' && vistaActiva !== 'descubre' && vistaActiva !== 'descubre_lista' && vistaActiva !== 'guia' && vistaActiva !== 'taller') {
       setVistaActiva('landing');
     }
@@ -205,6 +207,7 @@ export default function App() {
   useEffect(() => {
     // Aquí actualizo el título SEO del navegador para cada vista
     const titulosPorVista = {
+      home: 'Camplink | Inicio',
       landing: 'Camplink | La Comunidad Camper y Autocaravanista',
       diario: 'Diario de Ruta | Red Social de Exploradores',
       descubre: 'Mapa Camper en Vivo | Camplink',
@@ -348,14 +351,22 @@ export default function App() {
       )}
 
       {/* Contenido Dinámico de la SPA con Error Boundary y Suspense para Lazy Loading */}
-      <main style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <ErrorBoundary onReset={() => setVistaActiva(usuario ? 'diario' : 'landing')}>
+      <main style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', minHeight: 0 }}>
+        <ErrorBoundary onReset={() => setVistaActiva(usuario ? 'home' : 'landing')}>
           <Suspense fallback={<CargandoCamper />}>
             {/* Landing Page para usuarios no autenticados en vista landing */}
             {(!usuario && (vistaActiva === 'landing' || !vistaActiva)) && (
               <LandingPage
                 setVistaActiva={setVistaActiva}
                 abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+              />
+            )}
+
+            {/* Home Dashboard para usuarios autenticados */}
+            {usuario && vistaActiva === 'home' && (
+              <HomeDashboard
+                setVistaActiva={setVistaActiva}
+                abrirRadar={() => abrirRadarConUbicacion(null)}
               />
             )}
 
@@ -478,12 +489,11 @@ export default function App() {
             )}
 
             {/* Fallback de seguridad si ninguna clave de vista coincide */}
-            {!['landing', 'diario', 'descubre', 'descubre_lista', 'guia', 'taller', 'taller_crear', 'lugar_detalle', 'perfil', 'organizar', 'trofeos', 'perfil_publico'].includes(vistaActiva) && (
+            {!['home', 'landing', 'diario', 'descubre', 'descubre_lista', 'guia', 'taller', 'taller_crear', 'lugar_detalle', 'perfil', 'organizar', 'trofeos', 'perfil_publico'].includes(vistaActiva) && (
               usuario ? (
-                <DiarioDeRuta
-                  alSeleccionarLugar={abrirDetalleLugar}
-                  alVerPerfilUsuario={abrirPerfilUsuario}
-                  abrirTutorial={abrirTutorial}
+                <HomeDashboard
+                  setVistaActiva={setVistaActiva}
+                  abrirRadar={() => abrirRadarConUbicacion(null)}
                 />
               ) : (
                 <LandingPage
@@ -497,7 +507,7 @@ export default function App() {
       </main>
 
       {/* Pie de Página */}
-      {(!usuario || (vistaActiva !== 'descubre' && vistaActiva !== 'descubre_lista')) && (
+      {(!usuario || (vistaActiva !== 'home' && vistaActiva !== 'descubre' && vistaActiva !== 'descubre_lista')) && (
         <Footer setVistaActiva={setVistaActiva} />
       )}
 

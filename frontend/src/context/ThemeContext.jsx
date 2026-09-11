@@ -6,9 +6,30 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  // Aquí inicializo el tema seleccionado desde el almacenamiento local
+  // Aquí inicializo el tema según: localStorage > preferencia del sistema > puesta_de_sol por defecto
+  const [temaManual, setTemaManual] = useState(() => {
+    // Si el usuario ya eligió un tema explícitamente, respetarlo
+    return localStorage.getItem('camplink_theme_manual') || null;
+  });
+
+  const detectarTemaDelSistema = () => {
+    // Sistema oscuro -> Modo Noche; Sistema claro -> Puesta de Sol (según especificación)
+    const prefiereOscuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefiereOscuro ? 'oscuro' : 'puesta_de_sol';
+  };
+
   const [tema, setTema] = useState(() => {
-    return localStorage.getItem('camplink_theme') || 'claro';
+    const guardado = localStorage.getItem('camplink_theme_manual');
+    if (guardado) return guardado;
+    // Retrocompatibilidad: leer el campo antiguo si existe
+    const legado = localStorage.getItem('camplink_theme');
+    if (legado) {
+      // Migrar al nuevo campo y eliminar el viejo
+      localStorage.setItem('camplink_theme_manual', legado);
+      localStorage.removeItem('camplink_theme');
+      return legado;
+    }
+    return detectarTemaDelSistema();
   });
 
   const [puestaDeSolHora, setPuestaDeSolHora] = useState(null);
@@ -52,13 +73,31 @@ export const ThemeProvider = ({ children }) => {
     }
 
     document.documentElement.setAttribute('data-theme', temaEfectivo);
-    localStorage.setItem('camplink_theme', tema);
+    // El guardado del tema manual ya lo hace cambiarTema(); aquí solo aplicamos data-theme.
   }, [tema, puestaDeSolHora]);
 
   const cambiarTema = (nuevoTema) => {
-    // Aquí cambio manualmente el modo de pantalla seleccionado
+    // Aquí cambio manualmente el modo de pantalla seleccionado y lo persisto como preferencia manual
     setTema(nuevoTema);
+    setTemaManual(nuevoTema);
+    localStorage.setItem('camplink_theme_manual', nuevoTema);
+    // Eliminar campo legado si existe
+    localStorage.removeItem('camplink_theme');
   };
+
+  // Escuchar cambios de tema del sistema en tiempo real (solo si el usuario no eligió manualmente)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const manejarCambioSistema = (e) => {
+      // Solo actualizar si el usuario NO ha elegido un tema manualmente
+      const manual = localStorage.getItem('camplink_theme_manual');
+      if (!manual) {
+        setTema(e.matches ? 'oscuro' : 'puesta_de_sol');
+      }
+    };
+    mq.addEventListener('change', manejarCambioSistema);
+    return () => mq.removeEventListener('change', manejarCambioSistema);
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ tema, cambiarTema, puestaDeSolHora }}>

@@ -1,5 +1,5 @@
 # Aquí configuro el flujo de Integración y Despliegue Continuo (CI/CD) de Camplink:
-# Cada vez que se hace push a la rama 'main', GitHub Actions se conecta por SSH al Droplet,
+# Cada vez que se hace push a la rama 'main', GitHub Actions se conecta por SSH nativo al Droplet,
 # actualiza el repositorio y reconstruye los contenedores de forma automatizada y sin pérdida de datos.
 
 name: Despliegue Continuo Camplink Producción
@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   desplegar:
@@ -16,14 +17,23 @@ jobs:
 
     steps:
       - name: Conectar por SSH y actualizar contenedores en DigitalOcean
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          port: 22
-          script_stop: true
-          script: |
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+          DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+        run: |
+          if [ -z "$DO_HOST" ] || [ -z "$DO_USER" ] || [ -z "$DO_SSH_KEY" ]; then
+            echo "❌ Error: Faltan variables secretas (DO_HOST, DO_USER o DO_SSH_KEY) en GitHub Secrets."
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          echo "$DO_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          echo "" >> ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" << 'EOF'
+            set -e
             echo "=== [1/4] Accediendo al directorio de la aplicación en el servidor ==="
             cd /opt/camplink
 
@@ -42,3 +52,4 @@ jobs:
             docker image prune -f
 
             echo "🚀 ¡Despliegue completado con éxito en https://camplinkapp.com!"
+          EOF

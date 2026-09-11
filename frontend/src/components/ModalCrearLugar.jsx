@@ -396,44 +396,7 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
                 </button>
               </div>
 
-              {/* Selector de Modo Foto */}
-              {!fotoPreview && (
-                <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.06)', padding: '2px', borderRadius: 'var(--radius-sm)' }}>
-                  <button
-                    type="button"
-                    onClick={() => setModoFoto('archivo')}
-                    style={{
-                      border: 'none',
-                      background: modoFoto === 'archivo' ? 'var(--accent-forest)' : 'transparent',
-                      color: modoFoto === 'archivo' ? '#fff' : 'var(--text-secondary)',
-                      fontSize: '0.74rem',
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      fontWeight: 600
-                    }}
-                  >
-                    Subir archivo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModoFoto('url')}
-                    style={{
-                      border: 'none',
-                      background: modoFoto === 'url' ? 'var(--accent-forest)' : 'transparent',
-                      color: modoFoto === 'url' ? '#fff' : 'var(--text-secondary)',
-                      fontSize: '0.74rem',
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      fontWeight: 600
-                    }}
-                  >
-                    URL externa
-                  </button>
-                </div>
-              )}
-            </div>
+                          </div>
 
             {mostrarInfoFoto && (
               <div style={{
@@ -494,89 +457,95 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
                   ✅ Foto lista para publicar
                 </div>
               </div>
-            ) : modoFoto === 'url' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="url"
-                    className="form-control"
-                    placeholder="Pega el enlace directo de una foto (ej: https://.../foto.jpg)"
-                    value={urlFotoExterna}
-                    onChange={(e) => {
-                      const u = e.target.value;
-                      setUrlFotoExterna(u);
-                      if (u.startsWith('http://') || u.startsWith('https://')) {
-                        setFotoPreview(u);
-                      }
-                    }}
-                    style={{ fontSize: '0.82rem' }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => {
-                      if (urlFotoExterna) setFotoPreview(urlFotoExterna);
-                    }}
-                    style={{ whiteSpace: 'nowrap' }}
-                  >
-                    Cargar
-                  </button>
-                </div>
-              </div>
             ) : (
-              <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{
-                  flex: '1',
-                  minWidth: '220px',
-                  border: '2px dashed var(--border-color)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '16px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.02)',
-                  transition: 'border-color 0.2s ease'
-                }}>
-                  <UploadCloud size={24} color="var(--accent-forest)" style={{ margin: '0 auto 6px' }} />
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Subir foto desde tu dispositivo
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    JPG, PNG o WebP
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={manejarCambioFoto}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-
-                {/* Previsualización de la imagen por defecto representativa */}
-                <div style={{
-                  width: '140px',
-                  height: '90px',
-                  borderRadius: 'var(--radius-sm)',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  border: '1px solid var(--border-color)',
-                  flexShrink: 0
-                }}>
-                  <img loading="lazy" decoding="async" 
-                    src={IMAGENES_PREESTABLECIDAS_POR_TIPO[tipoLugar] || '/img/tipos/pernocta_libre.jpg'}
-                    alt="Por defecto"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)',
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    padding: '4px 6px'
+              <div>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label style={{
+                    flex: '1',
+                    minWidth: '220px',
+                    border: '2px dashed var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '16px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.02)',
+                    transition: 'border-color 0.2s ease'
                   }}>
-                    <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 600, lineHeight: 1.1 }}>
-                      Imagen preestablecida ({tipoSeleccionadoObj.emoji})
-                    </span>
+                    <UploadCloud size={24} color="var(--accent-forest)" style={{ margin: '0 auto 6px' }} />
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Subir foto desde tu dispositivo
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      JPG, PNG o WebP
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={manejarCambioFoto}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+
+                  {/* Previsualización de la imagen por defecto representativa */}
+                  <div style={{
+                    width: '140px',
+                    height: '90px',
+                    borderRadius: 'var(--radius-sm)',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    border: '1px solid var(--border-color)',
+                    flexShrink: 0
+                  }}>
+                    <img loading="lazy" decoding="async" 
+                      src={IMAGENES_PREESTABLECIDAS_POR_TIPO[tipoLugar] || '/img/tipos/pernocta_libre.jpg'}
+                      alt="Por defecto"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      padding: '4px 6px'
+                    }}>
+                      <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 600, lineHeight: 1.1 }}>
+                        Imagen preestablecida ({tipoSeleccionadoObj.emoji})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input para URL externa debajo de subir foto desde tu dispositivo */}
+                <div style={{ marginTop: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                    O introduce la URL de una foto externa:
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="url"
+                      className="form-control"
+                      placeholder="Pega el enlace directo de una foto (ej: https://.../foto.jpg)"
+                      value={urlFotoExterna}
+                      onChange={(e) => {
+                        const u = e.target.value;
+                        setUrlFotoExterna(u);
+                        if (u.startsWith('http://') || u.startsWith('https://')) {
+                          setFotoPreview(u);
+                        }
+                      }}
+                      style={{ fontSize: '0.82rem' }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        if (urlFotoExterna) setFotoPreview(urlFotoExterna);
+                      }}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      Cargar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -647,7 +616,7 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
           {/* Precio y gratuidad */}
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: 'var(--radius-md)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
-              <input type="checkbox" checked={esGratuito} onChange={e => setEsGratuito(e.target.checked)} /> 💸 Es 100% Gratuito
+              <input type="checkbox" checked={esGratuito} onChange={e => setEsGratuito(e.target.checked)} /> Gratuito
             </label>
             {!esGratuito && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

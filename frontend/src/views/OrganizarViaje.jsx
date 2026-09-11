@@ -707,52 +707,64 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   const obtenerParadasViaje = (viaje) => {
     let lista = [];
     if (viaje.resumen_ruta && viaje.resumen_ruta.length > 0) {
-      lista = viaje.resumen_ruta.map((p, i) => ({
-        id: p.id || `r-${i}`,
-        lugar_id: p.lugar_id,
-        nombre: p.nombre || p.lugar_nombre || 'Parada',
-        latitud: p.lat != null ? p.lat : p.latitud,
-        longitud: p.lng != null ? p.lng : p.longitud,
-        poblacion: p.poblacion || '',
-        provincia: p.provincia || '',
-        fecha_llegada: p.fecha || p.fecha_llegada || '',
-        dias_previstos: p.dias || p.dias_previstos || 1,
-        notas_privadas: p.notas_privadas || '',
-        tipo: p.tipo || 'parada',
-        tipo_lugar: p.tipo_lugar || 'pernocta_libre',
-        equipamiento: p.equipamiento || [],
-        entorno: p.entorno || [],
-        acceso: p.acceso || [],
-        es_repostaje: p.es_repostaje || false,
-        es_base: p.es_base || p.tipo === 'base' || p.tipo === 'base_salida' || p.tipo === 'base_vuelta',
-        precio: p.precio,
-        direccion: p.direccion
-      }));
+      lista = viaje.resumen_ruta.map((p, i) => {
+        const latVal = p.lat != null ? p.lat : p.latitud;
+        const lngVal = p.lng != null ? p.lng : p.longitud;
+        return {
+          id: p.id || `r-${i}`,
+          lugar_id: p.lugar_id,
+          nombre: p.nombre || p.lugar_nombre || 'Parada',
+          lat: latVal,
+          lng: lngVal,
+          latitud: latVal,
+          longitud: lngVal,
+          poblacion: p.poblacion || '',
+          provincia: p.provincia || '',
+          fecha_llegada: p.fecha || p.fecha_llegada || '',
+          dias_previstos: p.dias || p.dias_previstos || 1,
+          notas_privadas: p.notas_privadas || '',
+          tipo: p.tipo || 'parada',
+          tipo_lugar: p.tipo_lugar || 'pernocta_libre',
+          equipamiento: p.equipamiento || [],
+          entorno: p.entorno || [],
+          acceso: p.acceso || [],
+          es_repostaje: p.es_repostaje || false,
+          es_base: p.es_base || p.tipo === 'base' || p.tipo === 'base_salida' || p.tipo === 'base_vuelta',
+          precio: p.precio,
+          direccion: p.direccion
+        };
+      });
     } else {
-      lista = (viaje.checkins_resumen || []).map((ch, i) => ({
-        id: ch.id || `ch-${i}`,
-        lugar_id: ch.lugar_id,
-        nombre: ch.lugar_nombre || 'Punto de Pernocta',
-        latitud: ch.latitud,
-        longitud: ch.longitud,
-        poblacion: ch.poblacion || '',
-        provincia: ch.provincia || '',
-        fecha_llegada: ch.fecha_llegada || '',
-        dias_previstos: ch.dias_previstos || 1,
-        notas_privadas: ch.notas_privadas || '',
-        tipo: 'parada',
-        tipo_lugar: ch.tipo_lugar || 'pernocta_libre',
-        equipamiento: ch.equipamiento || [],
-        entorno: ch.entorno || [],
-        acceso: ch.acceso || [],
-        es_repostaje: false,
-        es_base: false
-      }));
+      lista = (viaje.checkins_resumen || []).map((ch, i) => {
+        const latVal = ch.latitud;
+        const lngVal = ch.longitud;
+        return {
+          id: ch.id || `ch-${i}`,
+          lugar_id: ch.lugar_id,
+          nombre: ch.lugar_nombre || 'Punto de Pernocta',
+          lat: latVal,
+          lng: lngVal,
+          latitud: latVal,
+          longitud: lngVal,
+          poblacion: ch.poblacion || '',
+          provincia: ch.provincia || '',
+          fecha_llegada: ch.fecha_llegada || '',
+          dias_previstos: ch.dias_previstos || 1,
+          notas_privadas: ch.notas_privadas || '',
+          tipo: 'parada',
+          tipo_lugar: ch.tipo_lugar || 'pernocta_libre',
+          equipamiento: ch.equipamiento || [],
+          entorno: ch.entorno || [],
+          acceso: ch.acceso || [],
+          es_repostaje: false,
+          es_base: false
+        };
+      });
     }
 
     const basePoblacion = usuario?.poblacion || (usuario?.direccion_base ? usuario.direccion_base.split(',')[0].trim() : 'Tu Base Camper');
-    const baseLat = usuario?.lat_base || coordsPoblacionBase?.lat || (lista.length > 0 && lista[0].es_base && lista[0].latitud != null ? lista[0].latitud : null);
-    const baseLng = usuario?.lng_base || coordsPoblacionBase?.lng || (lista.length > 0 && lista[0].es_base && lista[0].longitud != null ? lista[0].longitud : null);
+    const baseLat = usuario?.lat_base || coordsPoblacionBase?.lat || (lista.length > 0 && lista[0].es_base && (lista[0].lat != null || lista[0].latitud != null) ? (lista[0].lat ?? lista[0].latitud) : null);
+    const baseLng = usuario?.lng_base || coordsPoblacionBase?.lng || (lista.length > 0 && lista[0].es_base && (lista[0].lng != null || lista[0].longitud != null) ? (lista[0].lng ?? lista[0].longitud) : null);
 
     const tieneSalida = lista.length > 0 && (lista[0].es_base || lista[0].tipo === 'base_salida' || lista[0].tipo === 'base');
     const tieneVuelta = lista.length > 1 && (lista[lista.length - 1].es_base || lista[lista.length - 1].tipo === 'base_vuelta');
@@ -762,6 +774,8 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         lista.unshift({
           id: 'base-salida',
           nombre: `Salida: ${basePoblacion}`,
+          lat: baseLat,
+          lng: baseLng,
           latitud: baseLat,
           longitud: baseLng,
           poblacion: basePoblacion,
@@ -773,6 +787,8 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         lista.push({
           id: 'base-vuelta',
           nombre: `Vuelta: ${basePoblacion}`,
+          lat: baseLat,
+          lng: baseLng,
           latitud: baseLat,
           longitud: baseLng,
           poblacion: basePoblacion,

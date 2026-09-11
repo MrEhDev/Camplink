@@ -52,11 +52,40 @@ class ExploradorRegistroSerializer(serializers.ModelSerializer):
         return explorador
 
 
+PROVINCIAS_CODIGO_POSTAL = {
+    '01': 'Álava', '02': 'Albacete', '03': 'Alicante', '04': 'Almería', '05': 'Ávila',
+    '06': 'Badajoz', '07': 'Baleares', '08': 'Barcelona', '09': 'Burgos', '10': 'Cáceres',
+    '11': 'Cádiz', '12': 'Castellón', '13': 'Ciudad Real', '14': 'Córdoba', '15': 'A Coruña',
+    '16': 'Cuenca', '17': 'Girona', '18': 'Granada', '19': 'Guadalajara', '20': 'Gipuzkoa',
+    '21': 'Huelva', '22': 'Huesca', '23': 'Jaén', '24': 'León', '25': 'Lleida',
+    '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'Málaga', '30': 'Murcia',
+    '31': 'Navarra', '32': 'Ourense', '33': 'Asturias', '34': 'Palencia', '35': 'Las Palmas',
+    '36': 'Pontevedra', '37': 'Salamanca', '38': 'Santa Cruz de Tenerife', '39': 'Cantabria', '40': 'Segovia',
+    '41': 'Sevilla', '42': 'Soria', '43': 'Tarragona', '44': 'Teruel', '45': 'Toledo',
+    '46': 'Valencia', '47': 'Valladolid', '48': 'Bizkaia', '49': 'Zamora', '50': 'Zaragoza',
+    '51': 'Ceuta', '52': 'Melilla'
+}
+
+def resolver_provincia_base(obj):
+    if not obj:
+        return ''
+    cp = (getattr(obj, 'codigo_postal', '') or '').strip()
+    if len(cp) >= 2:
+        pref = cp[:2].zfill(2)
+        if pref in PROVINCIAS_CODIGO_POSTAL:
+            return PROVINCIAS_CODIGO_POSTAL[pref]
+    texto = f"{getattr(obj, 'poblacion', '') or ''} {getattr(obj, 'direccion_base', '') or ''}".lower()
+    for prov in PROVINCIAS_CODIGO_POSTAL.values():
+        if prov.lower() in texto:
+            return prov
+    return getattr(obj, 'poblacion', '') or getattr(obj, 'pais', '') or 'España'
+
 class ExploradorPerfilSerializer(serializers.ModelSerializer):
     # Aquí preparo el serializer para consultar el perfil público y privado del Explorador,
     # calculando los trofeos de mayor valor de cada categoría y el estado de seguimiento.
     tipo_viajero_display = serializers.CharField(source='get_tipo_viajero_display', read_only=True)
     es_admin = serializers.BooleanField(read_only=True)
+    provincia = serializers.SerializerMethodField()
     trofeos_destacados = serializers.SerializerMethodField()
     estado_seguimiento = serializers.SerializerMethodField()
     total_seguidores = serializers.SerializerMethodField()
@@ -67,13 +96,17 @@ class ExploradorPerfilSerializer(serializers.ModelSerializer):
         model = Explorador
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'fecha_nacimiento', 'pais', 'poblacion', 'codigo_postal', 'direccion_base',
+            'fecha_nacimiento', 'pais', 'poblacion', 'provincia', 'codigo_postal', 'direccion_base',
             'lat_base', 'lng_base', 'tipo_viajero', 'tipo_viajero_display', 'capacidad_deposito_l', 'consumo_medio_l_100km', 'tipo_combustible', 'autonomia_estimada_km',
             'foto_vehiculo', 'avatar', 'biografia', 'rol', 'es_admin', 'is_staff', 'is_superuser',
+            'notif_email_comentarios', 'notif_email_reacciones', 'notif_email_taller',
             'trofeos_destacados', 'companeros_de_ruta', 'estado_seguimiento', 'total_seguidores',
             'total_siguiendo', 'date_joined'
         ]
         read_only_fields = ['id', 'username', 'rol', 'date_joined', 'autonomia_estimada_km']
+
+    def get_provincia(self, obj):
+        return resolver_provincia_base(obj)
 
     def get_total_seguidores(self, obj):
         # Aquí devuelvo el número de exploradores que siguen a este usuario

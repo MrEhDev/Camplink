@@ -44,6 +44,16 @@ class ViajeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['explorador', 'fecha_creacion']
 
+    def to_representation(self, instance):
+        if (instance.km_totales is None or instance.km_totales <= 0) and (instance.checkins_asociados.exists() or len(instance.resumen_ruta or []) >= 2):
+            try:
+                from .services import recalcular_viaje
+                recalcular_viaje(instance)
+                instance.refresh_from_db()
+            except Exception:
+                pass
+        return super().to_representation(instance)
+
     def get_tipo_estado(self, obj):
         # Aquí determino si el viaje está finalizado, en curso o planificado para el futuro
         from django.utils import timezone

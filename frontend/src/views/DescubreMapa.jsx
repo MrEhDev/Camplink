@@ -135,6 +135,28 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
   const { usuario } = useAuth();
   const [lugares, setLugares] = useState([]);
 
+  // Radar de lluvia en vivo dinámico desde RainViewer
+  const [radarLluviaUrl, setRadarLluviaUrl] = useState(null);
+
+  useEffect(() => {
+    const cargarRadarLluvia = () => {
+      fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(res => res.json())
+        .then(data => {
+          if (data?.radar?.past?.length > 0) {
+            const ultimo = data.radar.past[data.radar.past.length - 1];
+            const host = data.host || 'https://tilecache.rainviewer.com';
+            setRadarLluviaUrl(`${host}${ultimo.path}/256/{z}/{x}/{y}/2/1_1.png`);
+          }
+        })
+        .catch(err => console.warn('Error al cargar radar de lluvia:', err));
+    };
+
+    cargarRadarLluvia();
+    const interval = setInterval(cargarRadarLluvia, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Estado de chips de tipo de lugar y navegación scroll para PC
   const chipsRef = useRef(null);
   const [puedeScrollIzquierda, setPuedeScrollIzquierda] = useState(false);
@@ -1128,9 +1150,11 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
           <LayersControl.Overlay name="🌧️ Radar de Lluvia en Vivo">
             <TileLayer
-              attribution='&copy; RainViewer.com'
-              url="https://tilecache.rainviewer.com/v2/radar/nowcast_latest/256/{z}/{x}/{y}/2/1_1.png"
+              key={radarLluviaUrl || 'radar-init'}
+              attribution='&copy; <a href="https://www.rainviewer.com/" target="_blank" rel="noreferrer">RainViewer</a>'
+              url={radarLluviaUrl || "https://tilecache.rainviewer.com/v2/radar/nowcast_latest/256/{z}/{x}/{y}/2/1_1.png"}
               opacity={0.65}
+              zIndex={400}
             />
           </LayersControl.Overlay>
 

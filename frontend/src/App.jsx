@@ -14,8 +14,8 @@ const LandingPage = lazy(() => import('./views/LandingPage'));
 const DescubreMapa = lazy(() => import('./views/DescubreMapa'));
 const DescubreLista = lazy(() => import('./views/DescubreLista'));
 const DiarioDeRuta = lazy(() => import('./views/DiarioDeRuta'));
-const GuiaDelNomada = lazy(() => import('./views/GuiaDelNomada'));
-const TallerNomada = lazy(() => import('./views/TallerNomada'));
+const TallerCamplink = lazy(() => import('./views/TallerCamplink'));
+const CrearPublicacionTaller = lazy(() => import('./views/CrearPublicacionTaller'));
 const LugarDetalle = lazy(() => import('./views/LugarDetalle'));
 const PerfilExplorador = lazy(() => import('./views/PerfilExplorador'));
 const PerfilPublico = lazy(() => import('./views/PerfilPublico'));
@@ -63,7 +63,7 @@ function CargandoCamper() {
 
 export default function App() {
   // Aquí controlo la navegación de la SPA según la sesión activa del usuario
-  const { usuario } = useAuth();
+  const { usuario, cargando: authCargando } = useAuth();
   // Enrutador Dinámico Bidireccional SPA (Sincronización con la URL del Navegador)
   const parsearRutaActual = () => {
     const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
@@ -72,8 +72,8 @@ export default function App() {
     if (pathname === '/diario') return { vista: 'diario' };
     if (pathname === '/organizar') return { vista: 'organizar' };
     if (pathname === '/perfil') return { vista: 'perfil' };
-    if (pathname === '/guia') return { vista: 'guia' };
-    if (pathname === '/taller') return { vista: 'taller' };
+    if (pathname === '/guia' || pathname === '/taller') return { vista: 'taller' };
+    if (pathname === '/taller/crear' || pathname === '/taller/nuevo') return { vista: 'taller_crear' };
     if (pathname === '/trofeos') return { vista: 'trofeos' };
     const matchLugar = pathname.match(/^\/lugar\/(\d+)/);
     if (matchLugar) return { vista: 'lugar_detalle', lugarId: parseInt(matchLugar[1]) };
@@ -88,6 +88,7 @@ export default function App() {
   );
   const [lugarSeleccionadoId, setLugarSeleccionadoId] = useState(inicial.lugarId || null);
   const [usuarioSeleccionadoId, setUsuarioSeleccionadoId] = useState(inicial.usuarioId || null);
+  const [publicacionAEditar, setPublicacionAEditar] = useState(null);
 
   // Modales Globales
   const [modalCheckInLugar, setModalCheckInLugar] = useState(null);
@@ -173,8 +174,8 @@ export default function App() {
     else if (vistaActiva === 'diario') targetPath = '/diario';
     else if (vistaActiva === 'organizar') targetPath = '/organizar';
     else if (vistaActiva === 'perfil') targetPath = '/perfil';
-    else if (vistaActiva === 'guia') targetPath = '/guia';
-    else if (vistaActiva === 'taller') targetPath = '/taller';
+    else if (vistaActiva === 'taller_crear') targetPath = '/taller/crear';
+    else if (vistaActiva === 'guia' || vistaActiva === 'taller') targetPath = '/taller';
     else if (vistaActiva === 'trofeos') targetPath = '/trofeos';
     else if (vistaActiva === 'lugar_detalle' && lugarSeleccionadoId) targetPath = `/lugar/${lugarSeleccionadoId}`;
     else if (vistaActiva === 'perfil_publico' && usuarioSeleccionadoId) targetPath = `/explorador/${usuarioSeleccionadoId}`;
@@ -184,20 +185,22 @@ export default function App() {
     const currentSearch = window.location.search;
 
     if (currentPath !== targetPath) {
-      // Preservar query params (ej. ?post=X&comentario=Y) si permanecemos en diario
-      const searchToKeep = (targetPath === '/diario' && currentPath === '/diario') ? currentSearch : '';
+      // Preservar query params (ej. ?post=X&comentario=Y o ?id=X o ?revision=X) si vamos a diario o taller
+      const searchToKeep = (targetPath === '/diario' || targetPath === '/taller') ? currentSearch : '';
       window.history.pushState({ vista: vistaActiva }, '', `${targetPath}${searchToKeep}`);
     }
-  }, [vistaActiva, lugarSeleccionadoId, usuarioSeleccionadoId]);
+  }, [vistaActiva, lugarSeleccionadoId, usuarioSeleccionadoId, authCargando]);
 
   // Si el usuario inicia sesión y está en landing, la primera página por defecto es el Diario de Ruta
   useEffect(() => {
+    if (authCargando) return; // Esperar a que la autenticación inicial finalice
+
     if (usuario && vistaActiva === 'landing' && (window.location.pathname === '/' || window.location.pathname === '')) {
       setVistaActiva('diario');
     } else if (!usuario && vistaActiva !== 'landing' && vistaActiva !== 'descubre' && vistaActiva !== 'descubre_lista' && vistaActiva !== 'guia' && vistaActiva !== 'taller') {
       setVistaActiva('landing');
     }
-  }, [usuario, vistaActiva]);
+  }, [usuario, authCargando, vistaActiva]);
 
   useEffect(() => {
     // Aquí actualizo el título SEO del navegador para cada vista
@@ -206,12 +209,14 @@ export default function App() {
       diario: 'Diario de Ruta | Red Social de Exploradores',
       descubre: 'Mapa Camper en Vivo | Camplink',
       descubre_lista: 'Lugares y Pernoctas Camper | Camplink',
-      guia: 'Guía del Nómada | Manuales y Consejos Técnicos',
-      taller: 'Taller Nómada | Mantenimiento, Brico y Piezas 3D',
+      guia: 'Taller Camplink | Manuales y Consejos Técnicos',
+      taller: 'Taller Camplink | Mantenimiento, Brico y Piezas 3D',
+      taller_crear: 'Publicar en el Taller Camplink | Camplink',
       lugar_detalle: 'Detalle de Lugar de Pernocta | Camplink',
       perfil: 'Mi Perfil Camper, Mis Viajes y Trofeos | Camplink',
       perfil_publico: 'Perfil del Explorador | Camplink',
       organizar: 'Organizar y Planificar Viaje Camper | Camplink',
+      trofeos: 'Vitrina de Trofeos | Camplink'
     };
 
     document.title = titulosPorVista[vistaActiva] || 'Camplink';
@@ -224,8 +229,12 @@ export default function App() {
     setVistaActiva('lugar_detalle');
   };
 
+  // Guardamos la vista de procedencia antes de abrir el perfil público
+  const [vistaPreviaPerfil, setVistaPreviaPerfil] = useState(null);
+
   const abrirPerfilUsuario = (id) => {
-    // Aquí abro el perfil público de otro explorador
+    // Aquí abro el perfil público de otro explorador recordando la vista previa
+    setVistaPreviaPerfil(vistaActiva !== 'perfil_publico' ? vistaActiva : 'diario');
     setUsuarioSeleccionadoId(id);
     setVistaActiva('perfil_publico');
   };
@@ -385,14 +394,34 @@ export default function App() {
               />
             )}
 
-            {/* Guía del Nómada (disponible para todos) */}
-            {vistaActiva === 'guia' && (
-              <GuiaDelNomada />
+            {/* Taller Camplink - Hub Unificado (disponible para todos) */}
+            {(vistaActiva === 'taller' || vistaActiva === 'guia') && (
+              <TallerCamplink
+                alCrearPublicacion={() => {
+                  setPublicacionAEditar(null);
+                  setVistaActiva('taller_crear');
+                }}
+                alEditarPublicacion={(pub) => {
+                  setPublicacionAEditar(pub);
+                  setVistaActiva('taller_crear');
+                }}
+                alVerPerfilUsuario={abrirPerfilUsuario}
+              />
             )}
 
-            {/* Taller Nómada (disponible para todos) */}
-            {vistaActiva === 'taller' && (
-              <TallerNomada />
+            {/* Crear o Editar Publicación en el Taller */}
+            {vistaActiva === 'taller_crear' && (
+              <CrearPublicacionTaller
+                publicacionAEditar={publicacionAEditar}
+                alVolver={() => {
+                  setPublicacionAEditar(null);
+                  setVistaActiva('taller');
+                }}
+                alPublicarExitoso={() => {
+                  setPublicacionAEditar(null);
+                  setVistaActiva('taller');
+                }}
+              />
             )}
 
             {/* Detalle de Lugar de Pernocta */}
@@ -442,13 +471,14 @@ export default function App() {
             {vistaActiva === 'perfil_publico' && (
               <PerfilPublico
                 usuarioId={usuarioSeleccionadoId}
-                alVolver={() => setVistaActiva(usuario ? 'diario' : 'descubre')}
+                origenVista={vistaPreviaPerfil}
+                alVolver={() => setVistaActiva(vistaPreviaPerfil || (usuario ? 'diario' : 'descubre'))}
                 alSeleccionarLugar={abrirDetalleLugar}
               />
             )}
 
             {/* Fallback de seguridad si ninguna clave de vista coincide */}
-            {!['landing', 'diario', 'descubre', 'descubre_lista', 'guia', 'taller', 'lugar_detalle', 'perfil', 'organizar', 'trofeos', 'perfil_publico'].includes(vistaActiva) && (
+            {!['landing', 'diario', 'descubre', 'descubre_lista', 'guia', 'taller', 'taller_crear', 'lugar_detalle', 'perfil', 'organizar', 'trofeos', 'perfil_publico'].includes(vistaActiva) && (
               usuario ? (
                 <DiarioDeRuta
                   alSeleccionarLugar={abrirDetalleLugar}

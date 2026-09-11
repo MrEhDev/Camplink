@@ -9,7 +9,7 @@ export const es = {
   nav_viajes: 'Mis Viajes',
   nav_trofeos: 'Vitrina Trofeos',
   nav_guia: 'Guía del Nómada',
-  nav_taller: 'Taller Nómada',
+  nav_taller: 'Taller',
   nav_radar: 'Radar Cerca de Mí',
   nav_nuevo_lugar: 'Añadir Lugar',
   nav_login: 'Entrar',

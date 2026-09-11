@@ -65,34 +65,70 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario, a
   };
 
   // Efecto para saltar directamente a la publicación o comentario compartido mediante la URL
+  const saltarAPostOComentario = () => {
+    const params = new URLSearchParams(window.location.search);
+    const postId = params.get('post');
+    const comId = params.get('comentario');
+
+    if (!postId && !comId) return;
+
+    // Asegurar que el filtro muestre todas las publicaciones
+    setFiltroFeed('todos');
+
+    if (postId && comId) {
+      setComentariosAbiertos(prev => ({ ...prev, [postId]: true }));
+      // Calcular página del comentario en caso de existir paginación
+      const pubObj = publicaciones.find(p => String(p.id) === String(postId));
+      if (pubObj && pubObj.comentarios) {
+        const idx = pubObj.comentarios.findIndex(c => String(c.id) === String(comId));
+        if (idx !== -1) {
+          const paginaDestino = Math.floor(idx / 20) + 1;
+          setPaginaComentarios(prev => ({ ...prev, [postId]: paginaDestino }));
+        }
+      }
+
+      let intentos = 0;
+      const intervalo = setInterval(() => {
+        intentos++;
+        const el = document.getElementById(`comentario-${comId}`);
+        if (el) {
+          clearInterval(intervalo);
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('comentario-resaltado');
+          setTimeout(() => el.classList.remove('comentario-resaltado'), 4000);
+        } else if (intentos >= 15) {
+          clearInterval(intervalo);
+          const postEl = document.getElementById(`post-${postId}`);
+          if (postEl) postEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+    } else if (postId) {
+      let intentos = 0;
+      const intervalo = setInterval(() => {
+        intentos++;
+        const el = document.getElementById(`post-${postId}`);
+        if (el) {
+          clearInterval(intervalo);
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('post-resaltado');
+          setTimeout(() => el.classList.remove('post-resaltado'), 4000);
+        } else if (intentos >= 15) {
+          clearInterval(intervalo);
+        }
+      }, 150);
+    }
+  };
+
   useEffect(() => {
     if (!cargando && publicaciones.length > 0) {
-      const params = new URLSearchParams(window.location.search);
-      const postId = params.get('post');
-      const comId = params.get('comentario');
-
-      if (postId && comId) {
-        setComentariosAbiertos(prev => ({ ...prev, [postId]: true }));
-        setTimeout(() => {
-          const el = document.getElementById(`comentario-${comId}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('comentario-resaltado');
-            setTimeout(() => el.classList.remove('comentario-resaltado'), 4000);
-          }
-        }, 400);
-      } else if (postId) {
-        setTimeout(() => {
-          const el = document.getElementById(`post-${postId}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('post-resaltado');
-            setTimeout(() => el.classList.remove('post-resaltado'), 4000);
-          }
-        }, 300);
-      }
+      saltarAPostOComentario();
     }
-  }, [cargando, publicaciones.length]);
+  }, [cargando, publicaciones]);
+
+  useEffect(() => {
+    window.addEventListener('popstate', saltarAPostOComentario);
+    return () => window.removeEventListener('popstate', saltarAPostOComentario);
+  }, [publicaciones]);
 
 
   const [comentariosAbiertos, setComentariosAbiertos] = useState({});

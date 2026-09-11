@@ -40,7 +40,8 @@ def enviar_correo_verificacion(request, explorador, codigo, uid, token):
     enlace = f"{scheme}://{host}/?activar_token={token}&uid={uid}&email={explorador.email}"
     
     asunto = "🚐 ¡Confirma tu cuenta en Camplink!"
-    mensaje_texto = f"""¡Hola, {explorador.first_name or explorador.username}!
+    dest_saludo = (explorador.first_name or explorador.username).capitalize()
+    mensaje_texto = f"""¡Hola, {dest_saludo}!
 
 Te damos la bienvenida a Camplink, la comunidad y red social de los amantes del mundo camper, caravaning y naturaleza.
 
@@ -61,7 +62,7 @@ www.camplinkapp.com
             <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px;">La Red Social de la Comunidad Camper</p>
         </div>
         <div style="background: white; padding: 24px; border-radius: 12px; margin-top: 16px; border: 1px solid #ddd;">
-            <h2 style="color: #17241A; font-size: 18px; margin-top: 0;">Hola, {explorador.first_name or explorador.username}:</h2>
+            <h2 style="color: #17241A; font-size: 18px; margin-top: 0;">Hola, {dest_saludo}:</h2>
             <p style="color: #4A5B4F; line-height: 1.5;">
                 Estás a un paso de comenzar tus rutas y descubrir los mejores lugares de pernocta. Confirma tu correo para activar tu cuenta:
             </p>
@@ -177,7 +178,7 @@ def activar_cuenta_vista(request):
     perfil_serializer = ExploradorPerfilSerializer(explorador, context={'request': request})
     
     return Response({
-        'mensaje': f'¡Cuenta activada con éxito! Bienvenido a Camplink, {explorador.username}.',
+        'mensaje': f'¡Cuenta activada con éxito! Bienvenido a Camplink, {explorador.username.capitalize()}.',
         'usuario': perfil_serializer.data,
         'csrftoken': token_csrf
     }, status=status.HTTP_200_OK)
@@ -249,7 +250,7 @@ def login_vista(request):
         token = get_token(request)
         serializer = ExploradorPerfilSerializer(usuario, context={'request': request})
         return Response({
-            'mensaje': f'Ruta iniciada. ¡Hola de nuevo, {usuario.username}!',
+            'mensaje': f'Ruta iniciada. ¡Hola de nuevo, {usuario.username.capitalize()}!',
             'usuario': serializer.data,
             'csrftoken': token
         })
@@ -385,7 +386,7 @@ def solicitar_seguimiento_vista(request, usuario_id):
             Q(seguidor=request.user, seguido=seguido) |
             Q(seguidor=seguido, seguido=request.user)
         ).delete()
-        return Response({'mensaje': f'{seguido.username} y tú ya no sois Compañeros de Ruta.', 'estado': 'ninguno'})
+        return Response({'mensaje': f'{seguido.username.capitalize()} y tú ya no sois Compañeros de Ruta.', 'estado': 'ninguno'})
 
     # Lore nómada: Al conectar A y B, ambos son Compañeros de Ruta (relación recíproca)
     RelacionSeguimiento.objects.update_or_create(
@@ -402,7 +403,7 @@ def solicitar_seguimiento_vista(request, usuario_id):
         mensaje=f'{request.user.username.capitalize()} ha comenzado a seguirte y ahora sois compañeros de ruta.',
         enlace=f'/explorador/{request.user.id}'
     )
-    return Response({'mensaje': f'¡Ahora {seguido.username} y tú sois Compañeros de Ruta! 🤝', 'estado': 'aceptada'})
+    return Response({'mensaje': f'¡Ahora {seguido.username.capitalize()} y tú sois Compañeros de Ruta! 🤝', 'estado': 'aceptada'})
 
 
 @api_view(['POST'])
@@ -417,7 +418,7 @@ def responder_seguimiento_vista(request, relacion_id):
     if accion == 'aceptar':
         relacion.estado = 'aceptada'
         relacion.save()
-        return Response({'mensaje': f'¡Ahora {relacion.seguidor.username} sigue tu Diario de Ruta!'})
+        return Response({'mensaje': f'¡Ahora {relacion.seguidor.username.capitalize()} sigue tu Diario de Ruta!'})
     elif accion == 'rechazar':
         relacion.estado = 'rechazada'
         relacion.save()

@@ -8,7 +8,7 @@ export const en = {
   nav_viajes: 'My Trips',
   nav_trofeos: 'Trophy Showcase',
   nav_guia: 'Nomad Guide',
-  nav_taller: 'Nomad Workshop',
+  nav_taller: 'Workshop',
   nav_radar: 'Near Me Radar',
   nav_nuevo_lugar: 'Add Place',
   nav_login: 'Sign In',

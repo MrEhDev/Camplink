@@ -5,12 +5,43 @@ const formatearUsuario = (u) => {
   const s = String(u);
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
+
+const PROVINCIAS_CP = {
+  '01': 'Álava', '02': 'Albacete', '03': 'Alicante', '04': 'Almería', '05': 'Ávila',
+  '06': 'Badajoz', '07': 'Baleares', '08': 'Barcelona', '09': 'Burgos', '10': 'Cáceres',
+  '11': 'Cádiz', '12': 'Castellón', '13': 'Ciudad Real', '14': 'Córdoba', '15': 'A Coruña',
+  '16': 'Cuenca', '17': 'Girona', '18': 'Granada', '19': 'Guadalajara', '20': 'Gipuzkoa',
+  '21': 'Huelva', '22': 'Huesca', '23': 'Jaén', '24': 'León', '25': 'Lleida',
+  '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'Málaga', '30': 'Murcia',
+  '31': 'Navarra', '32': 'Ourense', '33': 'Asturias', '34': 'Palencia', '35': 'Las Palmas',
+  '36': 'Pontevedra', '37': 'Salamanca', '38': 'Santa Cruz de Tenerife', '39': 'Cantabria', '40': 'Segovia',
+  '41': 'Sevilla', '42': 'Soria', '43': 'Tarragona', '44': 'Teruel', '45': 'Toledo',
+  '46': 'Valencia', '47': 'Valladolid', '48': 'Bizkaia', '49': 'Zamora', '50': 'Zaragoza',
+  '51': 'Ceuta', '52': 'Melilla'
+};
+
+const obtenerProvinciaExplorador = (u) => {
+  if (!u) return '';
+  if (u.provincia) return u.provincia;
+  const cp = (u.codigo_postal || '').trim();
+  if (cp.length >= 2) {
+    const pref = cp.substring(0, 2);
+    if (PROVINCIAS_CP[pref]) return PROVINCIAS_CP[pref];
+  }
+  const texto = `${u.poblacion || ''} ${u.direccion_base || ''}`.toLowerCase();
+  for (const prov of Object.values(PROVINCIAS_CP)) {
+    if (texto.includes(prov.toLowerCase())) {
+      return prov;
+    }
+  }
+  return u.poblacion || u.pais || 'España';
+};
 // Aquí implemento el Perfil del Explorador en Camplink con todas las herramientas camper:
 // bitácoras de viaje expandibles con mini mapa de ruta interactivo, avisos de combustible situados en paradas recomendadas para viajes futuros,
 // gestión de compañeros con perfiles clicables, administración de grupos de privacidad con asignación de miembros,
 // lugares guardados sincronizados con el diario y modal de configuración de furgo, combustible y avatar.
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
@@ -24,7 +55,7 @@ import {
   Users, Fuel, AlertTriangle, UserCheck, 
   UserMinus, Globe, Copy, CheckCheck, Bookmark,
   Navigation, Search, ExternalLink, Sliders, 
-  ChevronDown, ChevronUp, UserPlus, Save, User, Bell
+  ChevronDown, ChevronUp, UserPlus, Save, User, Bell, Mail, BookOpen
 } from 'lucide-react';
 
 // Icono pequeño de pernocta para el mini mapa de ruta
@@ -36,6 +67,16 @@ const miniIconoCamper = new L.Icon({
   popupAnchor: [1, -26],
   shadowSize: [32, 32]
 });
+
+// Opciones fijas de tipos de lugar para filtrado camper completo
+const TIPOS_LUGAR_OPCIONES = [
+  { id: 'pernocta_libre', label: '🌲 Pernocta Libre' },
+  { id: 'area_autocaravanas', label: '🚐 Área de Autocaravanas' },
+  { id: 'camping', label: '⛺ Camping' },
+  { id: 'parking_urbano', label: '🅿️ Parking Urbano' },
+  { id: 'area_recreativa', label: '🏞️ Área Recreativa' },
+  { id: 'solo_servicios', label: '💧 Solo Servicios' },
+];
 
 export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuario, alNavegarOrganizar, abrirRadar, abrirTutorial }) {
   // Aquí gestiono todos los módulos del perfil: viajes, compañeros, grupos, guardados y trofeos
@@ -50,14 +91,62 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [companeros, setCompaneros] = useState([]);
   const [seguidores, setSeguidores] = useState([]);
   const [siguiendo, setSiguiendo] = useState([]);
-  const [tabComunidad, setTabComunidad] = useState('seguidores'); // 'seguidores', 'siguiendo', 'descubrir', 'grupos', 'notificaciones'
+  const [tabComunidad, setTabComunidad] = useState('grupos'); // 'grupos', 'seguidores', 'siguiendo', 'descubrir', 'notificaciones'
+  const [resumenNiveles, setResumenNiveles] = useState(null);
+  const [busquedaGuardados, setBusquedaGuardados] = useState('');
+  const [filtroTipoGuardados, setFiltroTipoGuardados] = useState('todos');
   const [todosLosExploradores, setTodosLosExploradores] = useState([]);
   const [busquedaNomada, setBusquedaNomada] = useState('');
   const [cargandoNomadas, setCargandoNomadas] = useState(false);
   const [notificacionesPerfil, setNotificacionesPerfil] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [lugaresGuardados, setLugaresGuardados] = useState([]);
+  const [geometriasRutasViajes, setGeometriasRutasViajes] = useState({}); // { [viajeId]: { coords, legs } }
   const [cargando, setCargando] = useState(true);
+
+  // Filtros y cálculos para Lugares Guardados
+  const lugaresGuardadosFiltrados = useMemo(() => {
+    return (lugaresGuardados || []).filter(lug => {
+      if (!lug) return false;
+      const q = busquedaGuardados.trim().toLowerCase();
+      const matchTexto = !q || (
+        (lug.nombre && lug.nombre.toLowerCase().includes(q)) ||
+        (lug.poblacion && lug.poblacion.toLowerCase().includes(q)) ||
+        (lug.provincia && lug.provincia.toLowerCase().includes(q)) ||
+        (lug.descripcion && lug.descripcion.toLowerCase().includes(q))
+      );
+      if (!matchTexto) return false;
+      if (filtroTipoGuardados === 'todos') return true;
+
+      const tipoVal = String(lug.tipo_lugar || lug.tipo || '').toLowerCase();
+      if (filtroTipoGuardados === 'pernocta_libre') {
+        return tipoVal === 'pernocta_libre' || tipoVal.includes('libre') || tipoVal.includes('pernocta') || !tipoVal;
+      }
+      if (filtroTipoGuardados === 'area_autocaravanas') {
+        return tipoVal === 'area_autocaravanas' || tipoVal.includes('area') || tipoVal.includes('autocaravana');
+      }
+      if (filtroTipoGuardados === 'camping') {
+        return tipoVal === 'camping' || tipoVal.includes('camp');
+      }
+      if (filtroTipoGuardados === 'parking_urbano') {
+        return tipoVal === 'parking_urbano' || tipoVal.includes('park') || tipoVal.includes('urbano');
+      }
+      if (filtroTipoGuardados === 'area_recreativa') {
+        return tipoVal === 'area_recreativa' || tipoVal.includes('recreativa') || tipoVal.includes('merendero');
+      }
+      if (filtroTipoGuardados === 'solo_servicios') {
+        return tipoVal === 'solo_servicios' || tipoVal.includes('servici') || tipoVal.includes('agua');
+      }
+      return tipoVal === filtroTipoGuardados.toLowerCase();
+    });
+  }, [lugaresGuardados, busquedaGuardados, filtroTipoGuardados]);
+
+  // Conteo de medallas por nivel y total
+  const trofeosMadera = resumenNiveles?.madera ?? (Array.isArray(trofeos) ? trofeos.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'madera' && n.desbloqueado) ? 1 : 0), 0) : 0);
+  const trofeosBronce = resumenNiveles?.bronce ?? (Array.isArray(trofeos) ? trofeos.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'bronce' && n.desbloqueado) ? 1 : 0), 0) : 0);
+  const trofeosPlata = resumenNiveles?.plata ?? (Array.isArray(trofeos) ? trofeos.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'plata' && n.desbloqueado) ? 1 : 0), 0) : 0);
+  const trofeosOro = resumenNiveles?.oro ?? (Array.isArray(trofeos) ? trofeos.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'oro' && n.desbloqueado) ? 1 : 0), 0) : 0);
+  const totalMedallas = trofeosMadera + trofeosBronce + trofeosPlata + trofeosOro;
 
   // Estado de viajes expandidos y edición de títulos
   const [viajesExpandidos, setViajesExpandidos] = useState({});
@@ -139,6 +228,11 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [modalRecorteAbierto, setModalRecorteAbierto] = useState(false);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
 
+  // Preferencias de notificaciones por email
+  const [notifEmailComentarios, setNotifEmailComentarios] = useState(true);
+  const [notifEmailReacciones, setNotifEmailReacciones] = useState(true);
+  const [notifEmailTaller, setNotifEmailTaller] = useState(true);
+
   // Estados de autocompletado de dirección
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
   const [buscandoDireccion, setBuscandoDireccion] = useState(false);
@@ -180,6 +274,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             if (res && res.categorias) {
               setTrofeos(res.categorias);
               setPlatinoData(res.platino || null);
+              setResumenNiveles(res.resumen_niveles || null);
             } else if (Array.isArray(res)) {
               setTrofeos(res);
             } else if (res) {
@@ -204,8 +299,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
           .then(res => { if (res) setGrupos(res.results || res || []); })
           .catch(e => console.warn('Grupos no disponibles:', e)),
 
-        // 6. Lista exploradores y notificaciones
-        cargarTodosLosExploradores(),
+        // 6. Notificaciones del perfil
         cargarNotificacionesPerfil()
       ]);
 
@@ -220,7 +314,38 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             mapa.set(item.id, item);
           }
         });
-        setLugaresGuardados(Array.from(mapa.values()));
+        const listaGuardados = Array.from(mapa.values());
+        setLugaresGuardados(listaGuardados);
+
+        // Enriquecer lugares guardados de forma asíncrona sólo si alguno carece de tipo_lugar
+        const faltanTipos = listaGuardados.some(lg => !lg.tipo_lugar);
+        if (faltanTipos && listaGuardados.length > 0) {
+          peticionApi('/api/lugares/lugares/')
+            .then(apiLugares => {
+              const arr = apiLugares?.results || apiLugares || [];
+              if (Array.isArray(arr) && arr.length > 0) {
+                const dictTipos = {};
+                arr.forEach(al => { if (al && al.id) dictTipos[al.id] = al; });
+                let modificado = false;
+                const actualizados = listaGuardados.map(lg => {
+                  if (!lg.tipo_lugar && dictTipos[lg.id]) {
+                    modificado = true;
+                    return { 
+                      ...lg, 
+                      tipo_lugar: dictTipos[lg.id].tipo_lugar, 
+                      tipo_lugar_display: dictTipos[lg.id].tipo_lugar_display || dictTipos[lg.id].tipo_lugar 
+                    };
+                  }
+                  return lg;
+                });
+                if (modificado) {
+                  setLugaresGuardados(actualizados);
+                  localStorage.setItem('camplink_lugares_guardados', JSON.stringify(actualizados));
+                }
+              }
+            })
+            .catch(e => console.warn('Enriquecimiento de lugares guardados:', e));
+        }
       } catch (e) {
         console.warn('Guardados no disponibles:', e);
       }
@@ -237,6 +362,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         setCapacidadDeposito(usuario.capacidad_deposito_l || 60);
         setConsumoMedio(usuario.consumo_medio_l_100km || 8.5);
         setPreviewAvatar(usuario.avatar || null);
+        setNotifEmailComentarios(usuario.notif_email_comentarios !== undefined ? usuario.notif_email_comentarios : true);
+        setNotifEmailReacciones(usuario.notif_email_reacciones !== undefined ? usuario.notif_email_reacciones : true);
+        setNotifEmailTaller(usuario.notif_email_taller !== undefined ? usuario.notif_email_taller : true);
       }
     } catch (err) {
       console.error('Error al inicializar perfil:', err);
@@ -248,6 +376,31 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   useEffect(() => {
     cargarDatos();
   }, [usuario]);
+
+  // Calcular rutas reales por carretera con OSRM para los viajes expandidos (como en el mapa de organizar)
+  useEffect(() => {
+    viajes.forEach(v => {
+      if (viajesExpandidos[v.id] && !geometriasRutasViajes[v.id]) {
+        const paradasValidas = (v.resumen_ruta || []).filter(p => (p.lat != null || p.latitud != null) && (p.lng != null || p.longitud != null));
+        if (paradasValidas.length >= 2) {
+          const coordStr = paradasValidas.map(p => `${p.lng != null ? p.lng : p.longitud},${p.lat != null ? p.lat : p.latitud}`).join(';');
+          fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=true`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.routes && data.routes[0] && data.routes[0].geometry) {
+                const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                const legs = data.routes[0].legs || [];
+                setGeometriasRutasViajes(prev => ({
+                  ...prev,
+                  [v.id]: { coords, legs }
+                }));
+              }
+            })
+            .catch(e => console.warn('Error al calcular ruta OSRM para viaje:', v.id, e));
+        }
+      }
+    });
+  }, [viajes, viajesExpandidos, geometriasRutasViajes]);
 
   // Autocompletado geográfico enriquecido estilo Google Maps y resolución de Código Postal
   const manejarCambioCodigoPostal = async (cp) => {
@@ -357,6 +510,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         body.append('biografia', biografia);
         body.append('capacidad_deposito_l', parseFloat(capacidadDeposito) || 60);
         body.append('consumo_medio_l_100km', parseFloat(consumoMedio) || 8.5);
+        body.append('notif_email_comentarios', notifEmailComentarios);
+        body.append('notif_email_reacciones', notifEmailReacciones);
+        body.append('notif_email_taller', notifEmailTaller);
         body.append('avatar', archivoAvatar);
       } else {
         body = {
@@ -370,6 +526,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
           biografia: biografia,
           capacidad_deposito_l: parseFloat(capacidadDeposito) || 60,
           consumo_medio_l_100km: parseFloat(consumoMedio) || 8.5,
+          notif_email_comentarios: notifEmailComentarios,
+          notif_email_reacciones: notifEmailReacciones,
+          notif_email_taller: notifEmailTaller,
         };
       }
 
@@ -694,7 +853,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
 
             <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
-              {usuario?.poblacion && <span>📍 {usuario.poblacion}</span>}
+              {obtenerProvinciaExplorador(usuario) && <span>📍 {obtenerProvinciaExplorador(usuario)}</span>}
               <span>⛽ {usuario?.capacidad_deposito_l || capacidadDeposito || 60}L ({usuario?.tipo_combustible?.toUpperCase() || 'DIÉSEL'} • ~{autonomiaEstimada} km)</span>
               <span>📅 Miembro desde {new Date(usuario?.date_joined || Date.now()).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}</span>
             </div>
@@ -740,7 +899,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             }}
           >
             <Bell size={15} color={pestañaActiva === 'comunidad' && tabComunidad === 'notificaciones' ? '#FFFFFF' : 'var(--accent-forest)'} /> 
-            <span>Centro de Notificaciones {notificacionesPerfil.length > 0 && `(${notificacionesPerfil.length})`}</span>
+            <span>Notificaciones {notificacionesPerfil.length > 0 && `(${notificacionesPerfil.length})`}</span>
           </button>
 
           {/* CHIP TUTORIAL DE INICIO (MISMO ESTILO QUE CENTRO DE NOTIFICACIONES) */}
@@ -845,9 +1004,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             gap: '6px'
           }}
         >
-          <Users size={17} /> Compañeros y Grupos
+          <Shield size={17} /> Grupos y Compañeros
           <span className="badge-camper badge-earth" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
-            {companeros.length}
+            {grupos.length + companeros.length}
           </span>
         </button>
 
@@ -889,9 +1048,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             gap: '6px'
           }}
         >
-          <Award size={17} /> Vitrina de Trofeos
+          <Award size={17} /> Vitrina de Logros
           <span className="badge-camper badge-gold" style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
-            {(Array.isArray(trofeos) ? trofeos : []).filter(c => c.es_oro_completado).length} / 16 Oros
+            {totalMedallas}
           </span>
         </button>
       </div>
@@ -941,8 +1100,27 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 const expandido = !!viajesExpandidos[viaje.id];
                 const esPasado = viaje.fecha_fin ? new Date(viaje.fecha_fin) < new Date() : false;
                 const paradas = viaje.resumen_ruta || [];
-                const puntosMapa = paradas.map(p => [p.lat, p.lng]).filter(coords => coords[0] && coords[1]);
+                const puntosMapa = paradas.map(p => [
+                  p.lat != null ? p.lat : p.latitud,
+                  p.lng != null ? p.lng : p.longitud
+                ]).filter(coords => coords[0] != null && coords[1] != null);
                 const centroMiniMapa = puntosMapa.length > 0 ? puntosMapa[0] : [40.4168, -3.7038];
+
+                const kmCalculadosFallback = () => {
+                  if (!puntosMapa || puntosMapa.length < 2) return 0;
+                  let d = 0;
+                  for (let i = 0; i < puntosMapa.length - 1; i++) {
+                    const [lat1, lon1] = puntosMapa[i];
+                    const [lat2, lon2] = puntosMapa[i + 1];
+                    const R = 6371;
+                    const dLat = (lat2 - lat1) * Math.PI / 180;
+                    const dLon = (lon2 - lon1) * Math.PI / 180;
+                    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                    d += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.25;
+                  }
+                  return Math.round(d * 10) / 10;
+                };
+                const kmViaje = (viaje.km_totales && viaje.km_totales > 0) ? viaje.km_totales : kmCalculadosFallback();
 
                 // Parada de repostaje seleccionada o recomendada
                 const paradaRepostajeManual = repostajesManuales[viaje.id];
@@ -989,7 +1167,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                           📅 {formatearFecha(viaje.fecha_inicio)} 
                           {viaje.fecha_fin && ` al ${formatearFecha(viaje.fecha_fin)}`} 
-                          {' • '} <strong style={{ color: 'var(--accent-forest)' }}>{viaje.km_totales} km</strong>
+                          {' • '} <strong style={{ color: 'var(--accent-forest)' }}>{kmViaje} km</strong>
                           {esPasado && <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>(Viaje pasado)</span>}
                         </div>
                       </div>
@@ -1014,12 +1192,51 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                       </div>
                     </div>
 
+                    {/* Poblaciones de las paradas cuando los detalles están cerrados: ocupa todo el ancho de la tarjeta */}
+                    {!expandido && paradas.length > 0 && (() => {
+                      const poblaciones = paradas.map(p => p.poblacion || (p.nombre ? p.nombre.replace(/^(Salida|Vuelta):\s*/i, '') : '')).filter(Boolean);
+                      if (poblaciones.length === 0) return null;
+                      return (
+                        <div style={{
+                          width: '100%',
+                          marginTop: '12px',
+                          paddingTop: '12px',
+                          borderTop: '1px dashed var(--border-color)',
+                          fontSize: '0.84rem',
+                          color: 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
+                            {poblaciones.map((pob, pIdx) => (
+                              <React.Fragment key={pIdx}>
+                                <span style={{
+                                  background: 'rgba(255, 255, 255, 0.04)',
+                                  padding: '3px 10px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-color)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600
+                                }}>
+                                  {pob}
+                                </span>
+                                {pIdx < poblaciones.length - 1 && <span style={{ color: 'var(--accent-forest)', fontSize: '0.78rem' }}>➔</span>}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* VISTA DETALLADA EXPANDIDA CON MAPA E ITINERARIO */}
                     {expandido && (
                       <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
-                        {/* Mini Mapa de la Ruta Trazada */}
+                        {/* Mini Mapa de la Ruta Trazada (Ruta real por carretera como en el mapa de organizar) */}
                         {puntosMapa.length > 0 && (
-                          <div style={{ height: '220px', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ height: '230px', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
                             <MapContainer
                               center={centroMiniMapa}
                               zoom={puntosMapa.length === 1 ? 11 : 7}
@@ -1031,21 +1248,57 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                               />
                               {puntosMapa.length > 1 && (
-                                <Polyline positions={puntosMapa} color="var(--accent-forest)" weight={4} dashArray="6, 8" />
+                                <Polyline 
+                                  positions={geometriasRutasViajes[viaje.id]?.coords || puntosMapa} 
+                                  color="var(--accent-forest)" 
+                                  weight={5} 
+                                  opacity={0.85}
+                                />
                               )}
-                              {paradas.map((p, idx) => (
-                                <Marker key={idx} position={[p.lat, p.lng]} icon={miniIconoCamper}>
-                                  <Popup>
-                                    <strong>{idx + 1}. {p.nombre}</strong><br />
-                                    {p.poblacion}
-                                  </Popup>
-                                </Marker>
-                              ))}
+                              {(() => {
+                                let contadorParadasMapa = 0;
+                                return paradas.map((p, idx) => {
+                                  const esSalidaPto = p.tipo === 'base_salida' || (idx === 0 && (p.es_base || p.nombre?.toLowerCase().startsWith('salida') || !p.lugar_id));
+                                  const esVueltaPto = p.tipo === 'base_vuelta' || (idx === paradas.length - 1 && paradas.length > 1 && (p.es_base || p.nombre?.toLowerCase().startsWith('vuelta')));
+                                  if (!esSalidaPto && !esVueltaPto) {
+                                    contadorParadasMapa += 1;
+                                  }
+                                  const tituloPunto = esSalidaPto
+                                    ? `🚩 Salida: ${p.nombre?.replace(/^Salida:\s*/i, '') || p.poblacion || 'Punto de partida'}`
+                                    : esVueltaPto
+                                    ? `🏁 Vuelta: ${p.nombre?.replace(/^Vuelta:\s*/i, '') || p.poblacion || 'Fin de ruta'}`
+                                    : `${contadorParadasMapa}. ${p.nombre}`;
+
+                                  return (
+                                    <Marker 
+                                      key={idx} 
+                                      position={[p.lat != null ? p.lat : p.latitud, p.lng != null ? p.lng : p.longitud]} 
+                                      icon={miniIconoCamper}
+                                    >
+                                      <Popup>
+                                        <strong>{tituloPunto}</strong><br />
+                                        {p.poblacion}
+                                        {!esSalidaPto && (p.lugar_id || (typeof p.id === 'number' && p.id < 100000)) && alSeleccionarLugar && (
+                                          <div style={{ marginTop: '6px' }}>
+                                            <button 
+                                              className="btn btn-primary btn-sm" 
+                                              style={{ fontSize: '0.72rem', padding: '2px 8px' }}
+                                              onClick={() => alSeleccionarLugar(p.lugar_id || p.id)}
+                                            >
+                                              Ver Ficha
+                                            </button>
+                                          </div>
+                                        )}
+                                      </Popup>
+                                    </Marker>
+                                  );
+                                });
+                              })()}
                             </MapContainer>
                           </div>
                         )}
 
-                        {/* Itinerario con Avisos de Repostaje Inteligentes */}
+                        {/* Itinerario de Paradas */}
                         <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase' }}>
                           Itinerario de Paradas:
                         </div>
@@ -1055,92 +1308,126 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {(() => {
-                              const repostajesViaje = Array.isArray(repostajesManuales[viaje.id]) 
-                                ? repostajesManuales[viaje.id] 
-                                : (repostajesManuales[viaje.id] !== undefined ? [repostajesManuales[viaje.id]] : []);
-
-                              let kmAcumulados = 0;
-                              const distTramo = paradas.length > 1 ? (viaje.km_totales / (paradas.length - 1)) : 0;
+                              const rutaGeo = geometriasRutasViajes[viaje.id];
+                              const checkinsViaje = viaje.checkins_resumen || [];
+                              const distTramo = paradas.length > 1 ? (kmViaje / (paradas.length - 1)) : 0;
+                              let contadorParadas = 0;
 
                               return paradas.map((p, idx) => {
-                                if (idx > 0) kmAcumulados += distTramo;
-                                const esRepostadoAqui = repostajesViaje.includes(idx) || p.es_repostaje || p.tipo === 'gasolinera';
-                                if (esRepostadoAqui) kmAcumulados = 0;
+                                const chCorrespondiente = checkinsViaje[idx] || checkinsViaje.find(ch => ch.lugar_id === (p.lugar_id || p.id));
+                                const lugarId = p.lugar_id || chCorrespondiente?.lugar_id || (typeof p.id === 'number' && p.id < 100000 ? p.id : null);
 
-                                const tocaAvisoAqui = !esPasado && kmAcumulados >= (autonomiaEstimada * 0.75) && idx < paradas.length - 1;
+                                const esSalida = p.tipo === 'base_salida' || (idx === 0 && (p.es_base || p.nombre?.toLowerCase().startsWith('salida') || !lugarId));
+                                const esVuelta = p.tipo === 'base_vuelta' || (idx === paradas.length - 1 && paradas.length > 1 && (p.es_base || p.nombre?.toLowerCase().startsWith('vuelta')));
+
+                                if (!esSalida && !esVuelta) {
+                                  contadorParadas += 1;
+                                }
+
+                                // Fecha en la que nos quedamos
+                                let fechaTexto = null;
+                                if (p.fecha_llegada) {
+                                  fechaTexto = formatearFecha(p.fecha_llegada);
+                                } else if (p.fecha) {
+                                  fechaTexto = formatearFecha(p.fecha);
+                                } else if (chCorrespondiente && chCorrespondiente.fecha_llegada) {
+                                  fechaTexto = formatearFecha(chCorrespondiente.fecha_llegada);
+                                } else if (viaje.fecha_inicio) {
+                                  try {
+                                    const d = new Date(viaje.fecha_inicio);
+                                    d.setDate(d.getDate() + idx);
+                                    fechaTexto = formatearFecha(d.toISOString().split('T')[0]);
+                                  } catch (e) {}
+                                }
+
+                                // Suma de kilómetros acumulados
+                                let kmAcumuladosParada = 0;
+                                if (idx > 0) {
+                                  if (rutaGeo && rutaGeo.legs && rutaGeo.legs.length > 0) {
+                                    kmAcumuladosParada = Math.round(
+                                      rutaGeo.legs.slice(0, idx).reduce((sum, leg) => sum + ((leg.distance || 0) / 1000), 0)
+                                    );
+                                  } else {
+                                    kmAcumuladosParada = Math.round(distTramo * idx);
+                                  }
+                                }
+
+                                const permiteVerFicha = !esSalida && lugarId && alSeleccionarLugar;
+                                const nombreLimpio = p.nombre ? p.nombre.replace(/^(Salida|Vuelta):\s*/i, '') : (p.poblacion || 'Parada');
 
                                 return (
-                                  <React.Fragment key={idx}>
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        padding: '10px 14px',
-                                        background: 'var(--bg-primary)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: '0.86rem',
-                                        flexWrap: 'wrap',
-                                        gap: '8px'
-                                      }}
-                                    >
-                                      <div>
-                                        <strong>{idx + 1}. {p.nombre}</strong>
-                                        {p.poblacion && <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({p.poblacion})</span>}
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginLeft: '8px' }}>
-                                          [{p.lat != null ? Number(p.lat).toFixed(3) : ''}, {p.lng != null ? Number(p.lng).toFixed(3) : ''}]
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      padding: '12px 16px',
+                                      background: esSalida || esVuelta ? 'rgba(255, 255, 255, 0.02)' : 'var(--bg-primary)',
+                                      borderRadius: 'var(--radius-sm)',
+                                      fontSize: '0.88rem',
+                                      flexWrap: 'wrap',
+                                      gap: '8px',
+                                      border: esSalida ? '1px solid rgba(56, 161, 105, 0.3)' : esVuelta ? '1px solid rgba(237, 137, 54, 0.3)' : '1px solid var(--border-color)'
+                                    }}
+                                  >
+                                    <div>
+                                      {esSalida ? (
+                                        <span style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--accent-forest)' }}>
+                                          🚩 Salida: {nombreLimpio}
                                         </span>
-                                      </div>
+                                      ) : esVuelta ? (
+                                        <span style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--accent-earth)' }}>
+                                          🏁 Vuelta: {nombreLimpio}
+                                        </span>
+                                      ) : (
+                                        <span
+                                          onClick={() => {
+                                            if (permiteVerFicha) {
+                                              alSeleccionarLugar(lugarId);
+                                            }
+                                          }}
+                                          style={{
+                                            fontWeight: 700,
+                                            fontSize: '0.96rem',
+                                            color: permiteVerFicha ? 'var(--accent-forest)' : 'var(--text-primary)',
+                                            cursor: permiteVerFicha ? 'pointer' : 'default',
+                                            textDecoration: permiteVerFicha ? 'underline' : 'none'
+                                          }}
+                                          title={permiteVerFicha ? `Ver ficha de ${p.nombre}` : undefined}
+                                        >
+                                          {contadorParadas}. {p.nombre}
+                                        </span>
+                                      )}
 
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        {!esPasado && (
-                                          <button
-                                            className={`btn ${esRepostadoAqui ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                                            style={{ padding: '2px 8px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            onClick={() => marcarRepostajeEnParada(viaje.id, idx)}
-                                            title="Indicar que has repostado en este punto para reiniciar el cálculo de autonomía"
-                                          >
-                                            <Fuel size={12} /> {esRepostadoAqui ? 'Repostado aquí ✔' : 'Marcar repostaje'}
-                                          </button>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>
+                                        {p.poblacion && (
+                                          <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                                            📍 {p.poblacion} {p.provincia ? `(${p.provincia})` : ''}
+                                          </span>
                                         )}
-
-
+                                        {fechaTexto && (
+                                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                            📅 {fechaTexto}
+                                          </span>
+                                        )}
+                                        <span style={{ fontSize: '0.8rem', color: 'var(--accent-forest)', fontWeight: 600 }}>
+                                          • 🚗 {idx === 0 ? '0 km (Salida)' : `${kmAcumuladosParada} km acumulados`}
+                                        </span>
                                       </div>
                                     </div>
 
-                                    {/* AVISO DE COMBUSTIBLE SITUADO DEBAJO DE LA PARADA RECOMENDADA (SOLO EN VIAJES FUTUROS/EN CURSO) */}
-                                    {tocaAvisoAqui && (
-                                      <div
-                                        style={{
-                                          background: 'rgba(217, 119, 6, 0.12)',
-                                          borderLeft: '4px solid #D97706',
-                                          padding: '10px 14px',
-                                          borderRadius: 'var(--radius-sm)',
-                                          fontSize: '0.82rem',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          gap: '10px',
-                                          color: 'var(--text-secondary)'
-                                        }}
+                                    {permiteVerFicha && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        onClick={() => alSeleccionarLugar(lugarId)}
                                       >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                          <Fuel size={18} color="#F59E0B" />
-                                          <span>
-                                            <strong>Parada recomendada para repostar:</strong> Llevas ~{Math.round(kmAcumulados)} km desde la salida/último repostaje (Autonomía estimada: ~{autonomiaEstimada} km). Conviene repostar antes del siguiente tramo.
-                                          </span>
-                                        </div>
-
-                                        <button
-                                          className="btn btn-secondary btn-sm"
-                                          style={{ fontSize: '0.72rem', padding: '3px 8px', whiteSpace: 'nowrap' }}
-                                          onClick={() => marcarRepostajeEnParada(viaje.id, idx + 1)}
-                                        >
-                                          Mover al siguiente punto ➡
-                                        </button>
-                                      </div>
+                                        Ver Ficha ↗
+                                      </button>
                                     )}
-                                  </React.Fragment>
+                                  </div>
                                 );
                               });
                             })()}
@@ -1278,8 +1565,16 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
           )}
 
-          {/* Subnavegación de Comunidad: Seguidores | Siguiendo | Descubrir Nómadas | Grupos | Notificaciones */}
+          {/* Subnavegación de Comunidad: Grupos | Seguidores | Siguiendo | Descubrir Nómadas */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${tabComunidad === 'grupos' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTabComunidad('grupos')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
+            >
+              <Shield size={16} /> Grupos ({grupos.length})
+            </button>
             <button
               type="button"
               className={`btn btn-sm ${tabComunidad === 'seguidores' ? 'btn-primary' : 'btn-secondary'}`}
@@ -1304,15 +1599,6 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             >
               <Search size={16} /> Descubrir Nómadas ({todosLosExploradores.length})
             </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${tabComunidad === 'grupos' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setTabComunidad('grupos')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
-            >
-              <Shield size={16} /> Grupos ({grupos.length})
-            </button>
-
           </div>
 
           {/* SECCIÓN 1: EXPLORADORES QUE TE SIGUEN (SEGUIDORES) */}
@@ -1388,7 +1674,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                               {comp.username}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {comp.poblacion ? `• ${comp.poblacion}` : ''}
+                              {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {obtenerProvinciaExplorador(comp) ? `• 📍 ${obtenerProvinciaExplorador(comp)}` : ''}
                             </div>
                           </div>
                         </div>
@@ -1492,7 +1778,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                             {comp.username}
                           </div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {comp.poblacion ? `• ${comp.poblacion}` : ''}
+                            {comp.tipo_viajero_display || comp.tipo_viajero || 'Explorador'} {obtenerProvinciaExplorador(comp) ? `• 📍 ${obtenerProvinciaExplorador(comp)}` : ''}
                           </div>
                         </div>
                       </div>
@@ -1611,7 +1897,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                               {nomada.username}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {nomada.tipo_viajero_display || nomada.tipo_viajero || 'Explorador Nómada'} {nomada.poblacion ? `• ${nomada.poblacion}` : ''}
+                              {nomada.tipo_viajero_display || nomada.tipo_viajero || 'Explorador Nómada'} {obtenerProvinciaExplorador(nomada) ? `• 📍 ${obtenerProvinciaExplorador(nomada)}` : ''}
                             </div>
                           </div>
                         </div>
@@ -1707,9 +1993,9 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                                 gap: '4px',
                                 marginBottom: '2px'
                               }}
-                              title={`Ver perfil de ${notif.usuario_origen_nombre}`}
+                              title={`Ver perfil de ${formatearUsuario(notif.usuario_origen_nombre)}`}
                             >
-                              <User size={13} /> @{notif.usuario_origen_nombre}
+                              <User size={13} /> @{formatearUsuario(notif.usuario_origen_nombre)}
                             </button>
                           )}
                           <div style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
@@ -1869,6 +2155,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                             {g.miembros_detalle.map((m) => (
                               <span
                                 key={m.id}
+                                onClick={() => alVerPerfilUsuario && alVerPerfilUsuario(m.id)}
                                 style={{
                                   fontSize: '0.74rem',
                                   padding: '2px 8px',
@@ -1876,10 +2163,12 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                                   background: 'rgba(255, 255, 255, 0.05)',
                                   border: '1px solid var(--border-color)',
                                   color: 'var(--text-primary)',
-                                  fontWeight: 600
+                                  fontWeight: 600,
+                                  cursor: alVerPerfilUsuario ? 'pointer' : 'default'
                                 }}
+                                title={`Ver perfil de ${formatearUsuario(m.username)}`}
                               >
-                                @{m.username}
+                                @{formatearUsuario(m.username)}
                               </span>
                             ))}
                           </div>
@@ -1927,22 +2216,88 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         </div>
       )}
 
-      {/* PESTAÑA 3: LUGARES GUARDADOS E INSPIRACIÓN (SINCRONIZADO CON DIARIO Y FICHA) */}
+      {/* PESTAÑA 3: LUGARES GUARDADOS (SINCRONIZADO CON DIARIO Y FICHA) */}
       {pestañaActiva === 'guardados' && (
         <div className="camper-card" style={{ padding: '26px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bookmark size={18} color="var(--accent-forest)" /> Lugares Guardados e Inspiración
+                <Bookmark size={18} color="var(--accent-forest)" /> Lugares Guardados
               </h3>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                Lugares marcados con 🌲 Guardado para ir en el Diario de Ruta y guardados desde las fichas.
-              </p>
             </div>
             <span className="badge-camper badge-forest">
-              {lugaresGuardados.length} Guardados
+              {lugaresGuardadosFiltrados.length} {lugaresGuardadosFiltrados.length === 1 ? 'Lugar' : 'Lugares'}
             </span>
           </div>
+
+          {/* Barra de Búsqueda y Filtro de Tipo de Lugar */}
+          {lugaresGuardados.length > 0 && (
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ paddingLeft: '36px' }}
+                  placeholder="Buscar por nombre, población, provincia o descripción..."
+                  value={busquedaGuardados}
+                  onChange={(e) => setBusquedaGuardados(e.target.value)}
+                />
+              </div>
+
+              <select
+                className="form-control"
+                style={{ width: 'auto', minWidth: '200px' }}
+                value={filtroTipoGuardados}
+                onChange={(e) => setFiltroTipoGuardados(e.target.value)}
+              >
+                <option value="todos">Todos los tipos ({lugaresGuardados.length})</option>
+                {TIPOS_LUGAR_OPCIONES.map((opcion) => {
+                  const cant = lugaresGuardados.filter(l => {
+                    const tipoVal = String(l?.tipo_lugar || l?.tipo || '').toLowerCase();
+                    if (opcion.id === 'pernocta_libre') {
+                      return tipoVal === 'pernocta_libre' || tipoVal.includes('libre') || tipoVal.includes('pernocta') || !tipoVal;
+                    }
+                    if (opcion.id === 'area_autocaravanas') {
+                      return tipoVal === 'area_autocaravanas' || tipoVal.includes('area') || tipoVal.includes('autocaravana');
+                    }
+                    if (opcion.id === 'camping') {
+                      return tipoVal === 'camping' || tipoVal.includes('camp');
+                    }
+                    if (opcion.id === 'parking_urbano') {
+                      return tipoVal === 'parking_urbano' || tipoVal.includes('park') || tipoVal.includes('urbano');
+                    }
+                    if (opcion.id === 'area_recreativa') {
+                      return tipoVal === 'area_recreativa' || tipoVal.includes('recreativa') || tipoVal.includes('merendero');
+                    }
+                    if (opcion.id === 'solo_servicios') {
+                      return tipoVal === 'solo_servicios' || tipoVal.includes('servici') || tipoVal.includes('agua');
+                    }
+                    return tipoVal === opcion.id;
+                  }).length;
+                  return (
+                    <option key={opcion.id} value={opcion.id}>
+                      {opcion.label} ({cant})
+                    </option>
+                  );
+                })}
+              </select>
+
+              {(busquedaGuardados || filtroTipoGuardados !== 'todos') && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setBusquedaGuardados('');
+                    setFiltroTipoGuardados('todos');
+                  }}
+                  style={{ fontSize: '0.8rem', padding: '7px 12px' }}
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
 
           {lugaresGuardados.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
@@ -1951,9 +2306,26 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 Aún no tienes lugares guardados. Pulsa <strong>"🌲 Guardado para ir"</strong> en las publicaciones del Diario de Ruta o <strong>"Guardar Lugar (Para ir)"</strong> en cualquier ficha para tenerlos siempre a mano.
               </p>
             </div>
+          ) : lugaresGuardadosFiltrados.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted)' }}>
+              <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                No se han encontrado lugares guardados que coincidan con los filtros aplicados.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setBusquedaGuardados('');
+                  setFiltroTipoGuardados('todos');
+                }}
+                style={{ marginTop: '12px', fontSize: '0.8rem' }}
+              >
+                Restablecer búsqueda
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-              {lugaresGuardados.map((lug) => (
+              {lugaresGuardadosFiltrados.map((lug) => (
                 <div
                   key={lug.id}
                   style={{
@@ -2024,18 +2396,68 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
       {pestañaActiva === 'trofeos' && (
         <div className="camper-card" style={{ padding: '28px' }}>
           {/* Cabecera de Vitrina */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h2 style={{ fontSize: '1.35rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award size={22} color="var(--accent-gold)" /> Vitrina de Logros Nómadas
-              </h2>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                16 categorías temáticas. Avanza de Madera a Oro para conquistar el Trofeo Platino.
-              </p>
+          <div style={{ marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '1.35rem', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Award size={22} color="var(--accent-gold)" /> Vitrina de Logros de explorador
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                background: 'rgba(210, 144, 84, 0.15)',
+                color: '#D29054',
+                border: '1px solid rgba(210, 144, 84, 0.4)'
+              }}>
+                🪵 {trofeosMadera} de Madera
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                background: 'rgba(205, 127, 50, 0.15)',
+                color: '#E09248',
+                border: '1px solid rgba(205, 127, 50, 0.4)'
+              }}>
+                🥉 {trofeosBronce} de Bronce
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                background: 'rgba(192, 192, 192, 0.15)',
+                color: '#E2E8F0',
+                border: '1px solid rgba(192, 192, 192, 0.4)'
+              }}>
+                🥈 {trofeosPlata} de Plata
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                background: 'rgba(242, 169, 0, 0.15)',
+                color: '#F2A900',
+                border: '1px solid rgba(242, 169, 0, 0.4)'
+              }}>
+                🏆 {trofeosOro} de Oro
+              </span>
             </div>
-            <span className="badge-camper badge-gold">
-              {(Array.isArray(trofeos) ? trofeos : []).filter(c => c.es_oro_completado).length} de 16 Oros Completados
-            </span>
           </div>
 
           {/* Panel Destacado Platino */}
@@ -2073,7 +2495,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                       {platinoData.nombre}
                     </h3>
                     <span className="badge-camper" style={{ fontSize: '0.7rem' }}>
-                      {platinoData.desbloqueado ? 'CONSEGUIDO' : 'TROFEO PLATINO'}
+                      {platinoData.desbloqueado ? 'CONSEGUIDO' : 'MEDALLA PLATINO'}
                     </span>
                   </div>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '3px 0 8px' }}>
@@ -2664,6 +3086,64 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 )}
               </div>
 
+              {/* SECCIÓN NOTIFICACIONES POR CORREO */}
+              <div style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '16px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Mail size={18} color="var(--accent-forest)" />
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Notificaciones por Correo Electrónico</span>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                  Elige qué avisos deseas recibir en tu dirección de correo electrónico ({usuario?.email || 'registrado'}).
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Comentarios y respuestas</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cuando otros exploradores comenten tus publicaciones o te respondan</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifEmailComentarios}
+                      onChange={e => setNotifEmailComentarios(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Reacciones y valoraciones</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cuando otros exploradores reaccionen a tus bricos, fotos o rutas</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifEmailReacciones}
+                      onChange={e => setNotifEmailReacciones(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Taller: Aprobación de publicaciones</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cuando un administrador revise y apruebe tu publicación para toda la comunidad</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifEmailTaller}
+                      onChange={e => setNotifEmailTaller(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button
                   type="button"
@@ -2740,7 +3220,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                           onChange={() => alternarMiembroSeleccionado(comp.id)}
                         />
                         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{comp.username}</span>
-                        {comp.poblacion && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>({comp.poblacion})</span>}
+                        {obtenerProvinciaExplorador(comp) && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>(📍 {obtenerProvinciaExplorador(comp)})</span>}
                       </div>
 
                       <span style={{ fontSize: '0.78rem', color: 'var(--accent-forest)' }}>

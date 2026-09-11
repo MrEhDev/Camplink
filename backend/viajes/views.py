@@ -226,9 +226,26 @@ class ViajeViewSet(viewsets.ModelViewSet):
                     ch.save()
             recalcular_viaje(viaje)
         elif isinstance(nuevo_orden[0], dict):
+            for p in nuevo_orden:
+                lat_val = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+                lng_val = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+                if lat_val is not None:
+                    p['lat'] = float(lat_val)
+                    p['latitud'] = float(lat_val)
+                if lng_val is not None:
+                    p['lng'] = float(lng_val)
+                    p['longitud'] = float(lng_val)
             viaje.resumen_ruta = nuevo_orden
             from viajes.services import calcular_distancia_carretera
-            coords = [(p['lat'], p['lng']) for p in nuevo_orden if 'lat' in p and 'lng' in p]
+            coords = []
+            for p in nuevo_orden:
+                lat = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+                lng = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+                if lat is not None and lng is not None:
+                    try:
+                        coords.append((float(lat), float(lng)))
+                    except (ValueError, TypeError):
+                        pass
             viaje.km_totales = calcular_distancia_carretera(coords)
             viaje.save()
 
@@ -286,9 +303,26 @@ class ViajeViewSet(viewsets.ModelViewSet):
             else:
                 ruta.append(nueva_parada)
 
+        for p in ruta:
+            lat_val = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+            lng_val = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+            if lat_val is not None:
+                p['lat'] = float(lat_val)
+                p['latitud'] = float(lat_val)
+            if lng_val is not None:
+                p['lng'] = float(lng_val)
+                p['longitud'] = float(lng_val)
         viaje.resumen_ruta = ruta
         from viajes.services import calcular_distancia_carretera
-        coords = [(p['lat'], p['lng']) for p in ruta if 'lat' in p and 'lng' in p]
+        coords = []
+        for p in ruta:
+            lat = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+            lng = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+            if lat is not None and lng is not None:
+                try:
+                    coords.append((float(lat), float(lng)))
+                except (ValueError, TypeError):
+                    pass
         viaje.km_totales = calcular_distancia_carretera(coords)
         viaje.save()
 
@@ -346,9 +380,26 @@ class ViajeViewSet(viewsets.ModelViewSet):
         ruta = list(viaje.resumen_ruta or [])
         if indice is not None and 0 <= int(indice) < len(ruta):
             ruta.pop(int(indice))
+            for p in ruta:
+                lat_val = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+                lng_val = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+                if lat_val is not None:
+                    p['lat'] = float(lat_val)
+                    p['latitud'] = float(lat_val)
+                if lng_val is not None:
+                    p['lng'] = float(lng_val)
+                    p['longitud'] = float(lng_val)
             viaje.resumen_ruta = ruta
             from viajes.services import calcular_distancia_carretera
-            coords = [(p['lat'], p['lng']) for p in ruta if 'lat' in p and 'lng' in p]
+            coords = []
+            for p in ruta:
+                lat = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+                lng = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+                if lat is not None and lng is not None:
+                    try:
+                        coords.append((float(lat), float(lng)))
+                    except (ValueError, TypeError):
+                        pass
             viaje.km_totales = calcular_distancia_carretera(coords)
             viaje.save()
         else:
@@ -368,7 +419,13 @@ def mis_estadisticas_vista(request):
     explorador = request.user
     verificar_y_desbloquear_trofeos(explorador)
 
-    viajes_usuario = explorador.viajes.all()
+    viajes_usuario = list(explorador.viajes.all())
+    from .services import recalcular_viaje
+    for v in viajes_usuario:
+        if (v.km_totales is None or v.km_totales <= 0) and (v.checkins_asociados.exists() or len(v.resumen_ruta or []) >= 2):
+            recalcular_viaje(v)
+            v.refresh_from_db()
+
     checkins_usuario = explorador.checkins.all()
     lugares_creados = Lugar.objects.filter(creador=explorador).count()
 
@@ -412,7 +469,7 @@ def mis_estadisticas_vista(request):
             'total_publicaciones_diario': metricas.get('pluma_bitacora', 0),
             'total_valoraciones': metricas.get('el_critico', 0),
             'total_fotos': metricas.get('ojo_halcon', 0),
-            'total_viajes': viajes_usuario.count(),
+            'total_viajes': len(viajes_usuario),
             'total_comunidades': len(comunidades),
             'comunidades_lista': sorted(list(comunidades)),
             'total_paises': len(paises),
@@ -529,9 +586,17 @@ def vitrina_trofeos_vista(request):
         'fecha_desbloqueo': desbloqueados_fechas.get('platino_nomada')
     }
 
+    resumen_niveles = {
+        'madera': sum(1 for c in categorias_resultado for n in c.get('niveles', []) if n['nivel'] == 'madera' and n.get('desbloqueado')),
+        'bronce': sum(1 for c in categorias_resultado for n in c.get('niveles', []) if n['nivel'] == 'bronce' and n.get('desbloqueado')),
+        'plata': sum(1 for c in categorias_resultado for n in c.get('niveles', []) if n['nivel'] == 'plata' and n.get('desbloqueado')),
+        'oro': sum(1 for c in categorias_resultado for n in c.get('niveles', []) if n['nivel'] == 'oro' and n.get('desbloqueado')),
+    }
+
     return Response({
         'categorias': categorias_resultado,
         'platino': platino_info,
+        'resumen_niveles': resumen_niveles,
         'total_categorias': 16,
         'total_desbloqueados': len(desbloqueados_codigos),
         'porcentaje_global': round((len(desbloqueados_codigos) / 65.0) * 100, 1)

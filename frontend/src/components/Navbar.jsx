@@ -146,17 +146,48 @@ export default function Navbar({
         return;
       }
     }
-    if (notif.enlace?.includes('/diario') || notif.tipo === 'comentario' || notif.tipo === 'reaccion') {
-      if (notif.enlace && notif.enlace.includes('?')) {
-        const query = notif.enlace.substring(notif.enlace.indexOf('?'));
-        window.history.pushState({}, '', '/diario' + query);
+    // 1. Taller Camplink (por enlace, tipo o palabras clave brico/taller)
+    const tituloLower = (notif.titulo || '').toLowerCase();
+    const mensajeLower = (notif.mensaje || '').toLowerCase();
+    const esDeTaller = notif.enlace?.includes('/taller') ||
+                       notif.tipo === 'taller' ||
+                       notif.tipo === 'moderacion_taller' ||
+                       tituloLower.includes('brico') ||
+                       tituloLower.includes('taller') ||
+                       mensajeLower.includes('taller');
+
+    if (esDeTaller) {
+      let targetUrl = notif.enlace;
+      if (!targetUrl || !targetUrl.includes('/taller')) {
+        targetUrl = '/taller';
       }
-      setVistaActiva('diario');
+      window.history.pushState({}, '', targetUrl);
+      setVistaActiva('taller');
+      window.dispatchEvent(new Event('popstate'));
       return;
     }
-    if (notif.tipo === 'trofeo') {
-      setVistaActiva('perfil');
+
+    // 2. Diario de Ruta (enlace a /diario o comentario/reacción general)
+    if (notif.enlace?.includes('/diario') || notif.tipo === 'comentario' || notif.tipo === 'reaccion' || tituloLower.includes('vivencia') || tituloLower.includes('diario')) {
+      const targetUrl = notif.enlace || '/diario';
+      window.history.pushState({}, '', targetUrl);
+      setVistaActiva('diario');
+      window.dispatchEvent(new Event('popstate'));
       return;
+    }
+
+    // 3. Perfil / Trofeo
+    if (notif.tipo === 'trofeo' || notif.enlace?.includes('/perfil')) {
+      window.history.pushState({}, '', '/perfil');
+      setVistaActiva('perfil');
+      window.dispatchEvent(new Event('popstate'));
+      return;
+    }
+
+    // 4. Enlace genérico
+    if (notif.enlace) {
+      window.history.pushState({}, '', notif.enlace);
+      window.dispatchEvent(new Event('popstate'));
     }
   };
 
@@ -255,17 +286,7 @@ export default function Navbar({
                 </li>
                 <li>
                   <button 
-                    className={`nav-link ${vistaActiva === 'guia' ? 'active' : ''}`}
-                    onClick={() => navegar('guia')}
-                    style={{ height: '38px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <BookOpen size={16} />
-                    <span>{t('nav_guia')}</span>
-                  </button>
-                </li>
-                <li>
-                  <button 
-                    className={`nav-link ${vistaActiva === 'taller' ? 'active' : ''}`}
+                    className={`nav-link ${vistaActiva === 'taller' || vistaActiva === 'taller_crear' || vistaActiva === 'guia' ? 'active' : ''}`}
                     onClick={() => navegar('taller')}
                     style={{ height: '38px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
@@ -577,7 +598,7 @@ export default function Navbar({
                 }}
               >
                 <PlusCircle size={14} />
-                <span style={{ fontSize: '0.8rem' }}>Añadir</span>
+                <span style={{ fontSize: '0.8rem' }}>Lugar</span>
               </button>
             )}
 
@@ -701,16 +722,7 @@ export default function Navbar({
                   </li>
                   <li>
                     <button 
-                      className={`nav-link ${vistaActiva === 'guia' ? 'active' : ''}`}
-                      onClick={() => navegar('guia')}
-                      style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', borderRadius: 'var(--radius-sm)' }}
-                    >
-                      <BookOpen size={17} /> <span>{t('nav_guia')}</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      className={`nav-link ${vistaActiva === 'taller' ? 'active' : ''}`}
+                      className={`nav-link ${vistaActiva === 'taller' || vistaActiva === 'taller_crear' || vistaActiva === 'guia' ? 'active' : ''}`}
                       onClick={() => navegar('taller')}
                       style={{ width: '100%', height: '40px', display: 'flex', alignItems: 'center', gap: '10px', padding: '0 14px', borderRadius: 'var(--radius-sm)' }}
                     >

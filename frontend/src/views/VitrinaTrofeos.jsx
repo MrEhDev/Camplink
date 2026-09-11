@@ -109,15 +109,76 @@ export default function VitrinaTrofeos() {
     return true;
   });
 
+  const resumenNiveles = datosTrofeos?.resumen_niveles || null;
+  const trofeosMadera = resumenNiveles?.madera ?? categorias.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'madera' && n.desbloqueado) ? 1 : 0), 0);
+  const trofeosBronce = resumenNiveles?.bronce ?? categorias.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'bronce' && n.desbloqueado) ? 1 : 0), 0);
+  const trofeosPlata = resumenNiveles?.plata ?? categorias.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'plata' && n.desbloqueado) ? 1 : 0), 0);
+  const trofeosOro = resumenNiveles?.oro ?? categorias.reduce((acc, c) => acc + (c.niveles?.some(n => n.nivel === 'oro' && n.desbloqueado) ? 1 : 0), 0);
+
   return (
     <div className="camplink-container" style={{ padding: '30px 20px 80px', maxWidth: '1100px', margin: '0 auto' }}>
       {/* CABECERA PRINCIPAL */}
       <div style={{ textAlign: 'center', marginBottom: '32px' }}>
         <div style={{ fontSize: '3rem', marginBottom: '8px' }}>🏆</div>
-        <h1 style={{ fontSize: '2.4rem', margin: '0 0 8px' }}>Vitrina de Logros Nómadas</h1>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '650px', margin: '0 auto', fontSize: '0.96rem' }}>
-          Consigue las 16 categorías temáticas avanzando de Madera a Oro para reclamar la legendaria Corona Platino.
-        </p>
+        <h1 style={{ fontSize: '2.4rem', margin: '0 0 14px' }}>Vitrina de Logros de explorador</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.86rem',
+            fontWeight: 700,
+            background: 'rgba(210, 144, 84, 0.15)',
+            color: '#D29054',
+            border: '1px solid rgba(210, 144, 84, 0.4)'
+          }}>
+            🪵 {trofeosMadera} de Madera
+          </span>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.86rem',
+            fontWeight: 700,
+            background: 'rgba(205, 127, 50, 0.15)',
+            color: '#E09248',
+            border: '1px solid rgba(205, 127, 50, 0.4)'
+          }}>
+            🥉 {trofeosBronce} de Bronce
+          </span>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.86rem',
+            fontWeight: 700,
+            background: 'rgba(192, 192, 192, 0.15)',
+            color: '#E2E8F0',
+            border: '1px solid rgba(192, 192, 192, 0.4)'
+          }}>
+            🥈 {trofeosPlata} de Plata
+          </span>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.86rem',
+            fontWeight: 700,
+            background: 'rgba(242, 169, 0, 0.15)',
+            color: '#F2A900',
+            border: '1px solid rgba(242, 169, 0, 0.4)'
+          }}>
+            🏆 {trofeosOro} de Oro
+          </span>
+        </div>
       </div>
 
       {/* PANEL DESTACADO: TROFEO PLATINO (LEYENDA SUPREMA NÓMADA) */}
@@ -172,7 +233,7 @@ export default function VitrinaTrofeos() {
                     fontWeight: 800
                   }}
                 >
-                  {platino.desbloqueado ? 'DESBLOQUEADO' : 'TROFEO PLATINO'}
+                  {platino.desbloqueado ? 'DESBLOQUEADO' : 'MEDALLA PLATINO'}
                 </span>
               </div>
               <p style={{ margin: '4px 0 10px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>

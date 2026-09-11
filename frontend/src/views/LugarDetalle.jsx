@@ -259,6 +259,9 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
           latitud: lugar.latitud,
           longitud: lugar.longitud,
           descripcion: lugar.descripcion,
+          tipo_lugar: lugar.tipo_lugar || lugar.tipo || 'pernocta_libre',
+          tipo_lugar_display: lugar.tipo_lugar_display,
+          foto_principal: lugar.foto_principal,
           origen: 'ficha',
           fecha_guardado: new Date().toISOString()
         };
@@ -1804,7 +1807,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
               {/* Precio y Gratuidad */}
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: 'var(--radius-md)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={editEsGratuito} onChange={e => setEditEsGratuito(e.target.checked)} /> 💸 Es 100% Gratuito
+                  <input type="checkbox" checked={editEsGratuito} onChange={e => setEditEsGratuito(e.target.checked)} /> Gratuito
                 </label>
                 {!editEsGratuito && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

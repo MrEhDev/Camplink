@@ -161,6 +161,21 @@ def recalcular_viaje(viaje):
         ids_presentes = set()
         for p in viaje.resumen_ruta:
             if p.get('tipo') not in ['base', 'base_salida', 'base_vuelta']:
+                lat_p = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+                lng_p = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+                if (lat_p is None or lng_p is None) and p.get('lugar_id'):
+                    try:
+                        from lugares.models import Lugar
+                        lug_obj = Lugar.objects.get(id=p['lugar_id'])
+                        if lug_obj.latitud is not None: lat_p = float(lug_obj.latitud)
+                        if lug_obj.longitud is not None: lng_p = float(lug_obj.longitud)
+                    except Exception:
+                        pass
+                p['lat'] = float(lat_p) if lat_p is not None else None
+                p['lng'] = float(lng_p) if lng_p is not None else None
+                p['latitud'] = p['lat']
+                p['longitud'] = p['lng']
+
                 puntos_intermedios.append(p)
                 if p.get('provincia'):
                     comunidades.add(p.get('provincia'))
@@ -168,15 +183,19 @@ def recalcular_viaje(viaje):
                     ids_presentes.add(p.get('id'))
                 if p.get('checkin_id'):
                     ids_presentes.add(p.get('checkin_id'))
-        # Incorporar checkins que aún no estén en la ruta guardada
+        # Incorporar checkins que a?n no est?n en la ruta guardada
         for ch in checkins:
             if ch.id not in ids_presentes:
                 lug = ch.lugar
                 det = _extraer_detalles_lugar(lug)
+                lat_ch = float(lug.latitud) if (lug and lug.latitud is not None) else None
+                lng_ch = float(lug.longitud) if (lug and lug.longitud is not None) else None
                 puntos_intermedios.append({
                     'nombre': lug.nombre if lug else 'Parada',
-                    'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
-                    'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
+                    'lat': lat_ch,
+                    'lng': lng_ch,
+                    'latitud': lat_ch,
+                    'longitud': lng_ch,
                     'poblacion': lug.poblacion if lug else '',
                     'provincia': lug.provincia if lug else '',
                     'fecha': extraer_fecha_local_str(ch.fecha_llegada),
@@ -201,10 +220,14 @@ def recalcular_viaje(viaje):
         for ch in checkins:
             lug = ch.lugar
             det = _extraer_detalles_lugar(lug)
+            lat_ch = float(lug.latitud) if (lug and lug.latitud is not None) else None
+            lng_ch = float(lug.longitud) if (lug and lug.longitud is not None) else None
             puntos_intermedios.append({
                 'nombre': lug.nombre if lug else 'Parada',
-                'lat': float(lug.latitud) if (lug and lug.latitud is not None) else None,
-                'lng': float(lug.longitud) if (lug and lug.longitud is not None) else None,
+                'lat': lat_ch,
+                'lng': lng_ch,
+                'latitud': lat_ch,
+                'longitud': lng_ch,
                 'poblacion': lug.poblacion if lug else '',
                 'provincia': lug.provincia if lug else '',
                 'fecha': extraer_fecha_local_str(ch.fecha_llegada),
@@ -226,32 +249,45 @@ def recalcular_viaje(viaje):
             if lug and lug.pais:
                 paises.add(lug.pais)
 
-    # Ordenar las paradas intermedias respetando estrictamente el orden cronológico de fechas
+    # Ordenar las paradas intermedias respetando estrictamente el orden cronol?gico de fechas
     puntos_intermedios.sort(key=lambda x: str(x.get('fecha') or x.get('fecha_llegada') or '9999-99-99'))
 
     puntos_ruta = []
     if lat_base and lng_base:
         puntos_ruta.append({
             'nombre': f'Salida: {lugar_base_nombre}',
-            'lat': lat_base,
-            'lng': lng_base,
+            'lat': float(lat_base),
+            'lng': float(lng_base),
+            'latitud': float(lat_base),
+            'longitud': float(lng_base),
             'tipo': 'base_salida',
             'es_base': True
         })
 
     puntos_ruta.extend(puntos_intermedios)
 
-    # Añadimos el retorno final a la base camper para cerrar la ruta y contabilizar la vuelta
+    # A?adimos el retorno final a la base camper para cerrar la ruta y contabilizar la vuelta
     if lat_base and lng_base and len(puntos_intermedios) > 0:
         puntos_ruta.append({
             'nombre': f'Vuelta: {lugar_base_nombre}',
-            'lat': lat_base,
-            'lng': lng_base,
+            'lat': float(lat_base),
+            'lng': float(lng_base),
+            'latitud': float(lat_base),
+            'longitud': float(lng_base),
             'tipo': 'base_vuelta',
             'es_base': True
         })
 
-    coords = [(p['lat'], p['lng']) for p in puntos_ruta if 'lat' in p and 'lng' in p]
+    coords = []
+    for p in puntos_ruta:
+        lat = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+        lng = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+        if lat is not None and lng is not None:
+            try:
+                coords.append((float(lat), float(lng)))
+            except (ValueError, TypeError):
+                pass
+
     km_totales = calcular_distancia_carretera(coords)
 
     if checkins.exists():
@@ -365,17 +401,17 @@ CATEGORIAS_TROFEOS = [
     {
         'codigo': 'maker_nomada',
         'nombre': 'Maker Nómada',
-        'descripcion': 'Archivos 3D .stl o bricos aportados al taller',
+        'descripcion': 'Bricos, guías técnicas y archivos 3D (.STL) aportados al Taller Camplink',
         'icono': 'tool',
-        'unidad': 'aportes',
+        'unidad': 'bricos',
         'umbrales': [('madera', 1), ('bronce', 3), ('plata', 8), ('oro', 20)]
     },
     {
         'codigo': 'mecanico_pista',
         'nombre': 'Mecánico de Pista',
-        'descripcion': 'Soluciones y respuestas en el Taller Nómada',
+        'descripcion': 'Comentarios de ayuda y soluciones en el Taller Camplink',
         'icono': 'wrench',
-        'unidad': 'respuestas',
+        'unidad': 'soluciones',
         'umbrales': [('madera', 1), ('bronce', 5), ('plata', 20), ('oro', 50)]
     },
     {
@@ -504,11 +540,18 @@ def calcular_metricas_usuario(explorador):
     if actividades == 0 and checkins:
         actividades = len(checkins)
 
-    # 12. Maker Nómada: temas bricos / archivos .stl
-    maker_aportes = TemaTaller.objects.filter(autor=explorador).count()
+    # 12. Maker Nómada: bricos, guías técnicas y archivos 3D en Taller Camplink
+    from comunidad.models import PublicacionTaller, ComentarioPublicacion
+    maker_aportes = (
+        PublicacionTaller.objects.filter(autor=explorador, estado='aprobado').count() +
+        TemaTaller.objects.filter(autor=explorador).count()
+    )
 
-    # 13. Mecánico de Pista: respuestas en el taller
-    taller_respuestas = RespuestaTaller.objects.filter(autor=explorador).count()
+    # 13. Mecánico de Pista: respuestas y soluciones en el Taller Camplink
+    taller_respuestas = (
+        ComentarioPublicacion.objects.filter(autor=explorador).count() +
+        RespuestaTaller.objects.filter(autor=explorador).count()
+    )
 
     # 14. Pluma de Bitácora: publicaciones en el diario
     total_posts = len(posts)

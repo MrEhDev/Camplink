@@ -49,8 +49,10 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
             import urllib.request, json
             from_email = os.environ.get('BREVO_SENDER_EMAIL', 'hola@camplinkapp.com').strip()
             from_name = os.environ.get('BREVO_SENDER_NAME', 'Camplink').strip()
+            reply_to_email = os.environ.get('BREVO_REPLY_TO', 'camplink.app.info@gmail.com').strip()
             payload = {
                 'sender': {'name': from_name, 'email': from_email},
+                'replyTo': {'name': 'Camplink Soporte', 'email': reply_to_email},
                 'to': [{'email': destinatario}],
                 'subject': asunto,
                 'textContent': mensaje_texto
@@ -111,7 +113,8 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
                 subject=asunto,
                 body=mensaje_texto,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[destinatario]
+                to=[destinatario],
+                reply_to=['camplink.app.info@gmail.com']
             )
             email_msg.attach_alternative(mensaje_html, "text/html")
             email_msg.send(fail_silently=False)

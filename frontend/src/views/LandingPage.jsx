@@ -837,7 +837,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     </button>
 
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '6px' }}>
-                      ¿Dudas? Escríbenos a <a href="mailto:Camplink.app.info@gmail.com" style={{ color: 'var(--accent-forest)', fontWeight: 700 }}>Camplink.app.info@gmail.com</a>
+                      ¿Dudas? Escríbenos a <a href="mailto:camplink.app.info@gmail.com" style={{ color: 'var(--accent-forest)', fontWeight: 700 }}>camplink.app.info@gmail.com</a>
                     </div>
                   </form>
                 )}

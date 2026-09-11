@@ -103,6 +103,35 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   const [previewAvatar, setPreviewAvatar] = useState(null);
   const fileInputAvatarRef = useRef(null);
 
+  // Estados dedicados e independientes para el Modal de Configuración de Vehículo
+  const [tipoViajeroModal, setTipoViajeroModal] = useState('camper');
+  const [tipoCombustibleModal, setTipoCombustibleModal] = useState('gasoleo_a');
+  const [capacidadModal, setCapacidadModal] = useState('50');
+  const [consumoModal, setConsumoModal] = useState('7.0');
+  const [codigoPostalModal, setCodigoPostalModal] = useState('');
+  const [poblacionModal, setPoblacionModal] = useState('');
+  const [direccionModal, setDireccionModal] = useState('');
+  const [latBaseModal, setLatBaseModal] = useState(null);
+  const [lngBaseModal, setLngBaseModal] = useState(null);
+  const [biografiaModal, setBiografiaModal] = useState('');
+
+  const inicializarModalVehiculo = (usr) => {
+    if (usr) {
+      setUsuarioPendienteVehiculo(usr);
+      setTipoViajeroModal(usr.tipo_viajero || 'camper');
+      setTipoCombustibleModal(usr.tipo_combustible || 'gasoleo_a');
+      setCapacidadModal(usr.capacidad_deposito_l ? String(usr.capacidad_deposito_l) : '50');
+      setConsumoModal(usr.consumo_medio_l_100km ? String(usr.consumo_medio_l_100km) : '7.0');
+      setCodigoPostalModal(usr.codigo_postal || '');
+      setPoblacionModal(usr.poblacion || '');
+      setDireccionModal(usr.direccion_base || '');
+      setBiografiaModal(usr.biografia || '');
+      setLatBaseModal(typeof usr.lat_base === 'number' ? usr.lat_base : null);
+      setLngBaseModal(typeof usr.lng_base === 'number' ? usr.lng_base : null);
+    }
+    setModalConfigurarVehiculoAbierto(true);
+  };
+
   const manejarSeleccionarAvatar = (e) => {
     const f = e.target.files && e.target.files[0];
     if (f) {
@@ -124,20 +153,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       setCargandoAuth(true);
       activarCuenta({ uid, token, email: emailParam, autoLogin: false })
         .then((res) => {
-          setUsuarioPendienteVehiculo(res.usuario);
-          if (res.usuario) {
-            setRegData(prev => ({
-              ...prev,
-              tipo_viajero: res.usuario.tipo_viajero || prev.tipo_viajero || 'camper',
-              tipo_combustible: res.usuario.tipo_combustible || prev.tipo_combustible || 'gasoleo_a',
-              capacidad_deposito_l: res.usuario.capacidad_deposito_l ? String(res.usuario.capacidad_deposito_l) : (prev.capacidad_deposito_l || '50'),
-              consumo_medio_l_100km: res.usuario.consumo_medio_l_100km ? String(res.usuario.consumo_medio_l_100km) : (prev.consumo_medio_l_100km || '7.0'),
-              codigo_postal: res.usuario.codigo_postal || prev.codigo_postal || '',
-              poblacion: res.usuario.poblacion || prev.poblacion || '',
-              direccion_base: res.usuario.direccion_base || prev.direccion_base || ''
-            }));
-          }
-          setModalConfigurarVehiculoAbierto(true);
+          inicializarModalVehiculo(res.usuario);
           window.history.replaceState({}, document.title, window.location.pathname);
         })
         .catch((err) => {
@@ -155,12 +171,10 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       provAuto = PROVINCIAS_CP[pref] || '';
     }
 
-    // Solo autocompletar población, NUNCA sobreescribir dirección base
-    setRegData(prev => ({
-      ...prev,
-      codigo_postal: cpLimpio,
-      poblacion: prev.poblacion || provAuto
-    }));
+    setCodigoPostalModal(cpLimpio);
+    if (!poblacionModal && provAuto) {
+      setPoblacionModal(provAuto);
+    }
 
     if (timerCp.current) clearTimeout(timerCp.current);
 
@@ -177,12 +191,11 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
             const lat = parseFloat(data[0].lat);
             const lng = parseFloat(data[0].lon);
             if (ciudad) {
-              setRegData(prev => ({
-                ...prev,
-                poblacion: ciudad,
-                lat_base: !isNaN(lat) ? lat : prev.lat_base,
-                lng_base: !isNaN(lng) ? lng : prev.lng_base,
-              }));
+              setPoblacionModal(ciudad);
+            }
+            if (!isNaN(lat) && !isNaN(lng)) {
+              setLatBaseModal(lat);
+              setLngBaseModal(lng);
             }
           }
         } catch (e) {
@@ -195,11 +208,12 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   };
 
   const manejarCambioDireccion = (texto) => {
-    setRegData(prev => ({ ...prev, direccion_base: texto }));
+    setDireccionModal(texto);
     if (timerDireccion.current) clearTimeout(timerDireccion.current);
 
-    if (!texto || texto.length < 3) {
+    if (!texto || texto.trim().length < 3) {
       setSugerenciasDireccion([]);
+      setMostrarSugerencias(false);
       return;
     }
 
@@ -209,7 +223,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(texto)}&countrycodes=es&format=json&addressdetails=1&limit=6`;
         const res = await fetch(url);
         const data = await res.json();
-        if (data && Array.isArray(data)) {
+        if (data && Array.isArray(data) && data.length > 0) {
           const formateadas = data.map(item => {
             const addr = item.address || {};
             const ciudad = addr.city || addr.town || addr.village || addr.municipality || '';
@@ -225,6 +239,10 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
             };
           });
           setSugerenciasDireccion(formateadas);
+          setMostrarSugerencias(true);
+        } else {
+          setSugerenciasDireccion([]);
+          setMostrarSugerencias(false);
         }
       } catch (e) {
         console.warn('Error en sugerencias de dirección:', e);
@@ -235,15 +253,13 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   };
 
   const seleccionarSugerencia = (sug) => {
-    setRegData(prev => ({
-      ...prev,
-      direccion_base: sug.etiqueta,
-      poblacion: sug.ciudad || prev.poblacion,
-      codigo_postal: sug.codigo_postal || prev.codigo_postal,
-      lat_base: sug.lat,
-      lng_base: sug.lng
-    }));
+    setDireccionModal(sug.etiqueta);
+    if (sug.ciudad) setPoblacionModal(sug.ciudad);
+    if (sug.codigo_postal) setCodigoPostalModal(String(sug.codigo_postal).replace(/\D/g, '').slice(0, 5));
+    if (typeof sug.lat === 'number') setLatBaseModal(sug.lat);
+    if (typeof sug.lng === 'number') setLngBaseModal(sug.lng);
     setSugerenciasDireccion([]);
+    setMostrarSugerencias(false);
   };
 
   const manejarVerificarCodigo = async (e) => {
@@ -260,20 +276,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         autoLogin: false
       });
       setModalVerificacionAbierto(false);
-      setUsuarioPendienteVehiculo(res.usuario);
-      if (res.usuario) {
-        setRegData(prev => ({
-          ...prev,
-          tipo_viajero: res.usuario.tipo_viajero || prev.tipo_viajero || 'camper',
-          tipo_combustible: res.usuario.tipo_combustible || prev.tipo_combustible || 'gasoleo_a',
-          capacidad_deposito_l: res.usuario.capacidad_deposito_l ? String(res.usuario.capacidad_deposito_l) : (prev.capacidad_deposito_l || '50'),
-          consumo_medio_l_100km: res.usuario.consumo_medio_l_100km ? String(res.usuario.consumo_medio_l_100km) : (prev.consumo_medio_l_100km || '7.0'),
-          codigo_postal: res.usuario.codigo_postal || prev.codigo_postal || '',
-          poblacion: res.usuario.poblacion || prev.poblacion || '',
-          direccion_base: res.usuario.direccion_base || prev.direccion_base || ''
-        }));
-      }
-      setModalConfigurarVehiculoAbierto(true);
+      inicializarModalVehiculo(res.usuario);
     } catch (err) {
       setErrorVerificacion(err.message || 'Código incorrecto. Comprueba e inténtalo de nuevo.');
     } finally {
@@ -283,57 +286,57 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
 
   const manejarGuardarVehiculo = async (e) => {
     e.preventDefault();
-    if (!regData.tipo_viajero) {
+    if (!tipoViajeroModal) {
       alert('Por favor selecciona el tipo de vehículo.');
       return;
     }
-    if (!regData.codigo_postal || String(regData.codigo_postal).trim().length < 4) {
+    if (!codigoPostalModal || String(codigoPostalModal).trim().length < 4) {
       alert('Por favor introduce tu código postal.');
       return;
     }
 
     setGuardandoVehiculo(true);
     try {
-      const capFinal = parseFloat(regData.capacidad_deposito_l) > 0 ? parseFloat(regData.capacidad_deposito_l) : 50.0;
-      const consFinal = parseFloat(regData.consumo_medio_l_100km) > 0 ? parseFloat(regData.consumo_medio_l_100km) : 7.0;
-      const cpFinal = String(regData.codigo_postal || '').trim();
-      let pobFinal = String(regData.poblacion || '').trim();
+      const capFinal = parseFloat(capacidadModal) > 0 ? parseFloat(capacidadModal) : 50.0;
+      const consFinal = parseFloat(consumoModal) > 0 ? parseFloat(consumoModal) : 7.0;
+      const cpFinal = String(codigoPostalModal || '').trim();
+      let pobFinal = String(poblacionModal || '').trim();
       if (!pobFinal && cpFinal.length >= 2) {
         pobFinal = PROVINCIAS_CP[cpFinal.slice(0, 2)] || '';
       }
-      const dirFinal = String(regData.direccion_base || '').trim();
-      const bioFinal = String(regData.biografia || '').trim();
+      const dirFinal = String(direccionModal || '').trim();
+      const bioFinal = String(biografiaModal || '').trim();
 
       let bodyData;
       if (fotoAvatar) {
         bodyData = new FormData();
         bodyData.append('avatar', fotoAvatar);
-        bodyData.append('tipo_viajero', regData.tipo_viajero || 'camper');
-        bodyData.append('tipo_combustible', regData.tipo_combustible || 'gasoleo_a');
+        bodyData.append('tipo_viajero', tipoViajeroModal || 'camper');
+        bodyData.append('tipo_combustible', tipoCombustibleModal || 'gasoleo_a');
         bodyData.append('capacidad_deposito_l', capFinal);
         bodyData.append('consumo_medio_l_100km', consFinal);
         bodyData.append('codigo_postal', cpFinal);
         bodyData.append('poblacion', pobFinal);
         bodyData.append('direccion_base', dirFinal);
         bodyData.append('biografia', bioFinal);
-        if (typeof regData.lat_base === 'number' && !isNaN(regData.lat_base)) {
-          bodyData.append('lat_base', regData.lat_base);
+        if (typeof latBaseModal === 'number' && !isNaN(latBaseModal)) {
+          bodyData.append('lat_base', latBaseModal);
         }
-        if (typeof regData.lng_base === 'number' && !isNaN(regData.lng_base)) {
-          bodyData.append('lng_base', regData.lng_base);
+        if (typeof lngBaseModal === 'number' && !isNaN(lngBaseModal)) {
+          bodyData.append('lng_base', lngBaseModal);
         }
       } else {
         bodyData = {
-          tipo_viajero: regData.tipo_viajero || 'camper',
-          tipo_combustible: regData.tipo_combustible || 'gasoleo_a',
+          tipo_viajero: tipoViajeroModal || 'camper',
+          tipo_combustible: tipoCombustibleModal || 'gasoleo_a',
           capacidad_deposito_l: capFinal,
           consumo_medio_l_100km: consFinal,
           codigo_postal: cpFinal,
           poblacion: pobFinal,
           direccion_base: dirFinal,
           biografia: bioFinal,
-          lat_base: typeof regData.lat_base === 'number' && !isNaN(regData.lat_base) ? regData.lat_base : null,
-          lng_base: typeof regData.lng_base === 'number' && !isNaN(regData.lng_base) ? regData.lng_base : null
+          lat_base: typeof latBaseModal === 'number' && !isNaN(latBaseModal) ? latBaseModal : null,
+          lng_base: typeof lngBaseModal === 'number' && !isNaN(lngBaseModal) ? lngBaseModal : null
         };
       }
 
@@ -355,8 +358,6 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
     } catch (err) {
       console.error('Error al guardar datos del vehículo:', err);
       alert('Error al guardar datos: ' + (err.message || 'Comprueba los campos e inténtalo de nuevo.'));
-      setGuardandoVehiculo(false);
-      return;
     } finally {
       setGuardandoVehiculo(false);
     }
@@ -1351,8 +1352,8 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                 <select
                   className="form-control"
                   required
-                  value={regData.tipo_viajero}
-                  onChange={(e) => setRegData({ ...regData, tipo_viajero: e.target.value })}
+                  value={tipoViajeroModal}
+                  onChange={(e) => setTipoViajeroModal(e.target.value)}
                 >
                   <option value="camper">🚐 Furgoneta Camper</option>
                   <option value="autocaravana">🚍 Autocaravana</option>
@@ -1367,8 +1368,8 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                 </label>
                 <select
                   className="form-control"
-                  value={regData.tipo_combustible}
-                  onChange={(e) => setRegData({ ...regData, tipo_combustible: e.target.value })}
+                  value={tipoCombustibleModal}
+                  onChange={(e) => setTipoCombustibleModal(e.target.value)}
                 >
                   <option value="gasoleo_a">⛽ Diésel / Gasóleo A</option>
                   <option value="gasolina_95">⛽ Gasolina 95 E5</option>
@@ -1390,8 +1391,8 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                       placeholder="50 L"
                       min="10"
                       max="300"
-                      value={regData.capacidad_deposito_l}
-                      onChange={(e) => setRegData({ ...regData, capacidad_deposito_l: e.target.value })}
+                      value={capacidadModal}
+                      onChange={(e) => setCapacidadModal(e.target.value)}
                       style={{ paddingRight: '36px' }}
                     />
                     <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
@@ -1413,8 +1414,8 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                       placeholder="7.0 L/100"
                       min="2"
                       max="30"
-                      value={regData.consumo_medio_l_100km}
-                      onChange={(e) => setRegData({ ...regData, consumo_medio_l_100km: e.target.value })}
+                      value={consumoModal}
+                      onChange={(e) => setConsumoModal(e.target.value)}
                       style={{ paddingRight: '48px' }}
                     />
                     <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.72rem', color: 'var(--text-muted)', pointerEvents: 'none' }}>
@@ -1436,7 +1437,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     required
                     placeholder="Ej: 39001"
                     maxLength={5}
-                    value={regData.codigo_postal}
+                    value={codigoPostalModal}
                     onChange={(e) => manejarCambioCodigoPostal(e.target.value)}
                   />
                 </div>
@@ -1444,15 +1445,15 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                   <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Población / Ciudad</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--accent-forest)', fontWeight: 600 }}>
-                      {buscandoCp ? '• Buscando...' : regData.poblacion ? '✓ Autocompletada' : 'Auto con CP'}
+                      {buscandoCp ? '• Buscando...' : poblacionModal ? '✓ Autocompletada' : 'Auto con CP'}
                     </span>
                   </label>
                   <input
                     type="text"
                     className="form-control"
                     placeholder="Se autocompleta con el CP (ej: Santander)"
-                    value={regData.poblacion}
-                    onChange={(e) => setRegData({ ...regData, poblacion: e.target.value })}
+                    value={poblacionModal}
+                    onChange={(e) => setPoblacionModal(e.target.value)}
                   />
                 </div>
               </div>
@@ -1466,13 +1467,13 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                   type="text"
                   className="form-control"
                   placeholder="Escribe calle, barrio o punto de partida..."
-                  value={regData.direccion_base}
+                  value={direccionModal}
                   onChange={(e) => manejarCambioDireccion(e.target.value)}
                   onFocus={() => {
                     if (sugerenciasDireccion.length > 0) setMostrarSugerencias(true);
                   }}
                   onBlur={() => {
-                    setTimeout(() => setMostrarSugerencias(false), 200);
+                    setTimeout(() => setMostrarSugerencias(false), 250);
                   }}
                   autoComplete="off"
                 />
@@ -1527,9 +1528,9 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                 <textarea
                   className="form-control"
                   rows={3}
-                  placeholder="Breve descripción, ej: Amante de las escapadas de fin de semana en furgo, la escalada y las rutas de montaña..."
-                  value={regData.biografia || ''}
-                  onChange={(e) => setRegData({ ...regData, biografia: e.target.value })}
+                  placeholder="Breve descripción, ej: Amante de las escapadas de fin de semana en furgo, la escalada, la naturaleza y pernoctar bajo las estrellas..."
+                  value={biografiaModal}
+                  onChange={(e) => setBiografiaModal(e.target.value)}
                   style={{ resize: 'vertical', fontSize: '0.86rem' }}
                 />
               </div>

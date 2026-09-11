@@ -159,8 +159,8 @@ https://camplinkapp.com
         <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                 <tr>
-                    <td align="center" style="text-align: center; vertical-align: middle;">
-                        <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" width="60" height="60" border="0" style="display: block; margin: 0 auto; width: 60px; height: 60px; max-width: 60px; max-height: 60px; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                    <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
+                        <img src="https://camplinkapp.com/camplink-logo-mail.png?v=3" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                     </td>
                 </tr>
             </table>
@@ -406,8 +406,8 @@ def recuperar_password_vista(request):
                 <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                 <tr>
-                    <td align="center" style="text-align: center; vertical-align: middle;">
-                        <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" width="60" height="60" border="0" style="display: block; margin: 0 auto; width: 60px; height: 60px; max-width: 60px; max-height: 60px; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                    <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
+                        <img src="https://camplinkapp.com/camplink-logo-mail.png?v=3" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                     </td>
                 </tr>
             </table>

@@ -157,7 +157,13 @@ https://camplinkapp.com
     mensaje_html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
         <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
-            <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" style="width: 54px; height: 54px; border-radius: 12px; margin-bottom: 8px; display: inline-block;" />
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
+                <tr>
+                    <td align="center" style="text-align: center; vertical-align: middle;">
+                        <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" width="60" height="60" border="0" style="display: block; margin: 0 auto; width: 60px; height: 60px; max-width: 60px; max-height: 60px; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                    </td>
+                </tr>
+            </table>
             <h1 style="margin: 0; font-size: 24px;">🚐 ¡Bienvenido a Camplink!</h1>
             <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px;">La Red Social de la Comunidad Camper</p>
         </div>
@@ -398,7 +404,13 @@ def recuperar_password_vista(request):
             mensaje_rec_html = f"""
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
                 <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
-                    <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" style="width: 54px; height: 54px; border-radius: 12px; margin-bottom: 8px; display: inline-block;" />
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
+                <tr>
+                    <td align="center" style="text-align: center; vertical-align: middle;">
+                        <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" width="60" height="60" border="0" style="display: block; margin: 0 auto; width: 60px; height: 60px; max-width: 60px; max-height: 60px; border-radius: 12px; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                    </td>
+                </tr>
+            </table>
                     <h1 style="margin: 0; font-size: 22px;">🚐 Restablecimiento de Contraseña</h1>
                 </div>
                 <div style="background: white; padding: 24px; border-radius: 12px; margin-top: 16px; border: 1px solid #ddd;">

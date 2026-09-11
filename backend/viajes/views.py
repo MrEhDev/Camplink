@@ -343,6 +343,11 @@ class ViajeViewSet(viewsets.ModelViewSet):
         if indice is None:
             return Response({'error': 'Índice requerido.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not viaje.resumen_ruta:
+            from viajes.services import recalcular_viaje
+            recalcular_viaje(viaje)
+            viaje.refresh_from_db()
+
         indice = int(indice)
         ruta = list(viaje.resumen_ruta or [])
         if 0 <= indice < len(ruta):

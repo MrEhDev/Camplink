@@ -123,27 +123,50 @@ function generarUrlGoogleCalendarParada(parada, viaje, fechaEstimada) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dates}&location=${encodeURIComponent(ubicacion)}&details=${encodeURIComponent(details)}`;
 }
 
+function parseFechaLocal(str, fallback) {
+  if (!str) return fallback ? new Date(fallback) : new Date();
+  const partes = String(str).split('T')[0].split('-');
+  if (partes.length === 3) {
+    return new Date(parseInt(partes[0], 10), parseInt(partes[1], 10) - 1, parseInt(partes[2], 10));
+  }
+  return new Date(str);
+}
+
+function formatFechaICS(d) {
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${anio}${mes}${dia}`;
+}
+
 function exportarItinerarioGoogleCalendar(viaje, paradas) {
-  let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Camplink//Itinerario Nomada//ES\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
-  let fechaCursor = viaje.fecha_inicio ? new Date(viaje.fecha_inicio.split('T')[0]) : new Date();
+  const lineasIcs = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Camplink//Itinerario Nomada//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH"
+  ];
+  let fechaCursor = viaje.fecha_inicio ? parseFechaLocal(viaje.fecha_inicio) : new Date();
 
   paradas.forEach((p, idx) => {
-    let fInicio = p.fecha_llegada ? new Date(p.fecha_llegada.split('T')[0]) : new Date(fechaCursor);
+    let fInicio = p.fecha_llegada ? parseFechaLocal(p.fecha_llegada) : new Date(fechaCursor);
     const dias = parseInt(p.dias_previstos || 1, 10);
     let fFin = new Date(fInicio);
-    fFin.setDate(fFin.getDate() + dias);
+    fFin.setDate(fFin.getDate() + (dias > 0 ? dias : 1));
 
-    const fInicioStr = fInicio.toISOString().split('T')[0].replace(/-/g, '');
-    const fFinStr = fFin.toISOString().split('T')[0].replace(/-/g, '');
+    const fInicioStr = formatFechaICS(fInicio);
+    const fFinStr = formatFechaICS(fFin);
 
     let icono = '🏕️';
     if (p.es_base) icono = (p.tipo === 'base_salida' || p.id === 'base-salida') ? '🏠' : '🏁';
-    else if (p.tipo === 'gasolinera') icono = '⛽';
+    else if (p.tipo === 'gasolinera' || (p.nombre && p.nombre.startsWith('⛽'))) icono = '⛽';
 
-    const summary = `${icono} ${p.nombre}`;
-    const location = (p.latitud != null && p.longitud != null) 
+    const summary = `${icono} ${p.nombre}`.replace(/,/g, '\,').replace(/;/g, '\;');
+    const rawLoc = (p.latitud != null && p.longitud != null) 
       ? `https://www.google.com/maps/search/?api=1&query=${p.latitud},${p.longitud}` 
       : (p.direccion || p.poblacion || '');
+    const location = rawLoc.replace(/,/g, '\,').replace(/;/g, '\;');
 
     const lineas = [];
     if (p.lugar_id) lineas.push(`Enlace: ${window.location.origin}/?lugar=${p.lugar_id}`);
@@ -155,29 +178,33 @@ function exportarItinerarioGoogleCalendar(viaje, paradas) {
 
     const desc = lineas.join('\n\n');
 
-    icsContent += "BEGIN:VEVENT\r\n";
-    icsContent += `UID:camplink-${viaje.id}-${idx}-${Date.now()}@camplink.es\r\n`;
-    icsContent += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\r\n`;
-    icsContent += `DTSTART;VALUE=DATE:${fInicioStr}\r\n`;
-    icsContent += `DTEND;VALUE=DATE:${fFinStr}\r\n`;
-    icsContent += `SUMMARY:${summary}\r\n`;
-    icsContent += `LOCATION:${location}\r\n`;
-    icsContent += `DESCRIPTION:${desc}\r\n`;
-    icsContent += "STATUS:CONFIRMED\r\n";
-    icsContent += "END:VEVENT\r\n";
+    lineasIcs.push(
+      "BEGIN:VEVENT",
+      `UID:camplink-${viaje.id}-${idx}-${Date.now()}@camplinkapp.com`,
+      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+      `DTSTART;VALUE=DATE:${fInicioStr}`,
+      `DTEND;VALUE=DATE:${fFinStr}`,
+      `SUMMARY:${summary}`,
+      `LOCATION:${location}`,
+      `DESCRIPTION:${desc}`,
+      "STATUS:CONFIRMED",
+      "END:VEVENT"
+    );
 
     if (!p.fecha_llegada) {
       fechaCursor = new Date(fFin);
     }
   });
 
-  icsContent += "END:VCALENDAR\r\n";
+  lineasIcs.push("END:VCALENDAR");
 
+  const icsContent = lineasIcs.join(String.fromCharCode(13, 10)) + String.fromCharCode(13, 10);
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.setAttribute('download', `${(viaje.titulo || 'viaje').replace(/\s+/g, '_')}_itinerario.ics`);
+  const nombreLimpio = (viaje.titulo || viaje.nombre || 'itinerario').replace(/[^a-zA-Z0-9_À-ſ-]/g, '_');
+  a.setAttribute('download', `${nombreLimpio}_camplink.ics`);
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -670,20 +697,6 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
     }
   };
 
-  const alternarRepostaje = async (viajeId, idx) => {
-    try {
-      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/marcar-repostaje/`, {
-        method: 'POST',
-        body: { indice: idx }
-      });
-      if (res.viaje) {
-        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
-      }
-    } catch (err) {
-      console.error('Error al alternar repostaje:', err);
-    }
-  };
-
   const eliminarParada = async (viajeId, idx, parada) => {
     if (parada.es_base) return;
     if (!window.confirm(`¿Seguro que deseas eliminar la parada "${parada.nombre}" de este viaje?`)) return;
@@ -710,6 +723,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       lista = viaje.resumen_ruta.map((p, i) => {
         const latVal = p.lat != null ? p.lat : p.latitud;
         const lngVal = p.lng != null ? p.lng : p.longitud;
+        const esGas = p.tipo === 'gasolinera' || p.tipo_lugar === 'gasolinera' || (p.nombre && (p.nombre.startsWith('⛽') || p.nombre.includes('Gasolinera') || p.nombre.includes('Estación de Servicio')));
         return {
           id: p.id || `r-${i}`,
           lugar_id: p.lugar_id,
@@ -723,12 +737,12 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
           fecha_llegada: p.fecha || p.fecha_llegada || '',
           dias_previstos: p.dias || p.dias_previstos || 1,
           notas_privadas: p.notas_privadas || '',
-          tipo: p.tipo || 'parada',
-          tipo_lugar: p.tipo_lugar || 'pernocta_libre',
+          tipo: esGas ? 'gasolinera' : (p.tipo || 'parada'),
+          tipo_lugar: p.tipo_lugar || (esGas ? 'gasolinera' : 'pernocta_libre'),
           equipamiento: p.equipamiento || [],
           entorno: p.entorno || [],
           acceso: p.acceso || [],
-          es_repostaje: p.es_repostaje || false,
+          es_repostaje: Boolean(p.es_repostaje || esGas),
           es_base: p.es_base || p.tipo === 'base' || p.tipo === 'base_salida' || p.tipo === 'base_vuelta',
           precio: p.precio,
           direccion: p.direccion
@@ -1231,6 +1245,30 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Botón Calendario (.ics) para descargar e importar todo el itinerario */}
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        exportarItinerarioGoogleCalendar(viaje, paradas);
+                      }}
+                      title="Descargar archivo .ics para importar todo el viaje en Google Calendar, Apple Calendar o Outlook"
+                      style={{
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        padding: '6px 12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        borderRadius: 'var(--radius-sm)'
+                      }}
+                    >
+                      <Calendar size={15} color="var(--accent-earth)" />
+                      <span>Calendario (.ics)</span>
+                    </button>
+
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => toggleExpansion(viaje.id)}
@@ -1693,9 +1731,10 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                             return paradas.map((parada, idx) => {
                               const distTramo = distanciasPorTramo[idx] || 0;
                               const kmHastaEstaParada = kmAcumulados + distTramo;
-                              
-                              // La advertencia se evalúa y muestra ANTES de la etapa donde se supera el 80% de autonomía
-                              const supera80 = idx > 0 && kmHastaEstaParada >= umbral80 && !parada.es_repostaje;
+                              const esGasolinera = parada.tipo === 'gasolinera' || parada.tipo_lugar === 'gasolinera' || (parada.nombre && (parada.nombre.startsWith('⛽') || parada.nombre.includes('Gasolinera')));
+                              // La advertencia se evalúa y muestra ANTES de la etapa donde se supera el 80% de autonomía.
+                              // Si esta etapa es una gasolinera (añadida para repostar), no se muestra alerta antes de ella.
+                              const supera80 = idx > 0 && kmHastaEstaParada >= umbral80 && !esGasolinera;
 
                               // Calcular el punto exacto y posterior al 80% de combustible en la ruta entre punto y punto
                               let latPunto80 = paradas[idx - 1]?.latitud;
@@ -1719,8 +1758,9 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                 kmPunto80 = kmAcumulados + Math.round(fraccionBusqueda * distTramo);
                               }
 
-                              // Actualizamos km acumulados para el siguiente tramo
-                              if (parada.es_repostaje) {
+                              // Actualizamos km acumulados para el siguiente tramo:
+                              // Al llegar a una gasolinera seleccionada, se reposta y se restaura el contador interno a 0 km
+                              if (esGasolinera) {
                                 kmAcumulados = 0;
                               } else {
                                 kmAcumulados = kmHastaEstaParada;
@@ -2021,8 +2061,8 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                       padding: '14px 16px',
                                       paddingRight: '44px',
                                       borderRadius: 'var(--radius-md)',
-                                      background: parada.tipo === 'gasolinera' ? 'rgba(217, 119, 6, 0.08)' : 'var(--bg-surface)',
-                                      border: parada.es_repostaje ? '1.5px solid #D97706' : '1px solid var(--border-color)',
+                                      background: esGasolinera ? 'rgba(217, 119, 6, 0.08)' : 'var(--bg-surface)',
+                                      border: esGasolinera ? '1.5px solid #D97706' : '1px solid var(--border-color)',
                                       gap: '14px',
                                       flexWrap: 'wrap',
                                       transition: 'background 0.2s'
@@ -2141,7 +2181,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         width: '32px',
                                         height: '32px',
                                         borderRadius: '50%',
-                                        background: parada.tipo === 'gasolinera' ? '#D97706' : 'var(--accent-forest)',
+                                        background: esGasolinera ? '#D97706' : 'var(--accent-forest)',
                                         color: '#fff',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -2150,7 +2190,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                         fontSize: '0.85rem',
                                         flexShrink: 0
                                       }}>
-                                        {parada.tipo === 'gasolinera' ? '⛽' : numEtapa}
+                                        {esGasolinera ? '⛽' : numEtapa}
                                       </div>
 
                                       <div>
@@ -2169,23 +2209,25 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             + {distTramo} km
                                           </span>
 
-                                          {/* Badge en gasolineras: km acumulados desde el último repostaje */}
-                                          {parada.tipo === 'gasolinera' && (
+                                          {/* Badge en gasolineras: confirmación de reinicio del contador a 0 km */}
+                                          {esGasolinera && (
                                             <span style={{
                                               fontSize: '0.74rem',
-                                              background: 'rgba(217, 119, 6, 0.14)',
-                                              color: '#D97706',
-                                              border: '1px solid rgba(217, 119, 6, 0.35)',
-                                              padding: '1px 7px',
+                                              background: 'rgba(16, 185, 129, 0.14)',
+                                              color: '#10B981',
+                                              border: '1px solid rgba(16, 185, 129, 0.35)',
+                                              padding: '2px 8px',
                                               borderRadius: 'var(--radius-full)',
                                               fontWeight: 700,
                                               display: 'inline-flex',
                                               alignItems: 'center',
-                                              gap: '3px'
+                                              gap: '4px'
                                             }}>
-                                              ⛽➡️ {kmHastaEstaParada} km
+                                              ⛽ Repostado (Contador a 0 km)
                                             </span>
                                           )}
+
+
 
 
                                         </div>
@@ -2238,13 +2280,13 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                               display: 'inline-flex',
                                               alignItems: 'center',
                                               gap: '6px',
-                                              cursor: parada.tipo !== 'gasolinera' ? 'pointer' : 'default',
+                                              cursor: !esGasolinera ? 'pointer' : 'default',
                                               padding: '2px 6px',
                                               borderRadius: 'var(--radius-sm)',
                                               transition: 'background 0.2s ease'
                                             }}
                                             onClick={(e) => {
-                                              if (parada.tipo !== 'gasolinera') {
+                                              if (!esGasolinera) {
                                                 e.stopPropagation();
                                                 setEditandoFechaParadaId(parada.id);
                                                 setFormEdicionParada({
@@ -2253,12 +2295,12 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                                 });
                                               }
                                             }}
-                                            onMouseEnter={(e) => { if (parada.tipo !== 'gasolinera') e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                                            onMouseEnter={(e) => { if (!esGasolinera) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
                                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                                            title={parada.tipo !== 'gasolinera' ? "Haz clic para modificar la fecha y noches de esta parada" : undefined}
+                                            title={!esGasolinera ? "Haz clic para modificar la fecha y noches de esta parada" : undefined}
                                           >
                                             <span>{parada.poblacion || parada.direccion} • {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}</span>
-                                            {parada.tipo !== 'gasolinera' && (
+                                            {!esGasolinera && (
                                               <span style={{ color: 'var(--accent-forest)', fontWeight: 600 }}>
                                                 ({parada.dias_previstos} {parada.dias_previstos === 1 ? 'noche' : 'noches'})
                                               </span>

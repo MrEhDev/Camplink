@@ -13,6 +13,105 @@ import {
   Download, Navigation, ChevronRight, CheckCircle 
 } from 'lucide-react';
 
+
+function parseFechaLocal(str, fallback) {
+  if (!str) return fallback ? new Date(fallback) : new Date();
+  const partes = String(str).split('T')[0].split('-');
+  if (partes.length === 3) {
+    return new Date(parseInt(partes[0], 10), parseInt(partes[1], 10) - 1, parseInt(partes[2], 10));
+  }
+  return new Date(str);
+}
+
+function formatFechaICS(d) {
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${anio}${mes}${dia}`;
+}
+
+function exportarIcsViaje(viaje) {
+  const paradas = (viaje.resumen_ruta && viaje.resumen_ruta.length > 0)
+    ? viaje.resumen_ruta
+    : (viaje.checkins_resumen || []).map((ch, i) => ({
+        nombre: ch.lugar_nombre || `Etapa ${i + 1}`,
+        latitud: ch.latitud,
+        longitud: ch.longitud,
+        poblacion: ch.poblacion,
+        provincia: ch.provincia,
+        fecha_llegada: ch.fecha_llegada,
+        dias_previstos: ch.dias_previstos || 1,
+        lugar_id: ch.lugar_id
+      }));
+
+  const lineasIcs = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Camplink//Itinerario Nomada//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH"
+  ];
+  let fechaCursor = viaje.fecha_inicio ? parseFechaLocal(viaje.fecha_inicio) : new Date();
+
+  paradas.forEach((p, idx) => {
+    let fInicio = p.fecha_llegada ? parseFechaLocal(p.fecha_llegada) : new Date(fechaCursor);
+    const dias = parseInt(p.dias_previstos || p.dias || 1, 10);
+    let fFin = new Date(fInicio);
+    fFin.setDate(fFin.getDate() + (dias > 0 ? dias : 1));
+
+    const fInicioStr = formatFechaICS(fInicio);
+    const fFinStr = formatFechaICS(fFin);
+
+    let icono = '🏕️';
+    if (p.es_base) icono = (p.tipo === 'base_salida' || p.id === 'base-salida') ? '🏠' : '🏁';
+    else if (p.tipo === 'gasolinera' || (p.nombre && p.nombre.startsWith('⛽'))) icono = '⛽';
+
+    const rawNombre = p.nombre || p.lugar_nombre || `Etapa ${idx + 1}`;
+    const summary = `${icono} ${rawNombre}`.replace(/,/g, '\,').replace(/;/g, '\;');
+    const rawLoc = (p.latitud != null && p.longitud != null)
+      ? `https://www.google.com/maps/search/?api=1&query=${p.latitud},${p.longitud}`
+      : (p.direccion || p.poblacion || '');
+    const location = rawLoc.replace(/,/g, '\,').replace(/;/g, '\;');
+
+    const lineas = [];
+    if (p.lugar_id) lineas.push(`Enlace: ${window.location.origin}/?lugar=${p.lugar_id}`);
+    if (p.notas_privadas) lineas.push(`Notas personales: ${p.notas_privadas}`);
+    if (p.tipo === 'gasolinera' && p.precio) lineas.push(`Precio: ${p.precio} €/L`);
+    const desc = lineas.join('\n\n');
+
+    lineasIcs.push(
+      "BEGIN:VEVENT",
+      `UID:camplink-${viaje.id}-${idx}-${Date.now()}@camplinkapp.com`,
+      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+      `DTSTART;VALUE=DATE:${fInicioStr}`,
+      `DTEND;VALUE=DATE:${fFinStr}`,
+      `SUMMARY:${summary}`,
+      `LOCATION:${location}`,
+      `DESCRIPTION:${desc}`,
+      "STATUS:CONFIRMED",
+      "END:VEVENT"
+    );
+
+    if (!p.fecha_llegada) {
+      fechaCursor = new Date(fFin);
+    }
+  });
+
+  lineasIcs.push("END:VCALENDAR");
+
+  const icsContent = lineasIcs.join(String.fromCharCode(13, 10)) + String.fromCharCode(13, 10);
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const nombreLimpio = (viaje.titulo || viaje.nombre || 'itinerario').replace(/[^a-zA-Z0-9_À-ſ-]/g, '_');
+  a.setAttribute('download', `${nombreLimpio}_camplink.ics`);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
 export default function MisViajes({ alSeleccionarLugar }) {
   // Aquí gestiono la información del explorador, viajes agrupados y modal del póster
   const { usuario } = useAuth();
@@ -174,6 +273,15 @@ export default function MisViajes({ alSeleccionarLugar }) {
                     <span className={`badge-camper ${viaje.esta_cerrado ? 'badge-earth' : 'badge-gold'}`}>
                       {viaje.esta_cerrado ? 'Viaje Finalizado' : 'En Curso (Abierto)'}
                     </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => exportarIcsViaje(viaje)}
+                      style={{ fontSize: '0.8rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}
+                      title="Descargar archivo .ics para importar este viaje en Google Calendar, Apple Calendar o Outlook"
+                    >
+                      <Calendar size={14} color="var(--accent-earth)" /> Calendario (.ics)
+                    </button>
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"

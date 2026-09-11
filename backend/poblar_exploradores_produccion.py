@@ -220,19 +220,19 @@ def poblar():
     for i, user in enumerate(exploradores_creados):
         titulo, texto = TITULOS_VIVENCIAS[i % len(TITULOS_VIVENCIAS)]
         lugar_asociado = random.choice(lugares_disponibles) if lugares_disponibles else None
+        texto_completo = f"{titulo}\n\n{texto}"
         
         post, _ = VivenciaDiario.objects.get_or_create(
             autor=user,
-            titulo=titulo,
+            contenido=texto_completo,
             defaults={
-                'contenido': texto,
                 'lugar': lugar_asociado,
-                'privacidad': 'comunidad'
+                'visibilidad': 'publico'
             }
         )
-        post.contenido = texto
+        post.contenido = texto_completo
         post.lugar = lugar_asociado
-        post.privacidad = 'comunidad'
+        post.visibilidad = 'publico'
         post.save()
 
         # Añadir un comentario cruzado de otro explorador
@@ -240,7 +240,7 @@ def poblar():
         ComentarioDiario.objects.get_or_create(
             publicacion=post,
             autor=otro_user,
-            defaults={'contenido': '¡Qué buen rincón! Me lo guardo en la lista para nuestra próxima escapada en furgo 🚐🌲'}
+            defaults={'texto': '¡Qué buen rincón! Me lo guardo en la lista para nuestra próxima escapada en furgo 🚐🌲'}
         )
 
     print("\n=== Verificando Medallas y Trofeos para los Exploradores ===")

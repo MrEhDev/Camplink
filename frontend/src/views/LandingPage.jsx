@@ -870,7 +870,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     className="form-control"
                     placeholder="Ej: rutero_norte"
                     value={regData.username}
-                    onChange={(e) => setRegData({ ...regData, username: e.target.value.replace(/\s+/g, '').toLowerCase())}
+                    onChange={(e) => setRegData({ ...regData, username: e.target.value.replace(/\s+/g, '').toLowerCase() })}
                     required
                   />
                 </div>
@@ -885,7 +885,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     className="form-control"
                     placeholder="tu@email.com"
                     value={regData.email}
-                    onChange={(e) => setRegData({ ...regData, email: e.target.value.replace(/\s+/g, '').toLowerCase())}
+                    onChange={(e) => setRegData({ ...regData, email: e.target.value.replace(/\s+/g, '').toLowerCase() })}
                     required
                   />
                 </div>

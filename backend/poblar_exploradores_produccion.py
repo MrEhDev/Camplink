@@ -210,9 +210,9 @@ def poblar():
                 val, _ = ValoracionLugar.objects.get_or_create(
                     explorador=user,
                     lugar=lug,
-                    defaults={'puntuacion': puntuacion, 'comentario': texto}
+                    defaults={'puntuacion_camper': puntuacion, 'comentario': texto}
                 )
-                val.puntuacion = puntuacion
+                val.puntuacion_camper = puntuacion
                 val.comentario = texto
                 val.save()
 

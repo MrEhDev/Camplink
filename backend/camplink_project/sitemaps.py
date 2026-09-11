@@ -6,17 +6,14 @@ from lugares.models import Lugar
 from comunidad.models import ArticuloGuia
 
 class LugaresSitemap(Sitemap):
-    # Aquí configuro el sitemap para los puntos de pernocta
+    # Aquí configuro el sitemap para los puntos de pernocta con HTTPS para Google
+    protocol = 'https'
     changefreq = 'weekly'
     priority = 0.8
 
     def items(self):
         # Devuelvo todos los lugares ordenados
-        return Lugar.objects.all().order_by('-fecha_creacion')
-
-    def lastmod(self, obj):
-        # Última fecha de modificación / creación
-        return obj.fecha_creacion
+        return Lugar.objects.all().order_by('-id')
 
     def location(self, obj):
         # URL de la SPA donde se visualiza el detalle del lugar
@@ -24,7 +21,8 @@ class LugaresSitemap(Sitemap):
 
 
 class GuiaSitemap(Sitemap):
-    # Aquí configuro el sitemap para los artículos de la Guía del Nómada
+    # Aquí configuro el sitemap para los artículos de la Guía del Nómada con HTTPS para Google
+    protocol = 'https'
     changefreq = 'monthly'
     priority = 0.9
 

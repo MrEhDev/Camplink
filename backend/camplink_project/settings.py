@@ -151,14 +151,12 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configuración de Django REST Framework
+# Configuración de Django REST Framework (sin paginación global para servir todos los puntos del mapa y listas completas a la SPA)
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
 }
 
 # Configuración de CORS y CSRF para producción y desarrollo local

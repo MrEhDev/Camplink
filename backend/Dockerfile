@@ -32,4 +32,4 @@ RUN python manage.py collectstatic --noinput || true
 EXPOSE 8000
 
 # Aquí ejecuto las migraciones, importo el catálogo de lugares y arranco el servidor de aplicaciones
-CMD ["sh", "-c", "python manage.py migrate && python manage.py loaddata fixtures/lugares_iniciales.json || true && python poblar_exploradores_produccion.py || true && gunicorn camplink_project.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py loaddata fixtures/lugares_iniciales.json || true && python manage.py loaddata fixtures/comunidad_inicial.json || true && python poblar_exploradores_produccion.py || true && gunicorn camplink_project.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"]

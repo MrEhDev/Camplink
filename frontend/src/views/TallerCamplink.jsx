@@ -67,8 +67,14 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
   // Cargar Categorías dinámicamente desde la base de datos
   useEffect(() => {
     peticionApi('/api/comunidad/categorias/')
-      .then(res => setCategorias(res || []))
-      .catch(err => console.error('Error cargando categorias:', err));
+      .then(res => {
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        setCategorias(lista);
+      })
+      .catch(err => {
+        console.error('Error cargando categorias:', err);
+        setCategorias([]);
+      });
   }, []);
 
   // Comprobar publicaciones pendientes para badge de Admin
@@ -92,14 +98,16 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
     try {
       if (soloRevision && esAdmin) {
         const res = await peticionApi('/api/comunidad/publicaciones/pendientes/');
-        setPublicaciones(Array.isArray(res) ? res : []);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        setPublicaciones(lista);
       } else {
         let url = '/api/comunidad/publicaciones/?';
         if (categoriaActiva !== 'todos') {
           url += `categoria=${encodeURIComponent(categoriaActiva)}&`;
         }
         const res = await peticionApi(url);
-        setPublicaciones(Array.isArray(res) ? res : []);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        setPublicaciones(lista);
       }
     } catch (err) {
       console.error('Error cargando publicaciones:', err);
@@ -1073,7 +1081,7 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
           <span>Todas las Categorías</span>
         </button>
 
-        {categorias.map((cat) => (
+        {(Array.isArray(categorias) ? categorias : []).map((cat) => (
           <button
             key={cat.id}
             className={`btn btn-sm ${categoriaActiva === cat.slug && !soloRevision ? 'btn-primary' : 'btn-secondary'}`}

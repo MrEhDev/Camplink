@@ -531,7 +531,9 @@ def mi_perfil_vista(request):
     serializer = ExploradorPerfilSerializer(explorador, data=data, partial=True, context={'request': request})
     if serializer.is_valid():
         serializer.save()
+        print(f"[MI PERFIL PATCH OK] {explorador.username}: CP={explorador.codigo_postal}, Pob={explorador.poblacion}, Dir={explorador.direccion_base}, Bio={explorador.biografia}")
         return Response(serializer.data)
+    print(f"[MI PERFIL PATCH ERROR] {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

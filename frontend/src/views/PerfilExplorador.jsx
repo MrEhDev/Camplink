@@ -853,7 +853,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
 
             <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
-              {obtenerProvinciaExplorador(usuario) && <span>📍 {obtenerProvinciaExplorador(usuario)}</span>}
+              <span>📍 {usuario?.poblacion ? `${usuario.poblacion}${usuario.codigo_postal ? ` (${usuario.codigo_postal})` : ''}` : (obtenerProvinciaExplorador(usuario) || 'España')}</span>
               <span>⛽ {usuario?.capacidad_deposito_l || capacidadDeposito || 60}L ({usuario?.tipo_combustible?.toUpperCase() || 'DIÉSEL'} • ~{autonomiaEstimada} km)</span>
               <span>📅 Miembro desde {new Date(usuario?.date_joined || Date.now()).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}</span>
             </div>
@@ -2301,9 +2301,20 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
 
           {lugaresGuardados.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-              <span style={{ fontSize: '2.5rem' }}>🌲</span>
-              <p style={{ marginTop: '10px' }}>
-                Aún no tienes lugares guardados. Pulsa <strong>"🌲 Guardado para ir"</strong> en las publicaciones del Diario de Ruta o <strong>"Guardar Lugar (Para ir)"</strong> en cualquier ficha para tenerlos siempre a mano.
+              <div style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                background: 'rgba(46, 117, 89, 0.1)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '12px'
+              }}>
+                <Bookmark size={26} color="var(--accent-forest)" />
+              </div>
+              <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Aún no tienes lugares guardados. Pulsa <Bookmark size={15} color="var(--accent-forest)" style={{ verticalAlign: '-2px', margin: '0 2px' }} /> en cualquier tarjeta para guardarlo aquí.
               </p>
             </div>
           ) : lugaresGuardadosFiltrados.length === 0 ? (

@@ -85,6 +85,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
 
   // Estados de Autocompletado de Dirección y Código Postal
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [buscandoDireccion, setBuscandoDireccion] = useState(false);
   const [buscandoCp, setBuscandoCp] = useState(false);
   const timerDireccion = useRef(null);
@@ -154,11 +155,11 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       provAuto = PROVINCIAS_CP[pref] || '';
     }
 
+    // Solo autocompletar población, NUNCA sobreescribir dirección base
     setRegData(prev => ({
       ...prev,
       codigo_postal: cpLimpio,
-      poblacion: prev.poblacion || provAuto,
-      direccion_base: prev.direccion_base || prev.poblacion || provAuto
+      poblacion: prev.poblacion || provAuto
     }));
 
     if (timerCp.current) clearTimeout(timerCp.current);
@@ -179,7 +180,6 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
               setRegData(prev => ({
                 ...prev,
                 poblacion: ciudad,
-                direccion_base: prev.direccion_base && prev.direccion_base !== provAuto ? prev.direccion_base : ciudad,
                 lat_base: !isNaN(lat) ? lat : prev.lat_base,
                 lng_base: !isNaN(lng) ? lng : prev.lng_base,
               }));
@@ -301,7 +301,8 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       if (!pobFinal && cpFinal.length >= 2) {
         pobFinal = PROVINCIAS_CP[cpFinal.slice(0, 2)] || '';
       }
-      const dirFinal = String(regData.direccion_base || '').trim() || pobFinal;
+      const dirFinal = String(regData.direccion_base || '').trim();
+      const bioFinal = String(regData.biografia || '').trim();
 
       let bodyData;
       if (fotoAvatar) {
@@ -314,6 +315,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         bodyData.append('codigo_postal', cpFinal);
         bodyData.append('poblacion', pobFinal);
         bodyData.append('direccion_base', dirFinal);
+        bodyData.append('biografia', bioFinal);
         if (typeof regData.lat_base === 'number' && !isNaN(regData.lat_base)) {
           bodyData.append('lat_base', regData.lat_base);
         }
@@ -329,6 +331,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
           codigo_postal: cpFinal,
           poblacion: pobFinal,
           direccion_base: dirFinal,
+          biografia: bioFinal,
           lat_base: typeof regData.lat_base === 'number' && !isNaN(regData.lat_base) ? regData.lat_base : null,
           lng_base: typeof regData.lng_base === 'number' && !isNaN(regData.lng_base) ? regData.lng_base : null
         };
@@ -350,16 +353,10 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       window.history.pushState({ vista: 'diario' }, '', '/diario');
       setVistaActiva('diario');
     } catch (err) {
-      console.warn('Error al guardar datos del vehículo:', err);
-      setModalConfigurarVehiculoAbierto(false);
-      if (typeof establecerUsuario === 'function' && usuarioPendienteVehiculo) {
-        establecerUsuario(usuarioPendienteVehiculo);
-      }
-      if (typeof cargarPerfil === 'function') {
-        cargarPerfil();
-      }
-      window.history.pushState({ vista: 'diario' }, '', '/diario');
-      setVistaActiva('diario');
+      console.error('Error al guardar datos del vehículo:', err);
+      alert('Error al guardar datos: ' + (err.message || 'Comprueba los campos e inténtalo de nuevo.'));
+      setGuardandoVehiculo(false);
+      return;
     } finally {
       setGuardandoVehiculo(false);
     }
@@ -1468,13 +1465,19 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Escribe calle, barrio o ciudad para sugerencias..."
+                  placeholder="Escribe calle, barrio o punto de partida..."
                   value={regData.direccion_base}
                   onChange={(e) => manejarCambioDireccion(e.target.value)}
+                  onFocus={() => {
+                    if (sugerenciasDireccion.length > 0) setMostrarSugerencias(true);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setMostrarSugerencias(false), 200);
+                  }}
                   autoComplete="off"
                 />
 
-                {sugerenciasDireccion.length > 0 && (
+                {mostrarSugerencias && sugerenciasDireccion.length > 0 && (
                   <div style={{
                     position: 'absolute',
                     top: '100%',
@@ -1493,6 +1496,10 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     {sugerenciasDireccion.map((sug, idx) => (
                       <div
                         key={idx}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          seleccionarSugerencia(sug);
+                        }}
                         onClick={() => seleccionarSugerencia(sug)}
                         style={{
                           padding: '10px 14px',
@@ -1509,6 +1516,22 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* BIOGRAFÍA CAMPER */}
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Biografía Camper</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>(Opcional)</span>
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  placeholder="Breve descripción, ej: Amante de las escapadas de fin de semana en furgo, la escalada y las rutas de montaña..."
+                  value={regData.biografia || ''}
+                  onChange={(e) => setRegData({ ...regData, biografia: e.target.value })}
+                  style={{ resize: 'vertical', fontSize: '0.86rem' }}
+                />
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>

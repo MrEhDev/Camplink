@@ -2,7 +2,7 @@
 // permitiendo inicio de sesión tradicional, registro, cierre de sesión y carga de perfil.
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { peticionApi, asegurarCsrfToken } from '../services/api';
+import { peticionApi, asegurarCsrfToken, actualizarCsrfToken } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -37,6 +37,9 @@ export const AuthProvider = ({ children }) => {
       method: 'POST',
       body: { username: usuarioLimpio, password: passLimpio }
     });
+    if (res && res.csrftoken) {
+      actualizarCsrfToken(res.csrftoken);
+    }
     setUsuario(res.usuario);
     return res;
   };
@@ -76,6 +79,9 @@ export const AuthProvider = ({ children }) => {
         token: token ? String(token).trim() : ''
       }
     });
+    if (res && res.csrftoken) {
+      actualizarCsrfToken(res.csrftoken);
+    }
     if (res && res.usuario && autoLogin) {
       setUsuario(res.usuario);
     }

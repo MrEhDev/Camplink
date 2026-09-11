@@ -76,7 +76,23 @@ export async function peticionApi(endpoint, opciones = {}) {
     urlFinal = `/api${urlFinal}`;
   }
 
-  const respuesta = await fetch(urlFinal, configuracion);
+  let respuesta = await fetch(urlFinal, configuracion);
+
+  // Si falla por 403 (posible expiración o rotación de CSRF tras login/activar), reintentar con token fresco
+  if (respuesta.status === 403 && opciones.method && opciones.method !== 'GET') {
+    try {
+      const resCsrf = await fetch('/api/exploradores/csrf/', { credentials: 'include' });
+      const dataCsrf = await resCsrf.json();
+      const nuevoToken = dataCsrf.csrftoken || obtenerCookie('csrftoken');
+      if (nuevoToken) {
+        csrfTokenCache = nuevoToken;
+        configuracion.headers['X-CSRFToken'] = nuevoToken;
+        respuesta = await fetch(urlFinal, configuracion);
+      }
+    } catch {
+      // Continuar con la respuesta original
+    }
+  }
 
   if (!respuesta.ok) {
     let errorData = {};

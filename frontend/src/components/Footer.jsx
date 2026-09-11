@@ -46,7 +46,7 @@ export default function Footer({ setVistaActiva }) {
               <li><a href="/taller" onClick={(e) => { e.preventDefault(); irA('taller', '/taller'); }}>🛠️ Taller Camplink</a></li>
               <li><a href="/taller/crear" onClick={(e) => { e.preventDefault(); irA('taller_crear', '/taller/crear'); }}>➕ Publicar en el Taller</a></li>
               <li><a href="/trofeos" onClick={(e) => { e.preventDefault(); irA('trofeos', '/trofeos'); }}>🏆 Vitrina de Trofeos</a></li>
-              <li><a href="mailto:camplink.app.info@gmail.com">✉️ Contacto: camplink.app.info@gmail.com</a></li>
+              <li><a href="mailto:hola@camplinkapp.com">✉️ Contacto: hola@camplinkapp.com</a></li>
             </ul>
           </div>
         </div>

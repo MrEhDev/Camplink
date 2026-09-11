@@ -1565,7 +1565,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
           )}
 
-          {/* Subnavegación de Comunidad: Grupos | Seguidores | Siguiendo | Descubrir Nómadas */}
+          {/* Subnavegación de Comunidad: Grupos | Seguidores | Siguiendo | Descubrir Exploradores */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -1597,7 +1597,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
               onClick={() => { setTabComunidad('descubrir'); cargarTodosLosExploradores(); }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: 'var(--radius-full)' }}
             >
-              <Search size={16} /> Descubrir Nómadas ({todosLosExploradores.length})
+              <Search size={16} /> Descubrir Exploradores
             </button>
           </div>
 
@@ -1809,13 +1809,13 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
             </div>
           )}
 
-                    {/* SECCIÓN DESCUBRIR Y CONECTAR CON OTROS NÓMADAS */}
+                    {/* SECCIÓN DESCUBRIR Y CONECTAR CON OTROS EXPLORADORES */}
           {tabComunidad === 'descubrir' && (
             <div className="camper-card" style={{ padding: '26px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Search size={20} color="var(--accent-forest)" /> Descubrir y Conectar con Otros Nómadas
+                    <Search size={20} color="var(--accent-forest)" /> Descubrir y Conectar con Otros Exploradores
                   </h3>
                   <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                     Explora toda la comunidad de Camplink, busca por vehículo, ciudad o nombre y conecta en ruta.

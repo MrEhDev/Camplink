@@ -257,7 +257,8 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
     e.preventDefault();
     setAuthError(null);
     setCargandoAuth(true);
-    const userMinusculas = loginUsername.trim().toLowerCase();
+    const userMinusculas = loginUsername.replace(/\s+/g, '').toLowerCase();
+    const passLimpio = loginPassword.replace(/\s+/g, '');
 
     try {
       if (recordarUsuario) {
@@ -266,7 +267,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         localStorage.removeItem('camplink_saved_username');
       }
 
-      await login(userMinusculas, loginPassword);
+      await login(userMinusculas, passLimpio);
       setVistaActiva('diario');
     } catch (err) {
       if (err.data && err.data.requiere_verificacion) {
@@ -706,7 +707,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     className="form-control"
                     placeholder="Tu nombre de usuario o email"
                     value={loginUsername}
-                    onChange={(e) => setLoginUsername(e.target.value.toLowerCase())}
+                    onChange={(e) => setLoginUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
                     required
                   />
                 </div>
@@ -733,7 +734,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                       className="form-control"
                       placeholder="••••••••"
                       value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
+                      onChange={(e) => setLoginPassword(e.target.value.replace(/\s+/g, ''))}
                       style={{ paddingRight: '42px' }}
                       required
                     />
@@ -869,7 +870,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     className="form-control"
                     placeholder="Ej: rutero_norte"
                     value={regData.username}
-                    onChange={(e) => setRegData({ ...regData, username: e.target.value.toLowerCase() })}
+                    onChange={(e) => setRegData({ ...regData, username: e.target.value.replace(/\s+/g, '').toLowerCase())}
                     required
                   />
                 </div>
@@ -884,7 +885,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     className="form-control"
                     placeholder="tu@email.com"
                     value={regData.email}
-                    onChange={(e) => setRegData({ ...regData, email: e.target.value })}
+                    onChange={(e) => setRegData({ ...regData, email: e.target.value.replace(/\s+/g, '').toLowerCase())}
                     required
                   />
                 </div>
@@ -900,7 +901,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                         type={mostrarRegPassword ? 'text' : 'password'}
                         className="form-control"
                         value={regData.password}
-                        onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                        onChange={(e) => setRegData({ ...regData, password: e.target.value.replace(/\s+/g, '') })}
                         style={{ paddingRight: '36px' }}
                         required
                       />
@@ -934,7 +935,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                         type={mostrarRegConfirmPassword ? 'text' : 'password'}
                         className="form-control"
                         value={regData.password_confirm}
-                        onChange={(e) => setRegData({ ...regData, password_confirm: e.target.value })}
+                        onChange={(e) => setRegData({ ...regData, password_confirm: e.target.value.replace(/\s+/g, '') })}
                         style={{ paddingRight: '36px' }}
                         required
                       />

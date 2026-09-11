@@ -85,18 +85,65 @@ www.camplinkapp.com
     </div>
     """
     def _enviar_hilo():
+        dest = explorador.email
+        resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+        brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
+
+        if resend_key:
+            try:
+                import urllib.request, json
+                req = urllib.request.Request(
+                    'https://api.resend.com/emails',
+                    data=json.dumps({
+                        'from': settings.DEFAULT_FROM_EMAIL,
+                        'to': [dest],
+                        'subject': asunto,
+                        'html': mensaje_html,
+                        'text': mensaje_texto
+                    }).encode('utf-8'),
+                    headers={'Authorization': f'Bearer {resend_key}', 'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    if r.status in (200, 201):
+                        print(f"[RESEND] Código {codigo} enviado a {dest}")
+                        return
+            except Exception as re_err:
+                print(f"[ERROR RESEND] {re_err}")
+
+        if brevo_key:
+            try:
+                import urllib.request, json
+                req = urllib.request.Request(
+                    'https://api.brevo.com/v3/smtp/email',
+                    data=json.dumps({
+                        'sender': {'name': 'CampLink', 'email': settings.EMAIL_HOST_USER or 'camplink.app.info@gmail.com'},
+                        'to': [{'email': dest}],
+                        'subject': asunto,
+                        'htmlContent': mensaje_html,
+                        'textContent': mensaje_texto
+                    }).encode('utf-8'),
+                    headers={'api-key': brevo_key, 'Content-Type': 'application/json'}
+                )
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    if r.status in (200, 201):
+                        print(f"[BREVO] Código {codigo} enviado a {dest}")
+                        return
+            except Exception as br_err:
+                print(f"[ERROR BREVO] {br_err}")
+
+        # Fallback estándar SMTP
         try:
             email_msg = EmailMultiAlternatives(
                 subject=asunto,
                 body=mensaje_texto,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[explorador.email]
+                to=[dest]
             )
             email_msg.attach_alternative(mensaje_html, "text/html")
             email_msg.send(fail_silently=False)
-            print(f"[EMAIL ENVIADO] Código {codigo} enviado con éxito a {explorador.email}")
+            print(f"[EMAIL ENVIADO] Código {codigo} enviado con éxito a {dest}")
         except Exception as e:
-            print(f"[ERROR EMAIL] No se pudo enviar el correo a {explorador.email}: {e}")
+            print(f"[ERROR EMAIL] No se pudo enviar el correo a {dest}: {e}")
 
     # Enviar correo de forma asíncrona en segundo plano para nunca bloquear la petición HTTP
     threading.Thread(target=_enviar_hilo, daemon=True).start()
@@ -133,13 +180,15 @@ def registro_vista(request):
         # Enviar correo de confirmación
         enviar_correo_verificacion(request, explorador, codigo, uid, token)
         
-        return Response({
+        resp_data = {
             'mensaje': '¡Cuenta creada! Te hemos enviado un correo de confirmación para activarla.',
             'requiere_verificacion': True,
             'email': explorador.email,
             'uid': uid,
-            'codigo_dev': codigo
-        }, status=status.HTTP_201_CREATED)
+        }
+        if settings.DEBUG:
+            resp_data['codigo_dev'] = codigo
+        return Response(resp_data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -228,18 +277,29 @@ def login_vista(request):
     if not username or not password:
         return Response({'error': 'Debes ingresar usuario y contraseña.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Conversión obligatoria a minúsculas
-    username_limpio = str(username).strip().lower()
+    # Conversión obligatoria a minúsculas y eliminación total de espacios en blanco
+    username_limpio = "".join(str(username).split()).lower()
+    password_limpio = str(password).strip()
+    password_sin_espacios = "".join(str(password).split())
 
     # Intento 1: Autenticación directa
-    usuario = authenticate(request, username=username_limpio, password=password)
+    usuario = authenticate(request, username=username_limpio, password=password_limpio)
 
-    # Intento 2: Búsqueda insensible a mayúsculas
+    # Intento 1b: Autenticación con password sin ningún espacio
+    if usuario is None and password_sin_espacios != password_limpio:
+        usuario = authenticate(request, username=username_limpio, password=password_sin_espacios)
+
+    # Intento 2: Búsqueda insensible a mayúsculas por username o email
     if usuario is None:
         try:
             user_obj = Explorador.objects.filter(username__iexact=username_limpio).first()
-            if user_obj and user_obj.check_password(password):
-                usuario = user_obj
+            if not user_obj and ('@' in username_limpio or '.' in username_limpio):
+                user_obj = Explorador.objects.filter(email__iexact=username_limpio).first()
+            if user_obj:
+                if user_obj.check_password(password_limpio):
+                    usuario = user_obj
+                elif password_sin_espacios != password_limpio and user_obj.check_password(password_sin_espacios):
+                    usuario = user_obj
         except Exception:
             pass
 
@@ -310,10 +370,12 @@ def recuperar_password_vista(request):
 
             threading.Thread(target=_enviar_recuperacion, daemon=True).start()
 
-        return Response({
+        resp_data = {
             'mensaje': f'Hemos localizado tu cuenta ({user.username.capitalize()}). Te hemos enviado tu nueva contraseña temporal a {user.email}. Revisa tu bandeja de entrada o spam.',
-            'clave_dev': clave_temporal
-        })
+        }
+        if settings.DEBUG:
+            resp_data['clave_dev'] = clave_temporal
+        return Response(resp_data)
     return Response({'error': 'No se encontró ningún explorador registrado con ese usuario o correo electrónico.'}, status=status.HTTP_404_NOT_FOUND)
 
 

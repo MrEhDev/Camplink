@@ -30,23 +30,30 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    // Conversión obligatoria de usuario a minúsculas
-    const usuarioLimpio = String(username || '').trim().toLowerCase();
+    // Conversión obligatoria de usuario a minúsculas y eliminación total de espacios en blanco
+    const usuarioLimpio = String(username || '').replace(/\s+/g, '').toLowerCase();
+    const passLimpio = String(password || '').replace(/\s+/g, '');
     const res = await peticionApi('/api/exploradores/login/', {
       method: 'POST',
-      body: { username: usuarioLimpio, password }
+      body: { username: usuarioLimpio, password: passLimpio }
     });
     setUsuario(res.usuario);
     return res;
   };
 
   const registro = async (formData) => {
-    // Conversión obligatoria de usuario a minúsculas en registro
+    // Conversión obligatoria de usuario a minúsculas y eliminación total de espacios en blanco
     if (formData instanceof FormData) {
       const u = formData.get('username');
-      if (u) formData.set('username', String(u).trim().toLowerCase());
-    } else if (formData && formData.username) {
-      formData.username = String(formData.username).trim().toLowerCase();
+      if (u) formData.set('username', String(u).replace(/\s+/g, '').toLowerCase());
+      const p = formData.get('password');
+      if (p) formData.set('password', String(p).replace(/\s+/g, ''));
+      const pc = formData.get('password_confirm');
+      if (pc) formData.set('password_confirm', String(pc).replace(/\s+/g, ''));
+    } else if (formData) {
+      if (formData.username) formData.username = String(formData.username).replace(/\s+/g, '').toLowerCase();
+      if (formData.password) formData.password = String(formData.password).replace(/\s+/g, '');
+      if (formData.password_confirm) formData.password_confirm = String(formData.password_confirm).replace(/\s+/g, '');
     }
 
     const res = await peticionApi('/api/exploradores/registro/', {

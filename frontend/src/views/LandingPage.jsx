@@ -393,7 +393,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
             margin: '0 auto 32px'
           }}>
             Descubre lugares de pernocta verificados, planifica tus viajes con cálculo de combustible inteligente,
-            comparte tu diario de ruta y domina la camperización con nuestro taller interactivo en 3D.
+            comparte tu diario de ruta y conecta con una auténtica comunidad camper al aire libre.
           </p>
 
           {/* BOTONES DE ACCIÓN RÁPIDA */}

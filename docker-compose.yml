@@ -1,24 +1,45 @@
-# Aquí orquesto los servicios del ecosistema Camplink: Backend en Django REST Framework
-# y Frontend en React SPA, con volúmenes persistentes para base de datos y archivos multimedia.
+# Aquí orquesto los servicios en contenedores para producción de Camplink:
+# 1. Base de datos PostgreSQL con volumen persistente.
+# 2. Backend Django + Gunicorn con volumen persistente para archivos multimedia.
+# 3. Frontend React SPA servido y balanceado por Nginx.
 
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: camplink_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-camplink_db}
+      POSTGRES_USER: ${POSTGRES_USER:-camplink_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Aquí garantizo la persistencia total de los datos de la base de datos entre despliegues
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-camplink_user} -d ${POSTGRES_DB:-camplink_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: camplink_backend
     restart: always
-    ports:
-      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - DJANGO_SECRET_KEY=produccion-segura-camplink-2026-secret
-      - DJANGO_DEBUG=False
-      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
     volumes:
-      - backend_media:/app/media
-      - backend_db:/app/db
+      # Aquí aseguro que las imágenes subidas por usuarios (avatares, vehículos, lugares) nunca se pierdan
+      - ./media:/app/media
 
   frontend:
     build:
@@ -32,5 +53,5 @@ services:
       - backend
 
 volumes:
-  backend_media:
-  backend_db:
+  # Volúmenes persistentes que sobreviven a cualquier reconstrucción de contenedores
+  postgres_data:

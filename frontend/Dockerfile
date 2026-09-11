@@ -13,25 +13,10 @@ RUN npm run build
 # Etapa 2: sirvo los archivos estáticos optimizados mediante Nginx en Linux
 FROM nginx:alpine
 
-# Aquí copio la configuración de Nginx para soportar rutas SPA (redirección a index.html)
-RUN echo 'server { \
-    listen 80; \
-    server_name localhost; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location /api/ { \
-        proxy_pass http://backend:8000; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-    } \
-    location /media/ { \
-        proxy_pass http://backend:8000; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Aquí copio la configuración optimizada de Nginx con gzip, rutas SPA y proxy inverso
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Aquí copio la aplicación compilada de React
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80

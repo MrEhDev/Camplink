@@ -1,0 +1,43 @@
+# Aquí configuro el flujo de Integración y Despliegue Continuo (CI/CD) de Camplink:
+# Cada vez que se hace push a la rama 'main', GitHub Actions se conecta por SSH al Droplet,
+# actualiza el repositorio y reconstruye los contenedores de forma automatizada y sin pérdida de datos.
+
+name: Despliegue Continuo Camplink Producción
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  desplegar:
+    name: Desplegar en Droplet DigitalOcean
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Conectar por SSH y actualizar contenedores en DigitalOcean
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script_stop: true
+          script: |
+            echo "=== [1/4] Accediendo al directorio de la aplicación en el servidor ==="
+            cd /opt/camplink
+
+            echo "=== [2/4] Sincronizando con la última versión del repositorio ==="
+            if [ -d ".git" ]; then
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone https://github.com/MrEhDev/Camplink.git .
+            fi
+
+            echo "=== [3/4] Reconstruyendo y levantando contenedores con Docker Compose ==="
+            docker compose up -d --build
+
+            echo "=== [4/4] Limpieza de imágenes huérfanas para optimizar el disco ==="
+            docker image prune -f
+
+            echo "🚀 ¡Despliegue completado con éxito en https://camplinkapp.com!"

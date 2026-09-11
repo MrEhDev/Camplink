@@ -1,5 +1,5 @@
-# Aquí configuro el enrutador principal de URLs de Camplink, conectando los endpoints de la API REST,
-# el panel de administración, la gestión de archivos multimedia y los archivos sitemap.xml y robots.txt para SEO.
+# Aquí configuro el enrutador principal de URLs de Camplink para conectar endpoints de la API REST,
+# el panel de administración seguro con ruta ofuscada, soporte de archivos multimedia y rutas SEO.
 
 from django.contrib import admin
 from django.urls import path, include
@@ -9,7 +9,6 @@ from django.http import HttpResponse
 from django.contrib.sitemaps.views import sitemap
 from .sitemaps import LugaresSitemap, GuiaSitemap
 
-# Diccionario con los sitemaps activos para indexación en motores de búsqueda
 sitemaps = {
     'lugares': LugaresSitemap,
     'guia': GuiaSitemap,
@@ -17,18 +16,22 @@ sitemaps = {
 
 def robots_txt_vista(request):
     # Aquí genero la respuesta dinámica del archivo robots.txt para buenas prácticas SEO
+    admin_url = getattr(settings, 'ADMIN_URL', 'panel-camplink-gestion/')
     lineas = [
         "User-agent: *",
+        f"Disallow: /{admin_url}",
         "Disallow: /admin/",
         "Disallow: /api/",
         "Allow: /",
-        f"Sitemap: {request.build_absolute_uri('/sitemap.xml')}"
+        "Sitemap: https://camplinkapp.com/sitemap.xml"
     ]
     return HttpResponse("\n".join(lineas), content_type="text/plain")
 
+admin_ruta = getattr(settings, 'ADMIN_URL', 'panel-camplink-gestion/')
+
 urlpatterns = [
-    # Panel de administración de Django para el rol Administrador
-    path('admin/', admin.site.urls),
+    # Panel de administración de Django con ruta segura configurable
+    path(admin_ruta, admin.site.urls),
 
     # Endpoints de la API REST de Camplink
     path('api/exploradores/', include('exploradores.urls')),
@@ -42,7 +45,7 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 ]
 
-# Servir archivos multimedia subidos (fotos, .stl) durante el desarrollo local
+# Servir archivos multimedia subidos (fotos de perfil, vehículos, lugares)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

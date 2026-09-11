@@ -315,6 +315,17 @@ def activar_cuenta_vista(request):
     explorador.email_verificado = True
     explorador.codigo_verificacion = ''
     explorador.save()
+
+    # Si la petición incluye datos de vehículo o localización, actualizarlos directamente
+    campos_perfil = ['tipo_viajero', 'tipo_combustible', 'capacidad_deposito_l', 'consumo_medio_l_100km', 'codigo_postal', 'poblacion', 'direccion_base', 'lat_base', 'lng_base']
+    datos_actualizar = {k: request.data[k] for k in campos_perfil if k in request.data}
+    if datos_actualizar:
+        for float_field in ['lat_base', 'lng_base']:
+            if float_field in datos_actualizar and (datos_actualizar[float_field] == '' or datos_actualizar[float_field] is None):
+                datos_actualizar[float_field] = None
+        serializer_veh = ExploradorPerfilSerializer(explorador, data=datos_actualizar, partial=True, context={'request': request})
+        if serializer_veh.is_valid():
+            serializer_veh.save()
     
     # Iniciar sesión automáticamente
     login(request, explorador)
@@ -506,7 +517,12 @@ def mi_perfil_vista(request):
         explorador.avatar = request.FILES['avatar']
         explorador.save()
 
-    serializer = ExploradorPerfilSerializer(explorador, data=request.data, partial=True, context={'request': request})
+    data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+    for float_field in ['lat_base', 'lng_base']:
+        if float_field in data and (data[float_field] == '' or data[float_field] is None):
+            data[float_field] = None
+
+    serializer = ExploradorPerfilSerializer(explorador, data=data, partial=True, context={'request': request})
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)

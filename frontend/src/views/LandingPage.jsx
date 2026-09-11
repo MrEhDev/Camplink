@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
-  const { usuario, login, registro, activarCuenta, reenviarCodigo, recuperarPassword, establecerUsuario } = useAuth();
+  const { usuario, login, registro, activarCuenta, reenviarCodigo, recuperarPassword, establecerUsuario, cargarPerfil } = useAuth();
   const { t } = useTranslation();
 
   const [modoAuth, setModoAuth] = useState('login'); // 'login' o 'registro'
@@ -49,9 +49,12 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
     codigo_postal: '',
     direccion_base: '',
     tipo_viajero: 'camper',
-    capacidad_deposito_l: '',
-    consumo_medio_l_100km: '',
+    tipo_combustible: 'gasoleo_a',
+    capacidad_deposito_l: '50',
+    consumo_medio_l_100km: '7.0',
     biografia: '',
+    lat_base: null,
+    lng_base: null,
   });
   const [fotoVehiculo, setFotoVehiculo] = useState(null);
 
@@ -85,6 +88,18 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       activarCuenta({ uid, token, email: emailParam, autoLogin: false })
         .then((res) => {
           setUsuarioPendienteVehiculo(res.usuario);
+          if (res.usuario) {
+            setRegData(prev => ({
+              ...prev,
+              tipo_viajero: res.usuario.tipo_viajero || prev.tipo_viajero || 'camper',
+              tipo_combustible: res.usuario.tipo_combustible || prev.tipo_combustible || 'gasoleo_a',
+              capacidad_deposito_l: res.usuario.capacidad_deposito_l ? String(res.usuario.capacidad_deposito_l) : (prev.capacidad_deposito_l || '50'),
+              consumo_medio_l_100km: res.usuario.consumo_medio_l_100km ? String(res.usuario.consumo_medio_l_100km) : (prev.consumo_medio_l_100km || '7.0'),
+              codigo_postal: res.usuario.codigo_postal || prev.codigo_postal || '',
+              poblacion: res.usuario.poblacion || prev.poblacion || '',
+              direccion_base: res.usuario.direccion_base || prev.direccion_base || ''
+            }));
+          }
           setModalConfigurarVehiculoAbierto(true);
           window.history.replaceState({}, document.title, window.location.pathname);
         })
@@ -190,6 +205,18 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       });
       setModalVerificacionAbierto(false);
       setUsuarioPendienteVehiculo(res.usuario);
+      if (res.usuario) {
+        setRegData(prev => ({
+          ...prev,
+          tipo_viajero: res.usuario.tipo_viajero || prev.tipo_viajero || 'camper',
+          tipo_combustible: res.usuario.tipo_combustible || prev.tipo_combustible || 'gasoleo_a',
+          capacidad_deposito_l: res.usuario.capacidad_deposito_l ? String(res.usuario.capacidad_deposito_l) : (prev.capacidad_deposito_l || '50'),
+          consumo_medio_l_100km: res.usuario.consumo_medio_l_100km ? String(res.usuario.consumo_medio_l_100km) : (prev.consumo_medio_l_100km || '7.0'),
+          codigo_postal: res.usuario.codigo_postal || prev.codigo_postal || '',
+          poblacion: res.usuario.poblacion || prev.poblacion || '',
+          direccion_base: res.usuario.direccion_base || prev.direccion_base || ''
+        }));
+      }
       setModalConfigurarVehiculoAbierto(true);
     } catch (err) {
       setErrorVerificacion(err.message || 'Código incorrecto. Comprueba e inténtalo de nuevo.');
@@ -210,11 +237,11 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         tipo_combustible: regData.tipo_combustible || 'gasoleo_a',
         capacidad_deposito_l: capFinal,
         consumo_medio_l_100km: consFinal,
-        codigo_postal: regData.codigo_postal || '',
-        poblacion: regData.poblacion || '',
-        direccion_base: regData.direccion_base || '',
-        lat_base: regData.lat_base,
-        lng_base: regData.lng_base
+        codigo_postal: regData.codigo_postal ? String(regData.codigo_postal).trim() : '',
+        poblacion: regData.poblacion ? String(regData.poblacion).trim() : '',
+        direccion_base: regData.direccion_base ? String(regData.direccion_base).trim() : '',
+        lat_base: typeof regData.lat_base === 'number' && !isNaN(regData.lat_base) ? regData.lat_base : null,
+        lng_base: typeof regData.lng_base === 'number' && !isNaN(regData.lng_base) ? regData.lng_base : null
       };
 
       const usuarioActualizado = await peticionApi('/api/exploradores/perfil/', {
@@ -223,12 +250,23 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       });
 
       setModalConfigurarVehiculoAbierto(false);
-      establecerUsuario(usuarioActualizado || usuarioPendienteVehiculo);
+      const userFinal = usuarioActualizado || usuarioPendienteVehiculo;
+      if (typeof establecerUsuario === 'function') {
+        establecerUsuario(userFinal);
+      }
+      if (typeof cargarPerfil === 'function') {
+        cargarPerfil();
+      }
       setVistaActiva('diario');
     } catch (err) {
       console.warn('Error al guardar datos del vehículo:', err);
       setModalConfigurarVehiculoAbierto(false);
-      establecerUsuario(usuarioPendienteVehiculo);
+      if (typeof establecerUsuario === 'function' && usuarioPendienteVehiculo) {
+        establecerUsuario(usuarioPendienteVehiculo);
+      }
+      if (typeof cargarPerfil === 'function') {
+        cargarPerfil();
+      }
       setVistaActiva('diario');
     } finally {
       setGuardandoVehiculo(false);
@@ -237,7 +275,12 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
 
   const manejarOmitirVehiculo = () => {
     setModalConfigurarVehiculoAbierto(false);
-    establecerUsuario(usuarioPendienteVehiculo);
+    if (typeof establecerUsuario === 'function' && usuarioPendienteVehiculo) {
+      establecerUsuario(usuarioPendienteVehiculo);
+    }
+    if (typeof cargarPerfil === 'function') {
+      cargarPerfil();
+    }
     setVistaActiva('diario');
   };
 

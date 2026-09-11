@@ -354,8 +354,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       if (typeof cargarPerfil === 'function') {
         cargarPerfil();
       }
-      window.history.pushState({ vista: 'diario' }, '', '/diario');
-      setVistaActiva('diario');
+      setVistaActiva('home');
     } catch (err) {
       console.error('Error al guardar datos del vehículo:', err);
       alert('Error al guardar datos: ' + (err.message || 'Comprueba los campos e inténtalo de nuevo.'));
@@ -372,7 +371,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
     if (typeof cargarPerfil === 'function') {
       cargarPerfil();
     }
-    setVistaActiva('diario');
+    setVistaActiva('home');
   };
 
   const manejarReenviarCodigo = async () => {
@@ -402,7 +401,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       }
 
       await login(userMinusculas, passLimpio);
-      setVistaActiva('diario');
+      setVistaActiva('home');
     } catch (err) {
       if (err.data && err.data.requiere_verificacion) {
         setEmailVerificacion(err.data.email || userMinusculas);
@@ -460,7 +459,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         setCodigoDev(res.codigo_dev || '');
         setModalVerificacionAbierto(true);
       } else {
-        setVistaActiva('diario');
+        setVistaActiva('home');
       }
     } catch (err) {
       setAuthError(err.message || 'Error al completar el registro.');

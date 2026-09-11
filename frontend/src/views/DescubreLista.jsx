@@ -353,10 +353,11 @@ export default function DescubreLista({
 
     // 2. Buscador
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase();
-      const coincideNombre = l.nombre?.toLowerCase().includes(q);
-      const coincidePoblacion = l.poblacion?.toLowerCase().includes(q);
-      const coincideProvincia = l.provincia?.toLowerCase().includes(q);
+      const normalizar = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      const q = normalizar(busqueda);
+      const coincideNombre = normalizar(l.nombre).includes(q);
+      const coincidePoblacion = normalizar(l.poblacion).includes(q);
+      const coincideProvincia = normalizar(l.provincia).includes(q);
       if (!coincideNombre && !coincidePoblacion && !coincideProvincia) return false;
     }
 

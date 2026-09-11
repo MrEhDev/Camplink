@@ -11,7 +11,7 @@ export default function ModalCheckIn({ lugar, alCerrar, alCompletar }) {
   // Aquí controlo el estado del formulario de pernocta
   const [diasPrevistos, setDiasPrevistos] = useState(1);
   const [fechaLlegada, setFechaLlegada] = useState(() => new Date().toISOString().split('T')[0]);
-  const [valoracionCamper, setValoracionCamper] = useState(5);
+  const [valoracionCamper, setValoracionCamper] = useState(0);
   const [comentarioPublico, setComentarioPublico] = useState('');
   const [notasPrivadas, setNotasPrivadas] = useState('');
   const [foto, setFoto] = useState(null);

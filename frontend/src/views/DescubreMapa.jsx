@@ -7,7 +7,7 @@ import { obtenerImagenLugar } from '../utils/lugarImagenes';
 // y modal directo para añadir a viaje planificado.
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -131,6 +131,19 @@ function ControladorCentroMapa({ coords }) {
   return null;
 }
 
+// Umbral de zoom mínimo para mostrar marcadores de lugares
+const ZOOM_MOSTRAR_LUGARES = 9;
+
+// Componente que sincroniza el nivel de zoom actual con el estado del padre
+function MonitorZoom({ onZoomChange }) {
+  useMapEvents({
+    zoomend: (e) => {
+      onZoomChange(e.target.getZoom());
+    },
+  });
+  return null;
+}
+
 export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCambiarALista }) {
   const { usuario } = useAuth();
   const [lugares, setLugares] = useState([]);
@@ -214,6 +227,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
   };
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  // Zoom actual del mapa (para carga condicional de marcadores)
+  const [zoomActual, setZoomActual] = useState(6);
 
   // Ubicación actual
   const [miUbicacion, setMiUbicacion] = useState(null);
@@ -364,10 +379,11 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
     // 2. Buscador
     if (busqueda.trim()) {
-      const q = busqueda.toLowerCase();
-      const coincideNombre = l.nombre?.toLowerCase().includes(q);
-      const coincidePoblacion = l.poblacion?.toLowerCase().includes(q);
-      const coincideProvincia = l.provincia?.toLowerCase().includes(q);
+      const normalizar = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      const q = normalizar(busqueda);
+      const coincideNombre = normalizar(l.nombre).includes(q);
+      const coincidePoblacion = normalizar(l.poblacion).includes(q);
+      const coincideProvincia = normalizar(l.provincia).includes(q);
       if (!coincideNombre && !coincidePoblacion && !coincideProvincia) return false;
     }
 
@@ -814,6 +830,34 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         </div>
       </div>
 
+      {/* OVERLAY: Mensaje cuando el zoom es insuficiente para ver marcadores */}
+      {zoomActual < ZOOM_MOSTRAR_LUGARES && (
+        <div style={{
+          position: 'absolute',
+          bottom: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 950,
+          background: 'rgba(18, 28, 22, 0.92)',
+          backdropFilter: 'blur(14px)',
+          border: '1.5px solid rgba(110, 231, 183, 0.45)',
+          borderRadius: 'var(--radius-full)',
+          padding: '10px 20px',
+          color: '#FFFFFF',
+          fontSize: '0.86rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.45)',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none'
+        }}>
+          <span style={{ fontSize: '1.1rem' }}>🔍</span>
+          Acércate para buscar lugares
+        </div>
+      )}
+
       {/* BOTÓN FLOTANTE PARA CENTRAR GPS */}
       <button
         onClick={obtenerUbicacionActual}
@@ -1125,6 +1169,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         style={{ width: '100%', height: '100%', background: '#111827' }}
       >
         <ControladorCentroMapa coords={miUbicacion} />
+        <MonitorZoom onZoomChange={setZoomActual} />
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="🗺️ Callejero OSM">
@@ -1203,8 +1248,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           </Marker>
         )}
 
-        {/* Marcadores de Lugares con Tarjetas Mejoradas e Imagen */}
-        {lugaresFiltrados.map((lugar) => {
+        {/* Marcadores de Lugares — solo visibles con zoom suficiente */}
+        {zoomActual >= ZOOM_MOSTRAR_LUGARES && lugaresFiltrados.map((lugar) => {
           const imagenLugar = obtenerImagenLugar(lugar);
           const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
 

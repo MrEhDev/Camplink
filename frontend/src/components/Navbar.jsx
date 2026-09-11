@@ -404,7 +404,7 @@ export default function Navbar({
                       top: '48px',
                       right: '0',
                       width: '350px',
-                      maxWidth: '90vw',
+                      maxWidth: 'calc(100vw - 16px)',
                       maxHeight: '440px',
                       background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',

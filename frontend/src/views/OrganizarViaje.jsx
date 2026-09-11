@@ -372,8 +372,13 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   const [infoAlertasAbiertas, setInfoAlertasAbiertas] = useState({});
   const toggleInfoAlerta = (key) => setInfoAlertasAbiertas(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // Estados de expansión y edición en línea
-  const [viajesExpandidos, setViajesExpandidos] = useState({});
+  // Estados de expansión y edición en línea — persistidos en localStorage para sobrevivir recargas
+  const [viajesExpandidos, setViajesExpandidos] = useState(() => {
+    try {
+      const saved = localStorage.getItem('camplink_viajes_expandidos');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [editandoFechaParadaId, setEditandoFechaParadaId] = useState(null);
   const [formEdicionParada, setFormEdicionParada] = useState({ fecha: '', dias_previstos: 1 });
   const [lugarParaAnadirConfig, setLugarParaAnadirConfig] = useState(null);
@@ -425,9 +430,11 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       return;
     }
     setBuscandoLugar(prev => ({ ...prev, [viajeId]: true }));
+    // Normalizar acentos para búsqueda (ej: "medano" encuentra "Médano")
+    const termNormalizado = termLimpio.normalize('NFD').replace(/\p{Diacritic}/gu, '');
     timerBusquedaLugar.current[viajeId] = setTimeout(async () => {
       try {
-        const res = await peticionApi(`/api/lugares/puntos/?q=${encodeURIComponent(termLimpio)}`);
+        const res = await peticionApi(`/api/lugares/puntos/?q=${encodeURIComponent(termNormalizado)}`);
         const lista = Array.isArray(res) ? res : (res?.results || []);
         setResultadosLugar(prev => ({ ...prev, [viajeId]: lista }));
       } catch (err) {
@@ -447,7 +454,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
         body: {
           lugar_id: lugar.id,
           fecha: fecha || null,
-          dias_previstos: parseInt(noches || 1, 10)
+          dias_previstos: parseInt(noches != null ? noches : 1, 10)
         }
       });
       // Limpiar cache OSRM para que recalcule con la nueva parada
@@ -506,7 +513,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       const data = await peticionApi('/api/viajes/viajes/?mis_viajes=true');
       const lista = data.results || data || [];
       setViajes(lista);
-      setViajesExpandidos({}); // Cerradas por defecto al cargar
+      // No resetear el estado de expansión — se preserva de localStorage
     } catch (err) {
       console.error('Error al cargar viajes en organizador:', err);
     } finally {
@@ -585,7 +592,11 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
   }, [viajes]);
 
   const toggleExpansion = (id) => {
-    setViajesExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
+    setViajesExpandidos(prev => {
+      const siguiente = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem('camplink_viajes_expandidos', JSON.stringify(siguiente)); } catch { }
+      return siguiente;
+    });
   };
 
   const crearNuevoViaje = async (e) => {
@@ -636,6 +647,19 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       setViajes(prev => prev.filter(v => v.id !== viajeId));
     } catch (err) {
       alert('No se pudo eliminar el viaje.');
+    }
+  };
+
+  const archivarViaje = async (viajeId) => {
+    if (!window.confirm('¿Marcar este viaje como finalizado? Pasará a "Mis Viajes" en tu perfil.')) return;
+    try {
+      await peticionApi(`/api/viajes/viajes/${viajeId}/`, {
+        method: 'PATCH',
+        body: { esta_cerrado: true }
+      });
+      setViajes(prev => prev.filter(v => v.id !== viajeId));
+    } catch (err) {
+      alert('No se pudo archivar el viaje. Inténtalo de nuevo.');
     }
   };
 
@@ -1386,162 +1410,84 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
             let contadorEtapas = 0;
 
             return (
-              <div key={viaje.id} className="camper-card" style={{ padding: '24px' }}>
-                {/* Cabecera del Viaje */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                  marginBottom: expandido ? '18px' : '0'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
-                    <div style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '50%',
-                      background: 'rgba(217, 119, 54, 0.15)',
-                      border: '1px solid var(--accent-earth)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.2rem',
-                      flexShrink: 0
-                    }}>
-                      🗺️
+              <div key={viaje.id} className="camper-card viaje-card-responsive" style={{ padding: '24px', position: 'relative' }}>
+
+                {/* 1. BOTÓN ARCHIVAR FLOTANTE */}
+                {viaje.fecha_fin && new Date(viaje.fecha_fin) < new Date() && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-archivar-flotante"
+                    onClick={(e) => { e.stopPropagation(); archivarViaje(viaje.id); }}
+                  >
+                    <CheckCircle size={14} />
+                    <span>Viaje finalizado - Archivar</span>
+                  </button>
+                )}
+
+                {/* 2. CABECERA DEL VIAJE */}
+                <div className="viaje-header-layout" style={{ marginBottom: expandido ? '18px' : '0' }}>
+
+                  <div className="viaje-info-principal">
+                    {/* Fila del icono centrada en móvil, con papelera absoluta a la derecha */}
+                    <div className="viaje-icono-mobile-row">
+                      <div style={{
+                        width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(217, 119, 54, 0.15)',
+                        border: '1px solid var(--accent-earth)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0
+                      }}>🗺️</div>
+                      <button className="btn-eliminar-viaje hide-on-pc" onClick={() => eliminarViaje(viaje.id)}>
+                        <Trash2 size={15} />
+                      </button>
                     </div>
 
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: '240px' }}>
                       {editandoId === viaje.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={tituloEditado}
-                            onChange={(e) => setTituloEditado(e.target.value)}
-                            style={{ padding: '4px 10px', fontSize: '1.05rem', fontWeight: 700 }}
-                            autoFocus
-                          />
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => guardarEdicionTitulo(viaje.id)}
-                            title="Guardar título"
-                            style={{ padding: '6px 10px' }}
-                          >
-                            <Check size={15} />
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => setEditandoId(null)}
-                            title="Cancelar"
-                            style={{ padding: '6px 10px' }}
-                          >
-                            <X size={15} />
-                          </button>
+                        <div className="viaje-titulo-container">
+                          <input type="text" className="form-control" value={tituloEditado} onChange={(e) => setTituloEditado(e.target.value)} style={{ padding: '4px 10px', fontSize: '1.05rem', fontWeight: 700, textAlign: 'center' }} autoFocus />
+                          <button className="btn btn-primary btn-sm" onClick={() => guardarEdicionTitulo(viaje.id)} style={{ padding: '6px 10px' }}><Check size={15} /></button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditandoId(null)} style={{ padding: '6px 10px' }}><X size={15} /></button>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="viaje-titulo-container">
                           <h3 style={{ margin: 0, fontSize: '1.25rem' }}>{viaje.titulo}</h3>
-                          <button
-                            onClick={() => { setEditandoId(viaje.id); setTituloEditado(viaje.titulo); }}
-                            style={{ opacity: 0.7, padding: '2px', background: 'none', border: 'none', cursor: 'pointer' }}
-                            title="Editar nombre del viaje"
-                          >
+                          <button onClick={() => { setEditandoId(viaje.id); setTituloEditado(viaje.titulo); }} style={{ opacity: 0.7, padding: '2px', background: 'none', border: 'none', cursor: 'pointer' }}>
                             <Edit3 size={15} color="var(--accent-forest)" />
                           </button>
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', flexWrap: 'wrap' }}>
-                        <span>📅 Salida: {formatearFecha(viaje.fecha_inicio)}</span>
-                        {viaje.fecha_fin && (
-                          <span>🏁 Regreso: {formatearFecha(viaje.fecha_fin)}</span>
-                        )}
-                        <span style={{ fontWeight: 700, color: 'var(--accent-forest)' }}>
-                          🛣️ {kmTotalesViaje} km de ruta estimados
+                      <div className="viaje-datos-secundarios">
+                        <span className="viaje-dato-linea">
+                          <span>📅 Salida: {formatearFecha(viaje.fecha_inicio)}</span>
+                          {viaje.fecha_fin && <span>🏁 Regreso: {formatearFecha(viaje.fecha_fin)}</span>}
                         </span>
-                        <span style={{ fontWeight: 700, color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          ⛽ ~{costeCombustibleEstimado} € en combustible aprox.
+                        <span className="viaje-dato-linea">
+                          <span style={{ fontWeight: 700, color: 'var(--accent-forest)' }}>🛣️ {kmTotalesViaje} km</span>
+                          <span style={{ fontWeight: 700, color: '#D97706' }}>⛽ ~{costeCombustibleEstimado} €</span>
                         </span>
-
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Botón Compartir viaje con otro explorador */}
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setViajeACompartir(viaje);
-                      }}
-                      title="Compartir este viaje planificado con otro explorador de Camplink"
-                      style={{
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        padding: '6px 12px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        borderRadius: 'var(--radius-sm)'
-                      }}
-                    >
+                  <div className="viaje-botones-accion">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setViajeACompartir(viaje); }}>
                       <Share2 size={15} color="var(--accent-forest)" />
                       <span>Compartir</span>
                     </button>
-
-                    {/* Botón Calendario (.ics) para descargar e importar todo el itinerario */}
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        exportarItinerarioGoogleCalendar(viaje, paradas);
-                      }}
-                      title="Descargar archivo .ics para importar todo el viaje en Google Calendar, Apple Calendar o Outlook"
-                      style={{
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        padding: '6px 12px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        borderRadius: 'var(--radius-sm)'
-                      }}
-                    >
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); exportarItinerarioGoogleCalendar(viaje, paradas); }}>
                       <Calendar size={15} color="var(--accent-earth)" />
-                      <span>Calendario (.ics)</span>
+                      <span className="desktop-only-action">Calendario</span>
                     </button>
-
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => toggleExpansion(viaje.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
-                    >
-                      {expandido ? (
-                        <><span>Ocultar Detalle</span> <ChevronUp size={15} /></>
-                      ) : (
-                        <><span>Ver Detalle</span> <ChevronDown size={15} /></>
-                      )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => toggleExpansion(viaje.id)}>
+                      {expandido ? <><span>Ocultar</span> <ChevronUp size={15} /></> : <><span>Ver Detalle</span> <ChevronDown size={15} /></>}
                     </button>
-
-                    <button
-                      className="btn-icon"
-                      onClick={() => eliminarViaje(viaje.id)}
-                      title="Eliminar este viaje planificado"
-                      style={{ width: '34px', height: '34px', color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
-                    >
+                    {/* Botón de borrar para PC */}
+                    <button className="btn-eliminar-viaje hide-on-mobile" onClick={() => eliminarViaje(viaje.id)}>
                       <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
 
-                {/* CONTENIDO EXPANDIDO: ITINERARIO, MAPA POR CARRETERA Y REPOSTAJES */}
+                {/* 3. CONTENIDO EXPANDIDO: ITINERARIO, MAPA POR CARRETERA Y REPOSTAJES */}
                 {expandido && (
                   <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
                     {viaje.descripcion && (
@@ -1747,6 +1693,27 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                             <Plus size={14} />
                             <span>{buscadorLugarAbierto[viaje.id] ? 'Cerrar Buscador' : 'Añadir Parada'}</span>
                           </button>
+
+                          {alExplorarMapa && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={alExplorarMapa}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '0.82rem',
+                                padding: '5px 12px',
+                                borderRadius: 'var(--radius-full)',
+                                fontWeight: 700
+                              }}
+                              title="Ir al mapa para explorar lugares"
+                            >
+                              <Map size={14} />
+                              <span>Ver Mapa</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -2208,440 +2175,81 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
                               return (
                                 <div key={parada.id || `parada-${idx}`}>
-                                  {/* ADVERTENCIA DE COMBUSTIBLE ANTES DE LA PARADA DONDE SE SUPERA EL 80% */}
+                                  {/* ADVERTENCIA DE COMBUSTIBLE */}
                                   {supera80 && (
-                                    <>
-                                      <div style={{
-                                        margin: '0 0 10px 0',
-                                        padding: '10px 16px',
-                                        background: 'rgba(239, 68, 68, 0.12)',
-                                        border: '1.5px solid #EF4444',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: '0.86rem',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '8px'
-                                      }}>
-                                        <div style={{
-                                          display: 'flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'center',
-                                          flexWrap: 'wrap',
-                                          gap: '10px',
-                                          width: '100%'
-                                        }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
-                                            <AlertTriangle size={18} />
-                                            <strong style={{ fontSize: '0.94rem' }}>¡Atención Combustible!</strong>
-                                            <button
-                                              type="button"
-                                              onClick={() => toggleInfoAlerta(`alerta-${idx}`)}
-                                              title={infoAlertasAbiertas[`alerta-${idx}`] ? 'Ocultar información detallada' : 'Ver información detallada sobre este tramo'}
-                                              style={{
-                                                width: '22px',
-                                                height: '22px',
-                                                borderRadius: '50%',
-                                                background: infoAlertasAbiertas[`alerta-${idx}`] ? '#EF4444' : 'rgba(239, 68, 68, 0.18)',
-                                                color: infoAlertasAbiertas[`alerta-${idx}`] ? '#fff' : '#EF4444',
-                                                border: '1px solid rgba(239, 68, 68, 0.4)',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                cursor: 'pointer',
-                                                padding: 0,
-                                                fontWeight: 800,
-                                                fontSize: '0.78rem',
-                                                transition: 'all 0.2s ease'
-                                              }}
-                                            >
-                                              <Info size={13} strokeWidth={2.5} />
-                                            </button>
-                                          </div>
-                                          <button
-                                            type="button"
-                                            className="btn btn-primary btn-sm"
-                                            style={{
-                                              fontSize: '0.8rem',
-                                              padding: '6px 14px',
-                                              background: '#D97706',
-                                              borderColor: '#D97706',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '6px',
-                                              fontWeight: 700
-                                            }}
-                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx - 1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
-                                          >
-                                            <Fuel size={14} /> Buscar gasolineras
-                                          </button>
+                                    <div style={{ margin: '0 0 10px 0', padding: '10px 16px', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: 'var(--radius-md)' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EF4444' }}>
+                                          <AlertTriangle size={18} /> <strong>¡Atención Combustible!</strong>
                                         </div>
-
-                                        {infoAlertasAbiertas[`alerta-${idx}`] && (
-                                          <div style={{
-                                            paddingTop: '8px',
-                                            borderTop: '1px dashed rgba(239, 68, 68, 0.3)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '0.84rem',
-                                            lineHeight: 1.45
-                                          }}>
-                                            Para llegar a <strong>{parada.nombre}</strong> acumularás <strong>{kmHastaEstaParada} km</strong> sin repostar (superando el 80% de tu previsión de {autonomiaEstimada} km). Recomendamos hacer una parada de repostaje aquí.
-                                          </div>
-                                        )}
+                                        <button className="btn btn-primary btn-sm" onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80}`, `alerta-${idx}`)}><Fuel size={14} /> Buscar</button>
                                       </div>
-                                      {renderPanelGasolineras(`alerta-${idx}`)}
-                                    </>
+                                    </div>
                                   )}
 
                                   <div
                                     draggable
                                     onDragStart={() => setArrastrandoIdx(idx)}
                                     onDragOver={(e) => e.preventDefault()}
-                                    onDrop={() => {
-                                      if (arrastrandoIdx !== null && arrastrandoIdx !== idx) {
-                                        moverParada(viaje.id, arrastrandoIdx, idx);
-                                        setArrastrandoIdx(null);
-                                      }
-                                    }}
-                                    style={{
-                                      position: 'relative',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      padding: '14px 16px',
-                                      paddingRight: '44px',
-                                      borderRadius: 'var(--radius-md)',
-                                      background: esGasolinera ? 'rgba(217, 119, 6, 0.08)' : 'var(--bg-surface)',
-                                      border: esGasolinera ? '1.5px solid #D97706' : '1px solid var(--border-color)',
-                                      gap: '14px',
-                                      flexWrap: 'wrap',
-                                      transition: 'background 0.2s'
-                                    }}
+                                    onDrop={() => { if (arrastrandoIdx !== null && arrastrandoIdx !== idx) { moverParada(viaje.id, arrastrandoIdx, idx); setArrastrandoIdx(null); } }}
+                                    className={`etapa-card-nuevo ${esGasolinera ? 'etapa-gas' : ''}`}
                                   >
-                                    {/* 1. Botón borrar en esquina superior derecha (como la X de cerrar) */}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        eliminarParada(viaje.id, idx, parada);
-                                      }}
-                                      title="Eliminar esta parada del viaje"
-                                      style={{
-                                        position: 'absolute',
-                                        top: '8px',
-                                        right: '8px',
-                                        width: '24px',
-                                        height: '24px',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        background: 'rgba(239, 68, 68, 0.12)',
-                                        color: '#EF4444',
-                                        border: '1px solid rgba(239, 68, 68, 0.25)',
-                                        cursor: 'pointer',
-                                        padding: 0,
-                                        transition: 'all 0.2s ease',
-                                        zIndex: 2
-                                      }}
-                                    >
-                                      <X size={14} />
-                                    </button>
-                                    {/* CONTROLES DE REORDENACIÓN A LA IZQUIERDA DEL TODO (FLECHAS ARRIBA / ABAJO) */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <div style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '2px',
-                                        background: 'var(--bg-glass)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        border: '1px solid var(--border-color)',
-                                        padding: '2px'
-                                      }}>
-                                        <button
-                                          type="button"
-                                          disabled={!puedeSubir}
-                                          onClick={() => moverParada(viaje.id, idx, idx - 1)}
-                                          title="Mover etapa arriba (adelantar parada)"
-                                          style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: puedeSubir ? 'pointer' : 'not-allowed',
-                                            padding: '2px 4px',
-                                            color: puedeSubir ? 'var(--text-primary)' : 'var(--text-muted)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            borderRadius: '2px'
-                                          }}
-                                        >
-                                          <ArrowUp size={13} />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={!puedeBajar}
-                                          onClick={() => moverParada(viaje.id, idx, idx + 1)}
-                                          title="Mover etapa abajo (retrasar parada)"
-                                          style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: puedeBajar ? 'pointer' : 'not-allowed',
-                                            padding: '2px 4px',
-                                            color: puedeBajar ? 'var(--text-primary)' : 'var(--text-muted)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            borderRadius: '2px'
-                                          }}
-                                        >
-                                          <ArrowDown size={13} />
-                                        </button>
+                                    {/* 1. Drag & Drop (Izquierda) */}
+                                    <div className="etapa-drag">
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', padding: '2px' }}>
+                                        <button type="button" disabled={!puedeSubir} onClick={() => moverParada(viaje.id, idx, idx - 1)} style={{ background: 'none', border: 'none', cursor: puedeSubir ? 'pointer' : 'not-allowed', color: puedeSubir ? 'var(--text-primary)' : 'var(--text-muted)' }}><ArrowUp size={13} /></button>
+                                        <button type="button" disabled={!puedeBajar} onClick={() => moverParada(viaje.id, idx, idx + 1)} style={{ background: 'none', border: 'none', cursor: puedeBajar ? 'pointer' : 'not-allowed', color: puedeBajar ? 'var(--text-primary)' : 'var(--text-muted)' }}><ArrowDown size={13} /></button>
                                       </div>
-
-                                      <div style={{ cursor: 'grab', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Arrastrar para ordenar">
-                                        <GripVertical size={16} />
-                                      </div>
+                                      <GripVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />
                                     </div>
 
-                                    {/* INFORMACIÓN DE LA ETAPA (WIDGET CLICABLE PARA IR AL DETALLE) */}
-                                    <div
-                                      onClick={() => {
-                                        if (parada.lugar_id && alSeleccionarLugar) {
-                                          alSeleccionarLugar(parada.lugar_id);
-                                        }
-                                      }}
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        flex: 1,
-                                        minWidth: '220px',
-                                        cursor: parada.lugar_id ? 'pointer' : 'default',
-                                        padding: '4px 8px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        transition: 'background 0.2s ease'
-                                      }}
-                                      title={parada.lugar_id ? `Ver ficha completa de ${parada.nombre}` : parada.nombre}
-                                      onMouseEnter={(e) => {
-                                        if (parada.lugar_id) e.currentTarget.style.background = 'rgba(35, 83, 52, 0.12)';
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        if (parada.lugar_id) e.currentTarget.style.background = 'transparent';
-                                      }}
-                                    >
-                                      <div style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '50%',
-                                        background: esGasolinera ? '#D97706' : 'var(--accent-forest)',
-                                        color: '#fff',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontWeight: 800,
-                                        fontSize: '0.85rem',
-                                        flexShrink: 0
-                                      }}>
-                                        {esGasolinera ? '⛽' : numEtapa}
-                                      </div>
+                                    {/* 2. Info Principal (Centro) */}
+                                    <div className="etapa-info" onClick={() => { if (parada.lugar_id && alSeleccionarLugar) alSeleccionarLugar(parada.lugar_id); }}>
+                                      <div className="etapa-icono">{esGasolinera ? '⛽' : numEtapa}</div>
 
-                                      <div>
-                                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                          <span
-                                            style={{
-                                              color: parada.lugar_id ? 'var(--accent-forest)' : 'inherit',
-                                              textDecoration: parada.lugar_id ? 'underline' : 'none'
-                                            }}
-                                          >
+                                      <div className="etapa-detalles">
+                                        <div className="etapa-titulo-km">
+                                          <span style={{ color: parada.lugar_id ? 'var(--accent-forest)' : 'inherit', textDecoration: parada.lugar_id ? 'underline' : 'none' }}>
                                             {parada.nombre}
                                           </span>
-
-                                          {/* Distancia contabilizada de este tramo */}
-                                          <span style={{ fontSize: '0.74rem', background: 'rgba(37, 99, 235, 0.12)', color: '#3B82F6', border: '1px solid rgba(37, 99, 235, 0.3)', padding: '1px 7px', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
+                                          <span style={{ fontSize: '0.74rem', background: 'rgba(37, 99, 235, 0.12)', color: '#3B82F6', border: '1px solid rgba(37, 99, 235, 0.3)', padding: '1px 7px', borderRadius: 'var(--radius-full)' }}>
                                             + {distTramo} km
                                           </span>
-
-                                          {/* Badge en gasolineras: confirmación de reinicio del contador a 0 km */}
-                                          {esGasolinera && (
-                                            <span style={{
-                                              fontSize: '0.74rem',
-                                              background: 'rgba(16, 185, 129, 0.14)',
-                                              color: '#10B981',
-                                              border: '1px solid rgba(16, 185, 129, 0.35)',
-                                              padding: '2px 8px',
-                                              borderRadius: 'var(--radius-full)',
-                                              fontWeight: 700,
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '4px'
-                                            }}>
-                                              ⛽ Repostado (Contador a 0 km)
-                                            </span>
-                                          )}
-
-
-
-
+                                          {esGasolinera && <span style={{ fontSize: '0.74rem', background: 'rgba(16, 185, 129, 0.14)', color: '#10B981', padding: '1px 7px', borderRadius: 'var(--radius-full)' }}>⛽ Repostado</span>}
                                         </div>
 
                                         {editandoFechaParadaId === parada.id ? (
-                                          <div
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <input
-                                              type="date"
-                                              className="form-control"
-                                              style={{ padding: '2px 8px', fontSize: '0.78rem', width: '135px' }}
-                                              value={formEdicionParada.fecha}
-                                              onChange={(e) => setFormEdicionParada(prev => ({ ...prev, fecha: e.target.value }))}
-                                            />
-                                            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Noches:</span>
-                                            <input
-                                              type="number"
-                                              min="1"
-                                              max="60"
-                                              className="form-control"
-                                              style={{ padding: '2px 6px', fontSize: '0.78rem', width: '55px' }}
-                                              value={formEdicionParada.dias_previstos}
-                                              onChange={(e) => setFormEdicionParada(prev => ({ ...prev, dias_previstos: e.target.value }))}
-                                            />
-                                            <button
-                                              type="button"
-                                              className="btn btn-primary btn-sm"
-                                              style={{ padding: '3px 8px', fontSize: '0.76rem', fontWeight: 700 }}
-                                              onClick={() => guardarModificacionParada(viaje.id, parada.id)}
-                                            >
-                                              Guardar
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="btn btn-secondary btn-sm"
-                                              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
-                                              onClick={() => setEditandoFechaParadaId(null)}
-                                            >
-                                              Cancelar
-                                            </button>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }} onClick={(e) => e.stopPropagation()}>
+                                            <input type="date" className="form-control" style={{ padding: '2px 8px', fontSize: '0.78rem', width: '135px' }} value={formEdicionParada.fecha} onChange={(e) => setFormEdicionParada(prev => ({ ...prev, fecha: e.target.value }))} />
+                                            <input type="number" min="1" max="60" className="form-control" style={{ padding: '2px 6px', fontSize: '0.78rem', width: '55px' }} value={formEdicionParada.dias_previstos} onChange={(e) => setFormEdicionParada(prev => ({ ...prev, dias_previstos: e.target.value }))} />
+                                            <button className="btn btn-primary btn-sm" style={{ padding: '3px 8px', fontSize: '0.76rem' }} onClick={() => guardarModificacionParada(viaje.id, parada.id)}>Guardar</button>
+                                            <button className="btn btn-secondary btn-sm" style={{ padding: '3px 8px', fontSize: '0.76rem' }} onClick={() => setEditandoFechaParadaId(null)}>Cancelar</button>
                                           </div>
                                         ) : (
                                           <div
-                                            style={{
-                                              fontSize: '0.8rem',
-                                              color: 'var(--text-secondary)',
-                                              marginTop: '2px',
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '6px',
-                                              cursor: !esGasolinera ? 'pointer' : 'default',
-                                              padding: '2px 6px',
-                                              borderRadius: 'var(--radius-sm)',
-                                              transition: 'background 0.2s ease'
-                                            }}
-                                            onClick={(e) => {
-                                              if (!esGasolinera) {
-                                                e.stopPropagation();
-                                                setEditandoFechaParadaId(parada.id);
-                                                setFormEdicionParada({
-                                                  fecha: (parada.fecha_llegada || viaje.fecha_inicio || '').split('T')[0],
-                                                  dias_previstos: parada.dias_previstos || 1
-                                                });
-                                              }
-                                            }}
-                                            onMouseEnter={(e) => { if (!esGasolinera) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                                            title={!esGasolinera ? "Haz clic para modificar la fecha y noches de esta parada" : undefined}
+                                            style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}
+                                            onClick={(e) => { if (!esGasolinera) { e.stopPropagation(); setEditandoFechaParadaId(parada.id); setFormEdicionParada({ fecha: (parada.fecha_llegada || viaje.fecha_inicio || '').split('T')[0], dias_previstos: parada.dias_previstos || 1 }); } }}
                                           >
                                             <span>{parada.poblacion || parada.direccion} • {parada.fecha_llegada ? formatearFecha(parada.fecha_llegada) : 'Sin fecha'}</span>
-                                            {!esGasolinera && (
-                                              <span style={{ color: 'var(--accent-forest)', fontWeight: 600 }}>
-                                                ({parada.dias_previstos} {parada.dias_previstos === 1 ? 'noche' : 'noches'})
-                                              </span>
-                                            )}
+                                            {!esGasolinera && <span style={{ color: 'var(--accent-forest)', fontWeight: 600 }}>({parada.dias_previstos} {parada.dias_previstos === 1 ? 'noche' : 'noches'})</span>}
                                             {parada.precio && <span> • ⛽ {parada.precio} €/L</span>}
                                           </div>
                                         )}
                                       </div>
                                     </div>
 
-                                    {/* CONTENEDOR DE ACCIONES DE LA ETAPA */}
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {/* Radar */}
+                                    {/* 3. Acciones & Borrar (Derecha) */}
+                                    <div className="etapa-acciones" onClick={(e) => e.stopPropagation()}>
                                       {parada.latitud != null && parada.longitud != null && (
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre });
-                                          }}
-                                          title={`Abrir Radar Nómada como si estuvieras en ${parada.nombre}`}
-                                          style={{
-                                            fontSize: '0.84rem',
-                                            fontWeight: 700,
-                                            padding: '6px 12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            borderRadius: 'var(--radius-sm)'
-                                          }}
-                                        >
-                                          <Radar size={15} color="var(--accent-earth)" />
-                                          <span>Radar</span>
-                                        </button>
+                                        <button className="btn btn-secondary btn-sm" onClick={() => abrirRadar && abrirRadar({ lat: parada.latitud, lng: parada.longitud, nombre: parada.nombre })} style={{ padding: '6px 10px' }}><Radar size={15} color="var(--accent-earth)" /><span className="hide-on-mobile">Radar</span></button>
                                       )}
-
-                                      {/* Calendario Google */}
-                                      <a
-                                        href={generarUrlGoogleCalendarParada(parada, viaje)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={(e) => e.stopPropagation()}
-                                        title={`Añadir ${parada.nombre} a Google Calendar`}
-                                        style={{
-                                          fontSize: '0.84rem',
-                                          fontWeight: 700,
-                                          padding: '6px 10px',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          textDecoration: 'none',
-                                          color: 'var(--text-primary)',
-                                          borderRadius: 'var(--radius-sm)'
-                                        }}
-                                      >
-                                        <Calendar size={15} color="var(--accent-earth)" />
-                                      </a>
-
-                                      {/* Ir */}
+                                      <a href={generarUrlGoogleCalendarParada(parada, viaje)} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ padding: '6px 10px', color: 'var(--text-primary)' }}><Calendar size={15} color="var(--accent-earth)" /></a>
                                       {parada.latitud != null && parada.longitud != null && (
-                                        <a
-                                          href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title={`Abrir navegación GPS hasta ${parada.nombre}`}
-                                          style={{
-                                            fontSize: '0.84rem',
-                                            fontWeight: 700,
-                                            padding: '6px 12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            textDecoration: 'none',
-                                            color: 'var(--text-primary)',
-                                            borderRadius: 'var(--radius-sm)'
-                                          }}
-                                        >
-                                          <Navigation size={15} color="var(--accent-forest)" />
-                                          <span>Ir</span>
-                                        </a>
+                                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${parada.latitud},${parada.longitud}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ padding: '6px 10px', color: 'var(--text-primary)' }}><Navigation size={15} color="var(--accent-forest)" /><span className="hide-on-mobile">Ir</span></a>
                                       )}
+                                      <button className="etapa-btn-borrar-inline" onClick={(e) => { e.stopPropagation(); eliminarParada(viaje.id, idx, parada); }}>
+                                        <X size={14} />
+                                      </button>
                                     </div>
                                   </div>
                                   {renderPanelGasolineras(`parada-${idx}`)}
@@ -2673,3 +2281,4 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
     </div>
   );
 }
+

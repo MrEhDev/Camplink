@@ -518,8 +518,14 @@ def mi_perfil_vista(request):
         explorador.save()
 
     data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+    if 'avatar' in data:
+        try:
+            del data['avatar']
+        except Exception:
+            pass
+
     for float_field in ['lat_base', 'lng_base']:
-        if float_field in data and (data[float_field] == '' or data[float_field] is None):
+        if float_field in data and (data[float_field] in ('', 'null', 'undefined') or data[float_field] is None):
             data[float_field] = None
 
     serializer = ExploradorPerfilSerializer(explorador, data=data, partial=True, context={'request': request})

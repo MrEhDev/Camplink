@@ -8,8 +8,29 @@ import {
   Compass, Map, Shield, Wrench, Sparkles, CheckCircle, 
   ArrowRight, UserCheck, Fuel, Calendar, Moon, Radio, 
   Droplets, Zap, Heart, MessageSquare, Star, Navigation,
-  HelpCircle, ChevronRight, Lock, User, Eye, EyeOff, Award
+  HelpCircle, ChevronRight, Lock, User, Eye, EyeOff, Award, Camera
 } from 'lucide-react';
+
+const PROVINCIAS_CP = {
+  '01': 'Álava', '02': 'Albacete', '03': 'Alicante', '04': 'Almería', '05': 'Ávila',
+  '06': 'Badajoz', '07': 'Baleares', '08': 'Barcelona', '09': 'Burgos', '10': 'Cáceres',
+  '11': 'Cádiz', '12': 'Castellón', '13': 'Ciudad Real', '14': 'Córdoba', '15': 'A Coruña',
+  '16': 'Cuenca', '17': 'Girona', '18': 'Granada', '19': 'Guadalajara', '20': 'Gipuzkoa',
+  '21': 'Huelva', '22': 'Huesca', '23': 'Jaén', '24': 'León', '25': 'Lleida',
+  '26': 'La Rioja', '27': 'Lugo', '28': 'Madrid', '29': 'Málaga', '30': 'Murcia',
+  '31': 'Navarra', '32': 'Ourense', '33': 'Asturias', '34': 'Palencia', '35': 'Las Palmas',
+  '36': 'Pontevedra', '37': 'Salamanca', '38': 'Santa Cruz de Tenerife', '39': 'Cantabria',
+  '40': 'Segovia', '41': 'Sevilla', '42': 'Soria', '43': 'Tarragona', '44': 'Teruel',
+  '45': 'Toledo', '46': 'Valencia', '47': 'Valladolid', '48': 'Bizkaia', '49': 'Zamora',
+  '50': 'Zaragoza', '51': 'Ceuta', '52': 'Melilla'
+};
+
+const formatearInputUsuario = (val) => {
+  if (!val) return '';
+  const limpio = String(val).replace(/\s+/g, '');
+  if (limpio.includes('@')) return limpio.toLowerCase();
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+};
 
 export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   const { usuario, login, registro, activarCuenta, reenviarCodigo, recuperarPassword, establecerUsuario, cargarPerfil } = useAuth();
@@ -19,7 +40,11 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   const [pasoRegistro, setPasoRegistro] = useState(1);
 
   // Formulario Login
-  const [loginUsername, setLoginUsername] = useState(() => localStorage.getItem('camplink_saved_username') || '');
+  const [loginUsername, setLoginUsername] = useState(() => {
+    const guardado = localStorage.getItem('camplink_saved_username') || '';
+    if (!guardado) return '';
+    return formatearInputUsuario(guardado);
+  });
   const [loginPassword, setLoginPassword] = useState('');
   const [recordarUsuario, setRecordarUsuario] = useState(true);
   const [authError, setAuthError] = useState(null);
@@ -73,6 +98,17 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   const [errorVerificacion, setErrorVerificacion] = useState('');
   const [cargandoVerificacion, setCargandoVerificacion] = useState(false);
   const [modalConfigurarVehiculoAbierto, setModalConfigurarVehiculoAbierto] = useState(false);
+  const [fotoAvatar, setFotoAvatar] = useState(null);
+  const [previewAvatar, setPreviewAvatar] = useState(null);
+  const fileInputAvatarRef = useRef(null);
+
+  const manejarSeleccionarAvatar = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) {
+      setFotoAvatar(f);
+      setPreviewAvatar(URL.createObjectURL(f));
+    }
+  };
   const [usuarioPendienteVehiculo, setUsuarioPendienteVehiculo] = useState(null);
   const [guardandoVehiculo, setGuardandoVehiculo] = useState(false);
   const [codigoDev, setCodigoDev] = useState('');
@@ -111,22 +147,42 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
   }, []);
 
   const manejarCambioCodigoPostal = (cp) => {
-    setRegData(prev => ({ ...prev, codigo_postal: cp }));
+    const cpLimpio = String(cp || '').replace(/\D/g, '').slice(0, 5);
+    let provAuto = '';
+    if (cpLimpio.length >= 2) {
+      const pref = cpLimpio.slice(0, 2);
+      provAuto = PROVINCIAS_CP[pref] || '';
+    }
+
+    setRegData(prev => ({
+      ...prev,
+      codigo_postal: cpLimpio,
+      poblacion: prev.poblacion || provAuto,
+      direccion_base: prev.direccion_base || prev.poblacion || provAuto
+    }));
+
     if (timerCp.current) clearTimeout(timerCp.current);
 
-    const cpLimpio = cp.trim();
     if (cpLimpio.length >= 4) {
+      setBuscandoCp(true);
       timerCp.current = setTimeout(async () => {
-        setBuscandoCp(true);
         try {
           const url = `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(cpLimpio)}&countrycodes=es&format=json&addressdetails=1&limit=1`;
           const res = await fetch(url);
           const data = await res.json();
           if (data && data.length > 0) {
             const addr = data[0].address || {};
-            const ciudad = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+            const ciudad = addr.city || addr.town || addr.village || addr.municipality || addr.state_district || addr.county || provAuto || '';
+            const lat = parseFloat(data[0].lat);
+            const lng = parseFloat(data[0].lon);
             if (ciudad) {
-              setRegData(prev => ({ ...prev, poblacion: ciudad }));
+              setRegData(prev => ({
+                ...prev,
+                poblacion: ciudad,
+                direccion_base: prev.direccion_base && prev.direccion_base !== provAuto ? prev.direccion_base : ciudad,
+                lat_base: !isNaN(lat) ? lat : prev.lat_base,
+                lng_base: !isNaN(lng) ? lng : prev.lng_base,
+              }));
             }
           }
         } catch (e) {
@@ -134,7 +190,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
         } finally {
           setBuscandoCp(false);
         }
-      }, 400);
+      }, 250);
     }
   };
 
@@ -227,26 +283,60 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
 
   const manejarGuardarVehiculo = async (e) => {
     e.preventDefault();
+    if (!regData.tipo_viajero) {
+      alert('Por favor selecciona el tipo de vehículo.');
+      return;
+    }
+    if (!regData.codigo_postal || String(regData.codigo_postal).trim().length < 4) {
+      alert('Por favor introduce tu código postal.');
+      return;
+    }
+
     setGuardandoVehiculo(true);
     try {
       const capFinal = parseFloat(regData.capacidad_deposito_l) > 0 ? parseFloat(regData.capacidad_deposito_l) : 50.0;
       const consFinal = parseFloat(regData.consumo_medio_l_100km) > 0 ? parseFloat(regData.consumo_medio_l_100km) : 7.0;
+      const cpFinal = String(regData.codigo_postal || '').trim();
+      let pobFinal = String(regData.poblacion || '').trim();
+      if (!pobFinal && cpFinal.length >= 2) {
+        pobFinal = PROVINCIAS_CP[cpFinal.slice(0, 2)] || '';
+      }
+      const dirFinal = String(regData.direccion_base || '').trim() || pobFinal;
 
-      const payload = {
-        tipo_viajero: regData.tipo_viajero || 'camper',
-        tipo_combustible: regData.tipo_combustible || 'gasoleo_a',
-        capacidad_deposito_l: capFinal,
-        consumo_medio_l_100km: consFinal,
-        codigo_postal: regData.codigo_postal ? String(regData.codigo_postal).trim() : '',
-        poblacion: regData.poblacion ? String(regData.poblacion).trim() : '',
-        direccion_base: regData.direccion_base ? String(regData.direccion_base).trim() : '',
-        lat_base: typeof regData.lat_base === 'number' && !isNaN(regData.lat_base) ? regData.lat_base : null,
-        lng_base: typeof regData.lng_base === 'number' && !isNaN(regData.lng_base) ? regData.lng_base : null
-      };
+      let bodyData;
+      if (fotoAvatar) {
+        bodyData = new FormData();
+        bodyData.append('avatar', fotoAvatar);
+        bodyData.append('tipo_viajero', regData.tipo_viajero || 'camper');
+        bodyData.append('tipo_combustible', regData.tipo_combustible || 'gasoleo_a');
+        bodyData.append('capacidad_deposito_l', capFinal);
+        bodyData.append('consumo_medio_l_100km', consFinal);
+        bodyData.append('codigo_postal', cpFinal);
+        bodyData.append('poblacion', pobFinal);
+        bodyData.append('direccion_base', dirFinal);
+        if (typeof regData.lat_base === 'number' && !isNaN(regData.lat_base)) {
+          bodyData.append('lat_base', regData.lat_base);
+        }
+        if (typeof regData.lng_base === 'number' && !isNaN(regData.lng_base)) {
+          bodyData.append('lng_base', regData.lng_base);
+        }
+      } else {
+        bodyData = {
+          tipo_viajero: regData.tipo_viajero || 'camper',
+          tipo_combustible: regData.tipo_combustible || 'gasoleo_a',
+          capacidad_deposito_l: capFinal,
+          consumo_medio_l_100km: consFinal,
+          codigo_postal: cpFinal,
+          poblacion: pobFinal,
+          direccion_base: dirFinal,
+          lat_base: typeof regData.lat_base === 'number' && !isNaN(regData.lat_base) ? regData.lat_base : null,
+          lng_base: typeof regData.lng_base === 'number' && !isNaN(regData.lng_base) ? regData.lng_base : null
+        };
+      }
 
       const usuarioActualizado = await peticionApi('/api/exploradores/perfil/', {
         method: 'PATCH',
-        body: payload
+        body: bodyData
       });
 
       setModalConfigurarVehiculoAbierto(false);
@@ -257,6 +347,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       if (typeof cargarPerfil === 'function') {
         cargarPerfil();
       }
+      window.history.pushState({ vista: 'diario' }, '', '/diario');
       setVistaActiva('diario');
     } catch (err) {
       console.warn('Error al guardar datos del vehículo:', err);
@@ -267,6 +358,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
       if (typeof cargarPerfil === 'function') {
         cargarPerfil();
       }
+      window.history.pushState({ vista: 'diario' }, '', '/diario');
       setVistaActiva('diario');
     } finally {
       setGuardandoVehiculo(false);
@@ -750,7 +842,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                     className="form-control"
                     placeholder="Tu nombre de usuario o email"
                     value={loginUsername}
-                    onChange={(e) => setLoginUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
+                    onChange={(e) => setLoginUsername(formatearInputUsuario(e.target.value))}
                     required
                   />
                 </div>
@@ -911,9 +1003,13 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Ej: rutero_norte"
+                    placeholder="Ej: Rutero_norte"
                     value={regData.username}
-                    onChange={(e) => setRegData({ ...regData, username: e.target.value.replace(/\s+/g, '').toLowerCase() })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\s+/g, '');
+                      const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1) : '';
+                      setRegData({ ...regData, username: formatted });
+                    }}
                     required
                   />
                 </div>
@@ -1188,7 +1284,7 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '6px' }}>🎉</div>
               <h3 style={{ margin: '0 0 6px', fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                ¡Cuenta confirmada con éxito!
+                ¡Bienvenido a Camplink{usuarioPendienteVehiculo?.username || regData?.username ? `, ${((usuarioPendienteVehiculo?.username || regData?.username).charAt(0).toUpperCase() + (usuarioPendienteVehiculo?.username || regData?.username).slice(1))}` : ''}!
               </h3>
               <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
                 Configura ahora los datos de tu vehículo y punto de partida para calcular consumos, autonomías e itinerarios precisos en Camplink.
@@ -1196,13 +1292,68 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
             </div>
 
             <form onSubmit={manejarGuardarVehiculo} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* SUBIDA DE FOTO DE PERFIL / AVATAR */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '8px' }}>
+                <div 
+                  onClick={() => fileInputAvatarRef.current && fileInputAvatarRef.current.click()}
+                  style={{
+                    width: '82px',
+                    height: '82px',
+                    borderRadius: '50%',
+                    background: 'var(--bg-surface-elevated)',
+                    border: '2px dashed var(--accent-forest)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.1)'
+                  }}
+                  title="Subir foto de perfil"
+                >
+                  {previewAvatar ? (
+                    <img src={previewAvatar} alt="Foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <Camera size={26} color="var(--accent-forest)" />
+                      <span style={{ display: 'block', fontSize: '0.64rem', marginTop: '2px', fontWeight: 600 }}>Foto</span>
+                    </div>
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputAvatarRef} 
+                  onChange={manejarSeleccionarAvatar} 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputAvatarRef.current && fileInputAvatarRef.current.click()}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-forest)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    marginTop: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {previewAvatar ? '✓ Cambiar foto de perfil' : '📷 Añadir foto de perfil (opcional)'}
+                </button>
+              </div>
+
               <div className="form-group">
                 <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Tipo de Vehículo / Viajero</span>
-                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>(Opcional)</span>
+                  <span>Tipo de Vehículo / Viajero <strong style={{ color: '#EF4444' }}>*</strong></span>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--accent-forest)', fontWeight: 600 }}>Obligatorio</span>
                 </label>
                 <select
                   className="form-control"
+                  required
                   value={regData.tipo_viajero}
                   onChange={(e) => setRegData({ ...regData, tipo_viajero: e.target.value })}
                 >
@@ -1279,14 +1430,15 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group">
                   <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Código Postal</span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{buscandoCp ? 'Buscando...' : '(Opcional)'}</span>
+                    <span>Código Postal <strong style={{ color: '#EF4444' }}>*</strong></span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-forest)', fontWeight: 600 }}>Obligatorio</span>
                   </label>
                   <input
                     type="text"
                     className="form-control"
+                    required
                     placeholder="Ej: 39001"
-                    maxLength={10}
+                    maxLength={5}
                     value={regData.codigo_postal}
                     onChange={(e) => manejarCambioCodigoPostal(e.target.value)}
                   />
@@ -1294,12 +1446,14 @@ export default function LandingPage({ setVistaActiva, abrirNuevoLugar }) {
                 <div className="form-group">
                   <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Población / Ciudad</span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>(Opcional)</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-forest)', fontWeight: 600 }}>
+                      {buscandoCp ? '• Buscando...' : regData.poblacion ? '✓ Autocompletada' : 'Auto con CP'}
+                    </span>
                   </label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Ej: Santander"
+                    placeholder="Se autocompleta con el CP (ej: Santander)"
                     value={regData.poblacion}
                     onChange={(e) => setRegData({ ...regData, poblacion: e.target.value })}
                   />

@@ -27,14 +27,25 @@ jobs:
             exit 1
           fi
 
-          echo "Iniciando despliegue hacia $DO_USER@$DO_HOST..."
+          echo "Configurando entorno de despliegue hacia $DO_USER@$DO_HOST..."
           mkdir -p ~/.ssh
-          echo "$DO_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+
+          # Soporta tanto clave directa como clave en base64 para evitar corrupción de saltos de línea
+          if echo "$DO_SSH_KEY" | grep -q "BEGIN"; then
+            echo "$DO_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            echo "$DO_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/deploy_key
+          fi
           echo "" >> ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          echo "Verificando estructura de la clave (lineas: $(wc -l < ~/.ssh/deploy_key))..."
+          # Validar formato con ssh-keygen
+          ssh-keygen -l -f ~/.ssh/deploy_key || {
+            echo "❌ Error: El secreto DO_SSH_KEY no tiene un formato válido de clave privada."
+            exit 1
+          }
 
+          echo "✅ Clave validada correctamente. Conectando al Droplet..."
           ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=20 -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" << 'EOF'
             set -e
             echo "=== [1/4] Accediendo al directorio de la aplicación en el servidor ==="

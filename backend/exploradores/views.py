@@ -1,3 +1,4 @@
+import os
 import threading
 from django.conf import settings
 from django.utils import timezone
@@ -35,9 +36,103 @@ def csrf_token_vista(request):
 
 
 
+def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html=None):
+    """
+    Envía un correo transaccional utilizando primero la API HTTPS de Brevo (o Resend)
+    si están configuradas en las variables de entorno, o fallback mediante Django SMTP.
+    """
+    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
+    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+
+    if brevo_key:
+        try:
+            import urllib.request, json
+            from_email = os.environ.get('BREVO_SENDER_EMAIL', 'hola@camplinkapp.com').strip()
+            from_name = os.environ.get('BREVO_SENDER_NAME', 'Camplink').strip()
+            payload = {
+                'sender': {'name': from_name, 'email': from_email},
+                'to': [{'email': destinatario}],
+                'subject': asunto,
+                'textContent': mensaje_texto
+            }
+            if mensaje_html:
+                payload['htmlContent'] = mensaje_html
+
+            req = urllib.request.Request(
+                'https://api.brevo.com/v3/smtp/email',
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'api-key': brevo_key,
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json',
+                    'User-Agent': 'Mozilla/5.0'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=5) as r:
+                if r.status in (200, 201):
+                    print(f"[BREVO OK] Correo '{asunto}' enviado con éxito a {destinatario}")
+                    return True
+        except Exception as br_err:
+            print(f"[ERROR BREVO] No se pudo enviar por Brevo a {destinatario}: {br_err}")
+
+    if resend_key:
+        try:
+            import urllib.request, json
+            payload = {
+                'from': settings.DEFAULT_FROM_EMAIL,
+                'to': [destinatario],
+                'subject': asunto,
+                'text': mensaje_texto
+            }
+            if mensaje_html:
+                payload['html'] = mensaje_html
+
+            req = urllib.request.Request(
+                'https://api.resend.com/emails',
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Authorization': f'Bearer {resend_key}',
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json',
+                    'User-Agent': 'Mozilla/5.0'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=5) as r:
+                if r.status in (200, 201):
+                    print(f"[RESEND OK] Correo '{asunto}' enviado a {destinatario}")
+                    return True
+        except Exception as re_err:
+            print(f"[ERROR RESEND] {re_err}")
+
+    # Fallback clásico a SMTP de Django
+    try:
+        if mensaje_html:
+            email_msg = EmailMultiAlternatives(
+                subject=asunto,
+                body=mensaje_texto,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[destinatario]
+            )
+            email_msg.attach_alternative(mensaje_html, "text/html")
+            email_msg.send(fail_silently=False)
+        else:
+            send_mail(
+                asunto,
+                mensaje_texto,
+                settings.DEFAULT_FROM_EMAIL,
+                [destinatario],
+                fail_silently=False
+            )
+        print(f"[SMTP OK] Correo '{asunto}' enviado con éxito a {destinatario}")
+        return True
+    except Exception as e:
+        print(f"[ERROR SMTP] No se pudo enviar correo a {destinatario}: {e}")
+        return False
+
+
 def enviar_correo_verificacion(request, explorador, codigo, uid, token):
     host = request.get_host()
-    scheme = 'https' if request.is_secure() or 'trycloudflare.com' in host or 'localtunnel.me' in host else 'http'
+    scheme = 'https' if request.is_secure() or 'trycloudflare.com' in host or 'localtunnel.me' in host or 'camplinkapp.com' in host else 'http'
     enlace = f"{scheme}://{host}/?activar_token={token}&uid={uid}&email={explorador.email}"
     
     asunto = "🚐 ¡Confirma tu cuenta en Camplink!"
@@ -54,11 +149,12 @@ O si lo prefieres, pulsa en el siguiente enlace de activación directa:
 
 ¡Nos vemos en la ruta!
 El equipo de Camplink
-www.camplinkapp.com
+https://camplinkapp.com
 """
     mensaje_html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
-        <div style="background: #235334; color: white; padding: 20px; border-radius: 12px; text-align: center;">
+        <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
+            <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" style="width: 54px; height: 54px; border-radius: 12px; margin-bottom: 8px; display: inline-block;" />
             <h1 style="margin: 0; font-size: 24px;">🚐 ¡Bienvenido a Camplink!</h1>
             <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px;">La Red Social de la Comunidad Camper</p>
         </div>
@@ -80,73 +176,16 @@ www.camplinkapp.com
             </div>
         </div>
         <div style="text-align: center; margin-top: 16px; color: #7E9183; font-size: 12px;">
-            © 2026 Camplink • www.camplinkapp.com
+            © 2026 Camplink • <a href="https://camplinkapp.com" style="color: #235334; text-decoration: none;">www.camplinkapp.com</a>
         </div>
     </div>
     """
-    def _enviar_hilo():
-        dest = explorador.email
-        resend_key = os.environ.get('RESEND_API_KEY', '').strip()
-        brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
 
-        if resend_key:
-            try:
-                import urllib.request, json
-                req = urllib.request.Request(
-                    'https://api.resend.com/emails',
-                    data=json.dumps({
-                        'from': settings.DEFAULT_FROM_EMAIL,
-                        'to': [dest],
-                        'subject': asunto,
-                        'html': mensaje_html,
-                        'text': mensaje_texto
-                    }).encode('utf-8'),
-                    headers={'Authorization': f'Bearer {resend_key}', 'Content-Type': 'application/json'}
-                )
-                with urllib.request.urlopen(req, timeout=5) as r:
-                    if r.status in (200, 201):
-                        print(f"[RESEND] Código {codigo} enviado a {dest}")
-                        return
-            except Exception as re_err:
-                print(f"[ERROR RESEND] {re_err}")
-
-        if brevo_key:
-            try:
-                import urllib.request, json
-                req = urllib.request.Request(
-                    'https://api.brevo.com/v3/smtp/email',
-                    data=json.dumps({
-                        'sender': {'name': 'CampLink', 'email': settings.EMAIL_HOST_USER or 'camplink.app.info@gmail.com'},
-                        'to': [{'email': dest}],
-                        'subject': asunto,
-                        'htmlContent': mensaje_html,
-                        'textContent': mensaje_texto
-                    }).encode('utf-8'),
-                    headers={'api-key': brevo_key, 'Content-Type': 'application/json'}
-                )
-                with urllib.request.urlopen(req, timeout=5) as r:
-                    if r.status in (200, 201):
-                        print(f"[BREVO] Código {codigo} enviado a {dest}")
-                        return
-            except Exception as br_err:
-                print(f"[ERROR BREVO] {br_err}")
-
-        # Fallback estándar SMTP
-        try:
-            email_msg = EmailMultiAlternatives(
-                subject=asunto,
-                body=mensaje_texto,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[dest]
-            )
-            email_msg.attach_alternative(mensaje_html, "text/html")
-            email_msg.send(fail_silently=False)
-            print(f"[EMAIL ENVIADO] Código {codigo} enviado con éxito a {dest}")
-        except Exception as e:
-            print(f"[ERROR EMAIL] No se pudo enviar el correo a {dest}: {e}")
-
-    # Enviar correo de forma asíncrona en segundo plano para nunca bloquear la petición HTTP
-    threading.Thread(target=_enviar_hilo, daemon=True).start()
+    threading.Thread(
+        target=enviar_email_transaccional,
+        args=(explorador.email, asunto, mensaje_texto, mensaje_html),
+        daemon=True
+    ).start()
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -340,35 +379,47 @@ def recuperar_password_vista(request):
         user.set_password(clave_temporal)
         user.save()
 
-        # Enviar correo electrónico real mediante SMTP
+        # Enviar correo electrónico de recuperación transaccional
         if user.email:
-            def _enviar_recuperacion():
-                try:
-                    asunto = "Camplink 🚐 Restablecimiento de Contraseña"
-                    mensaje = (
-                        f"¡Hola {user.username.capitalize()}!\n\n"
-                        f"Hemos recibido una solicitud para restablecer el acceso a tu cuenta en Camplink.\n\n"
-                        f"Tu nueva contraseña temporal es:\n"
-                        f"👉 {clave_temporal}\n\n"
-                        f"Puedes iniciar sesión en la web o app con esta contraseña temporal. Te recomendamos cambiarla posteriormente desde tu perfil.\n\n"
-                        f"¡Buenas rutas nómadas!\n"
-                        f"El equipo de Camplink\n"
-                        f"https://camplinkapp.com"
-                    )
-                    from django.core.mail import send_mail
-                    from django.conf import settings
-                    send_mail(
-                        asunto,
-                        mensaje,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [user.email],
-                        fail_silently=False
-                    )
-                    print(f"[CORREO RECUPERACION] Clave temporal {clave_temporal} enviada a {user.email}")
-                except Exception as e:
-                    print(f"[ERROR EMAIL RECUPERACION] {e}")
-
-            threading.Thread(target=_enviar_recuperacion, daemon=True).start()
+            asunto_rec = "🚐 Camplink • Restablecimiento de Contraseña"
+            mensaje_rec_texto = (
+                f"¡Hola, {user.username.capitalize()}!\n\n"
+                f"Hemos recibido una solicitud para restablecer el acceso a tu cuenta en Camplink.\n\n"
+                f"Tu nueva contraseña temporal es:\n"
+                f"👉 {clave_temporal}\n\n"
+                f"Puedes iniciar sesión con ella y cambiarla posteriormente desde tu perfil.\n\n"
+                f"¡Buenas rutas nómadas!\n"
+                f"El equipo de Camplink\n"
+                f"https://camplinkapp.com"
+            )
+            mensaje_rec_html = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
+                <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
+                    <img src="https://camplinkapp.com/camplink-logo.png" alt="Camplink" style="width: 54px; height: 54px; border-radius: 12px; margin-bottom: 8px; display: inline-block;" />
+                    <h1 style="margin: 0; font-size: 22px;">🚐 Restablecimiento de Contraseña</h1>
+                </div>
+                <div style="background: white; padding: 24px; border-radius: 12px; margin-top: 16px; border: 1px solid #ddd;">
+                    <h2 style="color: #17241A; font-size: 18px; margin-top: 0;">Hola, {user.username.capitalize()}:</h2>
+                    <p style="color: #4A5B4F; line-height: 1.5;">
+                        Hemos recibido una solicitud para acceder a tu cuenta de Camplink. Tu nueva clave temporal de acceso es:
+                    </p>
+                    <div style="text-align: center; margin: 24px 0;">
+                        <span style="display: inline-block; font-size: 28px; font-weight: bold; letter-spacing: 4px; background: #F3F4F6; color: #235334; padding: 12px 28px; border-radius: 8px; border: 2px dashed #235334;">
+                            {clave_temporal}
+                        </span>
+                        <p style="font-size: 13px; color: #6B7280; margin-top: 8px;">Inicia sesión con esta clave y cámbiala desde tu perfil.</p>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 16px; color: #7E9183; font-size: 12px;">
+                    © 2026 Camplink • <a href="https://camplinkapp.com" style="color: #235334; text-decoration: none;">www.camplinkapp.com</a>
+                </div>
+            </div>
+            """
+            threading.Thread(
+                target=enviar_email_transaccional,
+                args=(user.email, asunto_rec, mensaje_rec_texto, mensaje_rec_html),
+                daemon=True
+            ).start()
 
         resp_data = {
             'mensaje': f'Hemos localizado tu cuenta ({user.username.capitalize()}). Te hemos enviado tu nueva contraseña temporal a {user.email}. Revisa tu bandeja de entrada o spam.',

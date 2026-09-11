@@ -21,6 +21,7 @@ jobs:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
+          port: 22
           script_stop: true
           script: |
             echo "=== [1/4] Accediendo al directorio de la aplicación en el servidor ==="

@@ -45,14 +45,16 @@ class TallerCamplinkTests(TestCase):
     def test_listar_categorias(self):
         res = self.client.get('/api/comunidad/categorias/')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertGreaterEqual(len(res.data), 1)
-        self.assertEqual(res.data[0]['slug'], 'bricolaje-camperizacion')
+        datos = res.data.get('results', res.data) if isinstance(res.data, dict) else res.data
+        self.assertGreaterEqual(len(datos), 1)
+        self.assertEqual(datos[0]['slug'], 'bricolaje-camperizacion')
 
     def test_listar_publicaciones_publicas(self):
         # Usuario no autenticado solo debe ver publicaciones aprobadas
         res = self.client.get('/api/comunidad/publicaciones/')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        ids = [p['id'] for p in res.data]
+        datos = res.data.get('results', res.data) if isinstance(res.data, dict) else res.data
+        ids = [p['id'] for p in datos]
         self.assertIn(self.pub_aprobada.id, ids)
         self.assertNotIn(self.pub_pendiente.id, ids)
 

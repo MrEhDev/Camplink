@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { peticionApi } from '../services/api';
 import { useTranslation } from '../i18n/LanguageContext';
 import { 
   Compass, Map, Shield, Wrench, Sparkles, CheckCircle, 

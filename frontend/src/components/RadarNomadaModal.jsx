@@ -8,9 +8,9 @@ import { useAuth } from '../context/AuthContext';
 import { buscarGasolinerasCercanas } from '../services/gasolineras';
 import WidgetClima from './WidgetClima';
 import CamperIconRating from './CamperIconRating';
-import { 
-  X, Radar, Navigation, MapPin, Fuel, 
-  ShoppingBag, Droplet, Sparkles, ShowerHead, 
+import {
+  X, Radar, Navigation, MapPin, Fuel,
+  ShoppingBag, Droplet, Sparkles, ShowerHead,
   Trash2, ExternalLink, CheckCircle2, Sliders, ArrowUpDown
 } from 'lucide-react';
 
@@ -185,7 +185,7 @@ export default function RadarNomadaModal({ alCerrar, alSeleccionarLugar, alHacer
             onClick={() => setSubvista('gasolineras')}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <Fuel size={15} /> ⛽ Gasolineras Baratas en Tiempo Real
+            <Fuel size={15} /> Gasolineras
           </button>
         </div>
 

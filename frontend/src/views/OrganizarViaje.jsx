@@ -11,10 +11,10 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
 import { buscarGasolinerasCercanas } from '../services/gasolineras';
 import ModalCompartirViaje from '../components/ModalCompartirViaje';
-import { 
-  Calendar, MapPin, Plus, Route, 
-  Map, Compass, Trash2, Edit2, Edit3, 
-  Check, X, ChevronDown, ChevronUp, 
+import {
+  Calendar, MapPin, Plus, Route,
+  Map, Compass, Trash2, Edit2, Edit3,
+  Check, X, ChevronDown, ChevronUp,
   Sparkles, Fuel, ArrowRight, Eye,
   ArrowUp, ArrowDown, GripVertical, Search, AlertTriangle, Radar, Home, Flag, Navigation, Info,
   Share2, CheckCircle, Mail, UserCheck
@@ -165,8 +165,8 @@ function exportarItinerarioGoogleCalendar(viaje, paradas) {
     else if (p.tipo === 'gasolinera' || (p.nombre && p.nombre.startsWith('⛽'))) icono = '⛽';
 
     const summary = `${icono} ${p.nombre}`.replace(/,/g, '\,').replace(/;/g, '\;');
-    const rawLoc = (p.latitud != null && p.longitud != null) 
-      ? `https://www.google.com/maps/search/?api=1&query=${p.latitud},${p.longitud}` 
+    const rawLoc = (p.latitud != null && p.longitud != null)
+      ? `https://www.google.com/maps/search/?api=1&query=${p.latitud},${p.longitud}`
       : (p.direccion || p.poblacion || '');
     const location = rawLoc.replace(/,/g, '\,').replace(/;/g, '\;');
 
@@ -348,11 +348,11 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   const R = 6371; // Radio de la Tierra en km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c * 1.22);
 }
 
@@ -444,7 +444,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
     try {
       const res = await peticionApi(`/api/viajes/viajes/${viajeId}/anadir-parada/`, {
         method: 'POST',
-        body: { 
+        body: {
           lugar_id: lugar.id,
           fecha: fecha || null,
           dias_previstos: parseInt(noches || 1, 10)
@@ -1354,9 +1354,9 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                 const dist = (distRealLeg != null && distRealLeg > 0)
                   ? distRealLeg
                   : calcularDistanciaKm(
-                      paradas[i-1].latitud, paradas[i-1].longitud,
-                      paradas[i].latitud, paradas[i].longitud
-                    );
+                    paradas[i - 1].latitud, paradas[i - 1].longitud,
+                    paradas[i].latitud, paradas[i].longitud
+                  );
                 distanciasPorTramo.push(dist);
                 distanciaTotalCalculada += dist;
               }
@@ -1524,9 +1524,9 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                       style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}
                     >
                       {expandido ? (
-                        <><span>Ocultar Mapa e Itinerario</span> <ChevronUp size={15} /></>
+                        <><span>Ocultar Detalle</span> <ChevronUp size={15} /></>
                       ) : (
-                        <><span>Ver Mapa e Itinerario</span> <ChevronDown size={15} /></>
+                        <><span>Ver Detalle</span> <ChevronDown size={15} /></>
                       )}
                     </button>
 
@@ -2082,7 +2082,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                                 gap: '6px',
                                                 fontWeight: 700
                                               }}
-                                              onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
+                                              onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx - 1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
                                             >
                                               <Fuel size={14} /> Buscar gasolineras
                                             </button>
@@ -2270,7 +2270,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                               gap: '6px',
                                               fontWeight: 700
                                             }}
-                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx-1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
+                                            onClick={() => abrirBuscadorGasolineras(viaje.id, idx - 1, latPunto80, lngPunto80, `Km ${kmPunto80} (Tramo ${paradas[idx - 1]?.nombre} ➔ ${parada.nombre})`, `alerta-${idx}`)}
                                           >
                                             <Fuel size={14} /> Buscar gasolineras
                                           </button>

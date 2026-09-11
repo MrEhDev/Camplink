@@ -47,7 +47,7 @@ export default function ModalCheckIn({ lugar, alCerrar, alCompletar }) {
           origin: { y: 0.6 },
           colors: ['#235334', '#D97736', '#F2A900']
         });
-      } catch {}
+      } catch { }
 
       if (alCompletar) alCompletar(res);
       alCerrar();
@@ -84,7 +84,7 @@ export default function ModalCheckIn({ lugar, alCerrar, alCompletar }) {
           {/* Fecha de Llegada */}
           <div className="form-group">
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Calendar size={15} /> Fecha de Pernocta
+              <Calendar size={15} /> Fecha de llegada
             </label>
             <input
               type="date"

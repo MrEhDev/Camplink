@@ -36,6 +36,31 @@ def csrf_token_vista(request):
 
 
 
+_LOGO_B64_CACHE = None
+
+def _obtener_logo_base64():
+    global _LOGO_B64_CACHE
+    if _LOGO_B64_CACHE is not None:
+        return _LOGO_B64_CACHE
+    candidatos = [
+        os.path.join(settings.BASE_DIR, 'camplink-logo-mail.png'),
+        os.path.join(settings.BASE_DIR, 'camplink-logo.png'),
+        os.path.join(settings.BASE_DIR, '..', 'frontend', 'public', 'camplink-logo-mail.png'),
+        '/app/camplink-logo-mail.png',
+        '/app/camplink-logo.png'
+    ]
+    for ruta in candidatos:
+        if os.path.exists(ruta):
+            try:
+                import base64
+                with open(ruta, 'rb') as f:
+                    _LOGO_B64_CACHE = base64.b64encode(f.read()).decode('utf-8')
+                    return _LOGO_B64_CACHE
+            except Exception as e:
+                print(f"[LOGO] Error leyendo {ruta}: {e}")
+    return None
+
+
 def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html=None):
     """
     Envía un correo transaccional utilizando primero la API HTTPS de Brevo (o Resend)
@@ -59,6 +84,15 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
             }
             if mensaje_html:
                 payload['htmlContent'] = mensaje_html
+
+            logo_b64 = _obtener_logo_base64()
+            if logo_b64:
+                payload['attachment'] = [
+                    {
+                        'content': logo_b64,
+                        'name': 'camplink-logo.png'
+                    }
+                ]
 
             req = urllib.request.Request(
                 'https://api.brevo.com/v3/smtp/email',
@@ -117,6 +151,14 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
                 reply_to=['hola@camplinkapp.com']
             )
             email_msg.attach_alternative(mensaje_html, "text/html")
+            logo_b64 = _obtener_logo_base64()
+            if logo_b64:
+                import base64
+                from email.mime.image import MIMEImage
+                img_mime = MIMEImage(base64.b64decode(logo_b64))
+                img_mime.add_header('Content-ID', '<camplink-logo.png>')
+                img_mime.add_header('Content-Disposition', 'inline', filename='camplink-logo.png')
+                email_msg.attach(img_mime)
             email_msg.send(fail_silently=False)
         else:
             send_mail(
@@ -160,7 +202,7 @@ https://camplinkapp.com
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                 <tr>
                     <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
-                        <img src="https://camplinkapp.com/camplink-logo-mail.png?v=3" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                        <img src="cid:camplink-logo.png" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                     </td>
                 </tr>
             </table>
@@ -407,7 +449,7 @@ def recuperar_password_vista(request):
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                 <tr>
                     <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
-                        <img src="https://camplinkapp.com/camplink-logo-mail.png?v=3" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                        <img src="cid:camplink-logo.png" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                     </td>
                 </tr>
             </table>

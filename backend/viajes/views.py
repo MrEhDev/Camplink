@@ -50,6 +50,15 @@ class ViajeViewSet(viewsets.ModelViewSet):
         else:
             raise permissions.PermissionDenied('No tienes permiso para editar este viaje.')
 
+    def perform_destroy(self, instance):
+        if tiene_permiso_viaje(instance, self.request.user):
+            explorador = instance.explorador
+            instance.delete()
+            if explorador:
+                verificar_y_desbloquear_trofeos(explorador)
+        else:
+            raise permissions.PermissionDenied('No tienes permiso para eliminar este viaje.')
+
     @action(detail=True, methods=['post'], url_path='modificar-parada')
     def modificar_parada(self, request, pk=None):
         # Aquí modifico la fecha y los días/noches previstos de una etapa del viaje
@@ -422,6 +431,9 @@ class ViajeViewSet(viewsets.ModelViewSet):
             viaje.save()
         else:
             recalcular_viaje(viaje)
+
+        if viaje.explorador:
+            verificar_y_desbloquear_trofeos(viaje.explorador)
 
         serializer = ViajeSerializer(viaje, context={'request': request})
         return Response({

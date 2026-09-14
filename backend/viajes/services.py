@@ -605,6 +605,9 @@ def verificar_y_desbloquear_trofeos(explorador):
                     obj, creado = TrofeoExplorador.objects.get_or_create(explorador=explorador, trofeo=trofeo)
                     if creado:
                         trofeos_desbloqueados.append(trofeo.nombre)
+                else:
+                    # Si el usuario ya no cumple el umbral (por ejemplo, al borrar viajes, check-ins o posts), se retira el trofeo
+                    TrofeoExplorador.objects.filter(explorador=explorador, trofeo=trofeo).delete()
             except Trofeo.DoesNotExist:
                 continue
 
@@ -614,12 +617,14 @@ def verificar_y_desbloquear_trofeos(explorador):
     total_oros = trofeos_oro.count()
     oros_conseguidos = TrofeoExplorador.objects.filter(explorador=explorador, trofeo__in=trofeos_oro).count()
 
+    trofeo_platino = Trofeo.objects.filter(codigo='platino_nomada').first()
     if total_oros == 16 and oros_conseguidos >= 16:
-        trofeo_platino = Trofeo.objects.filter(codigo='platino_nomada').first()
         if trofeo_platino:
             p_obj, p_creado = TrofeoExplorador.objects.get_or_create(explorador=explorador, trofeo=trofeo_platino)
             if p_creado:
                 trofeos_desbloqueados.append(trofeo_platino.nombre)
+    elif trofeo_platino:
+        TrofeoExplorador.objects.filter(explorador=explorador, trofeo=trofeo_platino).delete()
 
     return trofeos_desbloqueados
 

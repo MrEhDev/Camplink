@@ -88,7 +88,11 @@ class PublicacionViewSet(viewsets.ModelViewSet):
         # Aquí permito al autor de la publicación o a un administrador eliminar el post
         es_admin = getattr(self.request.user, 'es_admin', False) or getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False) or self.request.user.username == 'admin'
         if instance.autor == self.request.user or es_admin:
+            autor = instance.autor
             instance.delete()
+            if autor:
+                from viajes.services import verificar_y_desbloquear_trofeos
+                verificar_y_desbloquear_trofeos(autor)
         else:
             raise permissions.PermissionDenied('Solo el creador o un administrador pueden eliminar esta publicación.')
 
@@ -212,6 +216,21 @@ class CheckInViewSet(viewsets.ModelViewSet):
         if ultimo:
             return Response(CheckInSerializer(ultimo, context={'request': request}).data)
         return Response(None)
+
+    def perform_destroy(self, instance):
+        es_admin = getattr(self.request.user, 'es_admin', False) or getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False) or self.request.user.username == 'admin'
+        if instance.explorador == self.request.user or es_admin:
+            explorador = instance.explorador
+            viaje = instance.viaje
+            instance.delete()
+            if viaje:
+                from viajes.services import recalcular_viaje
+                recalcular_viaje(viaje)
+            if explorador:
+                from viajes.services import verificar_y_desbloquear_trofeos
+                verificar_y_desbloquear_trofeos(explorador)
+        else:
+            raise permissions.PermissionDenied('No tienes permiso para eliminar esta pernocta/check-in.')
 
 class ComentarioViewSet(viewsets.ModelViewSet):
     # Aquí gestiono la edición y eliminación de comentarios con permisos para autor y administradores

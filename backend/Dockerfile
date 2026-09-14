@@ -31,5 +31,5 @@ RUN python manage.py collectstatic --noinput || true
 # Aquí expongo el puerto 8000 para Gunicorn
 EXPOSE 8000
 
-# Aquí ejecuto las migraciones, importo el catálogo de lugares y arranco el servidor de aplicaciones
-CMD ["sh", "-c", "python manage.py migrate && python manage.py loaddata fixtures/lugares_iniciales.json || true && python manage.py loaddata fixtures/comunidad_inicial.json || true && python poblar_exploradores_produccion.py || true && gunicorn camplink_project.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"]
+# Aquí ejecuto las migraciones, la inicialización condicional (solo si está vacía) y arranco el servidor de aplicaciones
+CMD ["sh", "-c", "python manage.py migrate && python inicializar_produccion_si_vacio.py && gunicorn camplink_project.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"]

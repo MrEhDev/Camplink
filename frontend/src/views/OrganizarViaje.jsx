@@ -34,6 +34,75 @@ const miniIconoPlan = new L.Icon({
   shadowSize: [32, 32]
 });
 
+const CONFIG_POR_TIPO = {
+  camping: {
+    emoji: '⛺',
+    nombre: 'Camping',
+    colorFondo: '#10B981', // Verde Esmeralda
+    colorBorde: '#047857',
+    svgVector: `
+      <g transform="translate(5, 3.5)">
+        <path d="M7 1.5 L1.5 11.5 L12.5 11.5 Z M7 1.5 L7 11.5 M4.2 11.5 L7 7.2 L9.8 11.5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+    `
+  },
+  area_autocaravanas: {
+    emoji: '🚐',
+    nombre: 'Área de Autocaravanas',
+    colorFondo: '#3B82F6', // Azul Nómada
+    colorBorde: '#1D4ED8',
+    svgVector: `
+      <g transform="translate(5, 4)">
+        <path d="M1.5 3 H9.5 V10 H1.5 Z M9.5 5.5 H12 L13.5 8 V10 H9.5 Z" fill="#3B82F6"/>
+        <circle cx="3.8" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
+        <circle cx="11.2" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
+      </g>
+    `
+  },
+  pernocta_libre: {
+    emoji: '🌲',
+    nombre: 'Pernocta Libre (Naturaleza)',
+    colorFondo: '#059669', // Verde Bosque Naturaleza
+    colorBorde: '#064E3B',
+    svgVector: `
+      <g transform="translate(5, 3.5)">
+        <path d="M7 1 L2.5 6 H4.5 L2 10 H5.5 V13 H8.5 V10 H12 L9.5 6 H11.5 Z" fill="#059669"/>
+      </g>
+    `
+  },
+  parking_urbano: {
+    emoji: '🅿️',
+    nombre: 'Parking Urbano / Mixto',
+    colorFondo: '#6366F1', // Indigo Parking
+    colorBorde: '#4338CA',
+    svgVector: `
+      <text x="12" y="14.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="11" fill="#6366F1">P</text>
+    `
+  },
+  solo_servicios: {
+    emoji: '💧',
+    nombre: 'Solo Servicios',
+    colorFondo: '#06B6D4', // Cian Agua / Servicios
+    colorBorde: '#0E7490',
+    svgVector: `
+      <g transform="translate(5, 3.5)">
+        <path d="M7 1.5 C7 1.5 2.5 7 2.5 9.8 C2.5 12.3 4.5 13.5 7 13.5 C9.5 13.5 11.5 12.3 11.5 9.8 C11.5 7 7 1.5 7 1.5 Z" fill="#06B6D4"/>
+      </g>
+    `
+  },
+  area_recreativa: {
+    emoji: '🏞️',
+    nombre: 'Área Recreativa / Merendero',
+    colorFondo: '#F59E0B', // Ámbar Merendero
+    colorBorde: '#B45309',
+    svgVector: `
+      <g transform="translate(5, 4)">
+        <path d="M1 4.5 H13 M7 4.5 V11 M3.5 11 L5.5 4.5 M10.5 11 L8.5 4.5 M1 8 H13" stroke="#F59E0B" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      </g>
+    `
+  }
+};
+
 const EMOJIS_POR_TIPO = {
   pernocta_libre: '🌲',
   area_autocaravanas: '🚐',
@@ -43,52 +112,55 @@ const EMOJIS_POR_TIPO = {
   solo_servicios: '💧'
 };
 
-const crearIconoCamperColor = (colorFondo, colorBorde, emojiIcon = '🚐') => {
-  return L.divIcon({
+const ICON_CACHE = {};
+
+const obtenerIconoPorLugar = (lugar) => {
+  const tipo = lugar?.tipo_lugar || 'pernocta_libre';
+  const val = parseFloat(lugar?.valoracion_media) || 0;
+  const total = lugar?.total_valoraciones !== undefined
+    ? lugar.total_valoraciones
+    : (Array.isArray(lugar?.valoraciones) ? lugar.valoraciones.length : 0);
+  const hasStar = (val >= 4.0 && total > 0) ? '1' : '0';
+  const cacheKey = `${tipo}_${hasStar}`;
+
+  if (ICON_CACHE[cacheKey]) {
+    return ICON_CACHE[cacheKey];
+  }
+
+  const cfg = CONFIG_POR_TIPO[tipo] || CONFIG_POR_TIPO.pernocta_libre;
+  const starBadge = hasStar === '1'
+    ? `<div style="position: absolute; top: -3px; right: -3px; background: #F59E0B; border: 1.5px solid #FFFFFF; border-radius: 50%; width: 11px; height: 11px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #FFFFFF; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.4);">★</div>`
+    : '';
+
+  const icon = L.divIcon({
     className: 'custom-camper-marker',
     html: `
-      <div style="
+      <div class="marker-pin-inner" style="
         position: relative;
-        width: 26px;
-        height: 32px;
+        width: 24px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+        cursor: pointer;
       ">
-        <svg viewBox="0 0 22 28" width="26" height="32" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-          <path d="M11 0 C4.92 0 0 4.92 0 11 C0 18 11 28 11 28 C11 28 22 18 22 11 C22 4.92 17.08 0 11 0 Z" 
-                fill="${colorFondo}" stroke="${colorBorde}" stroke-width="1.8"/>
-          <circle cx="11" cy="10" r="6.8" fill="#FFFFFF"/>
+        <svg viewBox="0 0 24 28" width="24" height="28" style="display: block;">
+          <path d="M12 1 C6.48 1 2 5.48 2 11 C2 18.5 12 27.5 12 27.5 C12 27.5 22 18.5 22 11 C22 5.48 17.52 1 12 1 Z" 
+                fill="${cfg.colorFondo}" stroke="${cfg.colorBorde}" stroke-width="1.5"/>
+          <circle cx="12" cy="10.5" r="7.2" fill="#FFFFFF"/>
+          ${cfg.svgVector}
         </svg>
-        <div style="
-          position: absolute;
-          top: 3px;
-          left: 0;
-          right: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-        ">
-          ${emojiIcon}
-        </div>
+        ${starBadge}
       </div>
     `,
-    iconSize: [26, 32],
-    iconAnchor: [13, 32],
-    popupAnchor: [0, -30]
+    iconSize: [24, 28],
+    iconAnchor: [12, 28],
+    popupAnchor: [0, -26]
   });
-};
 
-const obtenerIconoPorLugar = (lugar) => {
-  if (!lugar) return crearIconoCamperColor('#10B981', '#047857', '⛺');
-  const emoji = EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐';
-  const val = parseFloat(lugar.valoracion_media) || 0;
-  if (val > 4.0) return crearIconoCamperColor('#F59E0B', '#B45309', emoji);
-  if (val > 3.0) return crearIconoCamperColor('#94A3B8', '#475569', emoji);
-  if (val > 2.0) return crearIconoCamperColor('#D97706', '#92400E', emoji);
-  if (val > 0.0) return crearIconoCamperColor('#10B981', '#047857', emoji);
-  return crearIconoCamperColor('#64748B', '#334155', emoji);
+  ICON_CACHE[cacheKey] = icon;
+  return icon;
 };
 
 // Controlador de zoom y centrado automático cuando se buscan gasolineras
@@ -524,7 +596,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
       const next = { ...prev, [alertaKey]: true };
       try {
         localStorage.setItem('camplink_alertas_combustible_ocultas', JSON.stringify(next));
-      } catch (e) {}
+      } catch (e) { }
       return next;
     });
   };
@@ -1916,162 +1988,162 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                           <Maximize2 size={14} />
                           <span>Ampliar</span>
                         </button>
-                      <div style={{
-                        height: '260px',
-                        borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--border-color)',
-                        boxShadow: 'var(--shadow-sm)'
-                      }}>
-                        <MapContainer
-                          center={centroMapa}
-                          zoom={coordsRuta.length > 1 ? 7 : 10}
-                          scrollWheelZoom={true}
-                          style={{ height: '100%', width: '100%' }}
-                        >
-                          <ActualizadorVistaMapa panelGasolineras={panelGasolineras && panelGasolineras.viajeId === viaje.id ? panelGasolineras : null} />
-                          <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution="&copy; OpenStreetMap"
-                          />
-                          {coordsTrazadoOSRM.length > 1 && (
-                            <Polyline
-                              positions={coordsTrazadoOSRM}
-                              color="#10B981"
-                              weight={5}
-                              opacity={0.85}
+                        <div style={{
+                          height: '260px',
+                          borderRadius: 'var(--radius-md)',
+                          overflow: 'hidden',
+                          border: '1px solid var(--border-color)',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}>
+                          <MapContainer
+                            center={centroMapa}
+                            zoom={coordsRuta.length > 1 ? 7 : 10}
+                            scrollWheelZoom={true}
+                            style={{ height: '100%', width: '100%' }}
+                          >
+                            <ActualizadorVistaMapa panelGasolineras={panelGasolineras && panelGasolineras.viajeId === viaje.id ? panelGasolineras : null} />
+                            <TileLayer
+                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                              attribution="&copy; OpenStreetMap"
                             />
-                          )}
-                          {/* Marcadores de paradas fijas del viaje (lugares, bases y gasolineras añadidas) */}
-                          {paradas.map((p, idx) => (
-                            p.latitud != null && p.longitud != null && (
-                              <Marker
-                                key={p.id || idx}
-                                position={[p.latitud, p.longitud]}
-                                icon={p.es_base ? miniIconoBase : (p.tipo === 'gasolinera' || p.es_repostaje ? miniIconoGasolinera : miniIconoPlan)}
-                              >
-                                <Popup>
-                                  <div style={{ padding: '6px', textAlign: 'center', minWidth: '160px' }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                                      {p.es_base ? (p.tipo === 'base_salida' ? '🏠 Salida Base' : '🏁 Vuelta Base') : (p.tipo === 'gasolinera' ? `⛽ ${p.nombre}` : p.nombre)}
-                                    </div>
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                      {p.poblacion || p.direccion}
-                                    </div>
-                                    {p.precio && (
-                                      <div style={{ fontWeight: 800, color: 'var(--accent-forest)', fontSize: '0.85rem', marginTop: '3px' }}>
-                                        {p.precio} €/L
-                                      </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
-                                      <a
-                                        href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '0.74rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
-                                      >
-                                        <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
-                                      </a>
-                                      {alSeleccionarLugar && p.lugar_id && (
-                                        <button
-                                          className="btn btn-primary btn-sm"
-                                          onClick={() => alSeleccionarLugar(p.lugar_id)}
-                                          style={{ fontSize: '0.74rem', padding: '3px 8px' }}
-                                        >
-                                          Ver Ficha
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </Popup>
-                              </Marker>
-                            )
-                          ))}
-
-                          {/* Marcador del punto crítico donde se supera el 80% en la búsqueda activa */}
-                          {panelGasolineras && panelGasolineras.viajeId === viaje.id && panelGasolineras.lat != null && panelGasolineras.lng != null && (
-                            <Marker
-                              position={[panelGasolineras.lat, panelGasolineras.lng]}
-                              icon={miniIconoPuntoCritico}
-                            >
-                              <Popup>
-                                <div style={{ padding: '6px', textAlign: 'center' }}>
-                                  <div style={{ fontWeight: 800, color: '#EF4444', fontSize: '0.88rem' }}>⚠️ Zona 80% Combustible</div>
-                                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{panelGasolineras.paradaNombre}</div>
-                                </div>
-                              </Popup>
-                            </Marker>
-                          )}
-
-                          {/* Gasolineras sugeridas en tiempo real mostradas en el mapa con escala cromática (verde más barata -> rojo más cara) */}
-                          {(() => {
-                            if (!panelGasolineras || panelGasolineras.viajeId !== viaje.id || !panelGasolineras.lista || panelGasolineras.lista.length === 0) {
-                              return null;
-                            }
-                            const precios = panelGasolineras.lista
-                              .map(g => g.precioLitro)
-                              .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
-                            const minPrecio = precios.length > 0 ? Math.min(...precios) : null;
-                            const maxPrecio = precios.length > 0 ? Math.max(...precios) : null;
-
-                            return panelGasolineras.lista.map((gas, gIdx) => {
-                              if (gas.lat == null || gas.lng == null) return null;
-                              const colorGas = calcularColorGasolinera(gas.precioLitro, minPrecio, maxPrecio);
-                              const esMasBarata = minPrecio != null && gas.precioLitro != null && gas.precioLitro === minPrecio;
-                              const icono = crearIconoGasolineraColor(colorGas, esMasBarata);
-
-                              return (
+                            {coordsTrazadoOSRM.length > 1 && (
+                              <Polyline
+                                positions={coordsTrazadoOSRM}
+                                color="#10B981"
+                                weight={5}
+                                opacity={0.85}
+                              />
+                            )}
+                            {/* Marcadores de paradas fijas del viaje (lugares, bases y gasolineras añadidas) */}
+                            {paradas.map((p, idx) => (
+                              p.latitud != null && p.longitud != null && (
                                 <Marker
-                                  key={`sug-gas-${gIdx}`}
-                                  position={[gas.lat, gas.lng]}
-                                  icon={icono}
+                                  key={p.id || idx}
+                                  position={[p.latitud, p.longitud]}
+                                  icon={p.es_base ? miniIconoBase : (p.tipo === 'gasolinera' || p.es_repostaje ? miniIconoGasolinera : miniIconoPlan)}
                                 >
                                   <Popup>
-                                    <div style={{ padding: '6px', textAlign: 'center', minWidth: '170px' }}>
-                                      <div style={{ fontWeight: 800, fontSize: '0.92rem', color: colorGas }}>
-                                        ⛽ {gas.rotulo}
+                                    <div style={{ padding: '6px', textAlign: 'center', minWidth: '160px' }}>
+                                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                        {p.es_base ? (p.tipo === 'base_salida' ? '🏠 Salida Base' : '🏁 Vuelta Base') : (p.tipo === 'gasolinera' ? `⛽ ${p.nombre}` : p.nombre)}
                                       </div>
-                                      <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                                        {gas.direccion} {gas.distanciaKm != null ? `• ${gas.distanciaKm.toFixed(1)} km` : ''}
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                        {p.poblacion || p.direccion}
                                       </div>
-                                      {gas.precioLitro && (
-                                        <div style={{ fontWeight: 800, color: colorGas, fontSize: '0.92rem', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                          <span>{gas.precioLitro.toFixed(3)} €/L</span>
-                                          {esMasBarata && (
-                                            <span style={{ fontSize: '0.68rem', background: 'rgba(16, 185, 129, 0.18)', color: '#10B981', padding: '1px 5px', borderRadius: 'var(--radius-full)', border: '1px solid #10B981' }}>
-                                              ¡Más barata!
-                                            </span>
-                                          )}
+                                      {p.precio && (
+                                        <div style={{ fontWeight: 800, color: 'var(--accent-forest)', fontSize: '0.85rem', marginTop: '3px' }}>
+                                          {p.precio} €/L
                                         </div>
                                       )}
-                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+                                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
                                         <a
-                                          href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
+                                          href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="btn btn-secondary btn-sm"
-                                          style={{ fontSize: '0.72rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                          style={{ fontSize: '0.74rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
                                         >
                                           <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
                                         </a>
-                                        <button
-                                          type="button"
-                                          className="btn btn-primary btn-sm"
-                                          style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
-                                          onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
-                                        >
-                                          ➕ Añadir
-                                        </button>
+                                        {alSeleccionarLugar && p.lugar_id && (
+                                          <button
+                                            className="btn btn-primary btn-sm"
+                                            onClick={() => alSeleccionarLugar(p.lugar_id)}
+                                            style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+                                          >
+                                            Ver Ficha
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   </Popup>
                                 </Marker>
-                              );
-                            });
-                          })()}
-                        </MapContainer>
-                      </div>
+                              )
+                            ))}
+
+                            {/* Marcador del punto crítico donde se supera el 80% en la búsqueda activa */}
+                            {panelGasolineras && panelGasolineras.viajeId === viaje.id && panelGasolineras.lat != null && panelGasolineras.lng != null && (
+                              <Marker
+                                position={[panelGasolineras.lat, panelGasolineras.lng]}
+                                icon={miniIconoPuntoCritico}
+                              >
+                                <Popup>
+                                  <div style={{ padding: '6px', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 800, color: '#EF4444', fontSize: '0.88rem' }}>⚠️ Zona 80% Combustible</div>
+                                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{panelGasolineras.paradaNombre}</div>
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            )}
+
+                            {/* Gasolineras sugeridas en tiempo real mostradas en el mapa con escala cromática (verde más barata -> rojo más cara) */}
+                            {(() => {
+                              if (!panelGasolineras || panelGasolineras.viajeId !== viaje.id || !panelGasolineras.lista || panelGasolineras.lista.length === 0) {
+                                return null;
+                              }
+                              const precios = panelGasolineras.lista
+                                .map(g => g.precioLitro)
+                                .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
+                              const minPrecio = precios.length > 0 ? Math.min(...precios) : null;
+                              const maxPrecio = precios.length > 0 ? Math.max(...precios) : null;
+
+                              return panelGasolineras.lista.map((gas, gIdx) => {
+                                if (gas.lat == null || gas.lng == null) return null;
+                                const colorGas = calcularColorGasolinera(gas.precioLitro, minPrecio, maxPrecio);
+                                const esMasBarata = minPrecio != null && gas.precioLitro != null && gas.precioLitro === minPrecio;
+                                const icono = crearIconoGasolineraColor(colorGas, esMasBarata);
+
+                                return (
+                                  <Marker
+                                    key={`sug-gas-${gIdx}`}
+                                    position={[gas.lat, gas.lng]}
+                                    icon={icono}
+                                  >
+                                    <Popup>
+                                      <div style={{ padding: '6px', textAlign: 'center', minWidth: '170px' }}>
+                                        <div style={{ fontWeight: 800, fontSize: '0.92rem', color: colorGas }}>
+                                          ⛽ {gas.rotulo}
+                                        </div>
+                                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                                          {gas.direccion} {gas.distanciaKm != null ? `• ${gas.distanciaKm.toFixed(1)} km` : ''}
+                                        </div>
+                                        {gas.precioLitro && (
+                                          <div style={{ fontWeight: 800, color: colorGas, fontSize: '0.92rem', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                            <span>{gas.precioLitro.toFixed(3)} €/L</span>
+                                            {esMasBarata && (
+                                              <span style={{ fontSize: '0.68rem', background: 'rgba(16, 185, 129, 0.18)', color: '#10B981', padding: '1px 5px', borderRadius: 'var(--radius-full)', border: '1px solid #10B981' }}>
+                                                ¡Más barata!
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+                                          <a
+                                            href={`https://www.google.com/maps/dir/?api=1&destination=${gas.lat},${gas.lng}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}
+                                          >
+                                            <Navigation size={12} color="var(--accent-forest)" /> Ir (GPS)
+                                          </a>
+                                          <button
+                                            type="button"
+                                            className="btn btn-primary btn-sm"
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', background: '#D97706', borderColor: '#D97706' }}
+                                            onClick={() => anadirGasolineraARuta(viaje.id, gas, panelGasolineras.tramoIdx)}
+                                          >
+                                            ➕ Añadir
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </Popup>
+                                  </Marker>
+                                );
+                              });
+                            })()}
+                          </MapContainer>
+                        </div>
                       </div>
                     )}
 
@@ -2187,24 +2259,24 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
                           {/* MODO CAMPLINK: búsqueda en BD interna */}
                           {(!modoAnadir[viaje.id] || modoAnadir[viaje.id] === 'camplink') && (<>
-                          <div style={{ position: 'relative', marginBottom: '10px' }}>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="Escribe el nombre del lugar, pueblo o provincia (ej: Santander, Potes, Cangas de Onís, Ordesa)..."
-                              value={textoBusquedaLugar[viaje.id] || ''}
-                              onChange={(e) => manejarBusquedaLugar(viaje.id, e.target.value)}
-                              autoFocus
-                              style={{ paddingLeft: '36px', height: '40px' }}
-                            />
-                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                          </div>
-
-                          {buscandoLugar[viaje.id] && (
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '6px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>Buscando spots en Camplink...</span>
+                            <div style={{ position: 'relative', marginBottom: '10px' }}>
+                              <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Escribe el nombre del lugar, pueblo o provincia (ej: Santander, Potes, Cangas de Onís, Ordesa)..."
+                                value={textoBusquedaLugar[viaje.id] || ''}
+                                onChange={(e) => manejarBusquedaLugar(viaje.id, e.target.value)}
+                                autoFocus
+                                style={{ paddingLeft: '36px', height: '40px' }}
+                              />
+                              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                             </div>
-                          )}
+
+                            {buscandoLugar[viaje.id] && (
+                              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '6px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>Buscando spots en Camplink...</span>
+                              </div>
+                            )}
                           </>)}
 
                           {/* MODO LIBRE: geocodificación Photon o URL Google Maps */}
@@ -3014,7 +3086,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
                 {/* Marcadores de Lugares Camplink agrupados en Cluster en mapa a pantalla completa */}
                 {lugaresCamplink && lugaresCamplink.length > 0 && (
-                  <MarkerClusterGroup chunkedLoading maxClusterRadius={45}>
+                  <MarkerClusterGroup chunkedLoading maxClusterRadius={100}>
                     {lugaresCamplink.map((lugar) => {
                       const imagenLugar = obtenerImagenLugar(lugar);
                       const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
@@ -3028,13 +3100,13 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                           >
                             <Popup className="custom-camper-popup" maxWidth={310}>
                               <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                                
+
                                 {/* FOTO DEL LUGAR O BANNER PAISAJÍSTICO */}
                                 {imagenLugar ? (
                                   <div style={{ position: 'relative', width: '100%', height: '135px', overflow: 'hidden', background: '#0D1A12' }}>
-                                    <img loading="lazy" decoding="async" 
-                                      src={imagenLugar} 
-                                      alt={lugar.nombre} 
+                                    <img loading="lazy" decoding="async"
+                                      src={imagenLugar}
+                                      alt={lugar.nombre}
                                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
                                     <div style={{
@@ -3062,7 +3134,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
 
                                 {/* CUERPO DE LA TARJETA */}
                                 <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                  
+
                                   {/* Fila: Tipo de Lugar + Precio */}
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                                     <span style={{

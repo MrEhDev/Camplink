@@ -200,7 +200,7 @@ export default function App() {
   useEffect(() => {
     if (authCargando) return; // Esperar a que la autenticación inicial finalice
 
-    const vistasPublicas = ['landing', 'descubre', 'descubre_lista', 'guia', 'taller', 'lugar_detalle', 'perfil_publico'];
+    const vistasPublicas = ['landing', 'descubre'];
     if (usuario && vistaActiva === 'landing' && (window.location.pathname === '/' || window.location.pathname === '')) {
       setVistaActiva('home');
     } else if (!usuario && !vistasPublicas.includes(vistaActiva)) {
@@ -256,8 +256,10 @@ export default function App() {
   const abrirCheckIn = async (lugar) => {
     if (!lugar) return;
 
-    // Si el lugar cuenta con coordenadas geográficas, validar restricción de 20 km
-    if (lugar.latitud != null && lugar.longitud != null) {
+    const esAdmin = usuario?.es_admin || usuario?.is_staff || usuario?.is_superuser || usuario?.rol === 'admin';
+
+    // Si el lugar cuenta con coordenadas geográficas, validar restricción de 20 km (administradores exentos)
+    if (!esAdmin && lugar.latitud != null && lugar.longitud != null) {
       setVerificandoGpsCheckin(true);
       try {
         const pos = await obtenerPosicionGps();
@@ -434,29 +436,43 @@ export default function App() {
               />
             )}
 
-            {/* Descubre Lista (disponible para todos) */}
+            {/* Descubre Lista (protegida) */}
             {vistaActiva === 'descubre_lista' && (
-              <DescubreLista
-                alSeleccionarLugar={abrirDetalleLugar}
-                alCambiarAMapa={() => setVistaActiva('descubre')}
-                alAbrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
-                alNavegarOrganizar={() => setVistaActiva('organizar')}
-              />
+              usuario ? (
+                <DescubreLista
+                  alSeleccionarLugar={abrirDetalleLugar}
+                  alCambiarAMapa={() => setVistaActiva('descubre')}
+                  alAbrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                  alNavegarOrganizar={() => setVistaActiva('organizar')}
+                />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
-            {/* Taller Camplink - Hub Unificado (disponible para todos) */}
+            {/* Taller Camplink - Hub Unificado (protegida) */}
             {(vistaActiva === 'taller' || vistaActiva === 'guia') && (
-              <TallerCamplink
-                alCrearPublicacion={() => {
-                  setPublicacionAEditar(null);
-                  setVistaActiva('taller_crear');
-                }}
-                alEditarPublicacion={(pub) => {
-                  setPublicacionAEditar(pub);
-                  setVistaActiva('taller_crear');
-                }}
-                alVerPerfilUsuario={abrirPerfilUsuario}
-              />
+              usuario ? (
+                <TallerCamplink
+                  alCrearPublicacion={() => {
+                    setPublicacionAEditar(null);
+                    setVistaActiva('taller_crear');
+                  }}
+                  alEditarPublicacion={(pub) => {
+                    setPublicacionAEditar(pub);
+                    setVistaActiva('taller_crear');
+                  }}
+                  alVerPerfilUsuario={abrirPerfilUsuario}
+                />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
             {/* Crear o Editar Publicación en el Taller */}
@@ -481,15 +497,22 @@ export default function App() {
               )
             )}
 
-            {/* Detalle de Lugar de Pernocta */}
+            {/* Detalle de Lugar de Pernocta (protegida) */}
             {vistaActiva === 'lugar_detalle' && (
-              <LugarDetalle
-                lugarId={lugarSeleccionadoId}
-                alVolver={() => setVistaActiva('descubre')}
-                alHacerCheckin={abrirCheckIn}
-                alNavegarOrganizar={() => setVistaActiva('organizar')}
-                abrirRadar={abrirRadarConUbicacion}
-              />
+              usuario ? (
+                <LugarDetalle
+                  lugarId={lugarSeleccionadoId}
+                  alVolver={() => setVistaActiva('descubre')}
+                  alHacerCheckin={abrirCheckIn}
+                  alNavegarOrganizar={() => setVistaActiva('organizar')}
+                  abrirRadar={abrirRadarConUbicacion}
+                />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
             {/* Mi Perfil de Explorador */}
@@ -538,14 +561,21 @@ export default function App() {
               )
             )}
 
-            {/* Perfil Público Nómada */}
+            {/* Perfil Público Nómada (protegida) */}
             {vistaActiva === 'perfil_publico' && (
-              <PerfilPublico
-                usuarioId={usuarioSeleccionadoId}
-                origenVista={vistaPreviaPerfil}
-                alVolver={() => setVistaActiva(vistaPreviaPerfil || (usuario ? 'diario' : 'descubre'))}
-                alSeleccionarLugar={abrirDetalleLugar}
-              />
+              usuario ? (
+                <PerfilPublico
+                  usuarioId={usuarioSeleccionadoId}
+                  origenVista={vistaPreviaPerfil}
+                  alVolver={() => setVistaActiva(vistaPreviaPerfil || 'diario')}
+                  alSeleccionarLugar={abrirDetalleLugar}
+                />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
             {/* Fallback de seguridad si ninguna clave de vista coincide */}

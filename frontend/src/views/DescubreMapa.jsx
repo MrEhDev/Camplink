@@ -31,6 +31,75 @@ export const TIPOS_LUGAR_MAPA = [
   { id: 'solo_servicios', label: 'Solo Servicios', emoji: '💧' },
 ];
 
+export const CONFIG_POR_TIPO = {
+  camping: {
+    emoji: '⛺',
+    nombre: 'Camping',
+    colorFondo: '#10B981', // Verde Esmeralda
+    colorBorde: '#047857',
+    svgVector: `
+      <g transform="translate(5, 3.5)">
+        <path d="M7 1.5 L1.5 11.5 L12.5 11.5 Z M7 1.5 L7 11.5 M4.2 11.5 L7 7.2 L9.8 11.5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+    `
+  },
+  area_autocaravanas: {
+    emoji: '🚐',
+    nombre: 'Área de Autocaravanas',
+    colorFondo: '#3B82F6', // Azul Nómada
+    colorBorde: '#1D4ED8',
+    svgVector: `
+      <g transform="translate(5, 4)">
+        <path d="M1.5 3 H9.5 V10 H1.5 Z M9.5 5.5 H12 L13.5 8 V10 H9.5 Z" fill="#3B82F6"/>
+        <circle cx="3.8" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
+        <circle cx="11.2" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
+      </g>
+    `
+  },
+  pernocta_libre: {
+    emoji: '🌲',
+    nombre: 'Pernocta Libre (Naturaleza)',
+    colorFondo: '#059669', // Verde Bosque Naturaleza
+    colorBorde: '#064E3B',
+    svgVector: `
+      <g transform="translate(5, 3.5)">
+        <path d="M7 1 L2.5 6 H4.5 L2 10 H5.5 V13 H8.5 V10 H12 L9.5 6 H11.5 Z" fill="#059669"/>
+      </g>
+    `
+  },
+  parking_urbano: {
+    emoji: '🅿️',
+    nombre: 'Parking Urbano / Mixto',
+    colorFondo: '#6366F1', // Indigo Parking
+    colorBorde: '#4338CA',
+    svgVector: `
+      <text x="12" y="14.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="11" fill="#6366F1">P</text>
+    `
+  },
+  solo_servicios: {
+    emoji: '💧',
+    nombre: 'Solo Servicios',
+    colorFondo: '#06B6D4', // Cian Agua / Servicios
+    colorBorde: '#0E7490',
+    svgVector: `
+      <g transform="translate(5, 3.5)">
+        <path d="M7 1.5 C7 1.5 2.5 7 2.5 9.8 C2.5 12.3 4.5 13.5 7 13.5 C9.5 13.5 11.5 12.3 11.5 9.8 C11.5 7 7 1.5 7 1.5 Z" fill="#06B6D4"/>
+      </g>
+    `
+  },
+  area_recreativa: {
+    emoji: '🏞️',
+    nombre: 'Área Recreativa / Merendero',
+    colorFondo: '#F59E0B', // Ámbar Merendero
+    colorBorde: '#B45309',
+    svgVector: `
+      <g transform="translate(5, 4)">
+        <path d="M1 4.5 H13 M7 4.5 V11 M3.5 11 L5.5 4.5 M10.5 11 L8.5 4.5 M1 8 H13" stroke="#F59E0B" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      </g>
+    `
+  }
+};
+
 const EMOJIS_POR_TIPO = {
   pernocta_libre: '🌲',
   area_autocaravanas: '🚐',
@@ -58,68 +127,57 @@ export const obtenerEtiquetaTipoLugar = (lugar) => {
   return `${emoji} ${nombre}`;
 };
 
-// Creador de marcadores camper según tipo y valoración
-const crearIconoCamperColor = (colorFondo, colorBorde, emojiIcon = '🚐') => {
-  return L.divIcon({
+// Cache de instancias de L.divIcon para rendimiento óptimo con 1200+ puntos
+const ICON_CACHE = {};
+
+// Creador de marcadores camper según tipo de lugar con vector SVG
+export const obtenerIconoPorLugar = (lugar) => {
+  const tipo = lugar?.tipo_lugar || 'pernocta_libre';
+  const val = parseFloat(lugar?.valoracion_media) || 0;
+  const total = lugar?.total_valoraciones !== undefined
+    ? lugar.total_valoraciones
+    : (Array.isArray(lugar?.valoraciones) ? lugar.valoraciones.length : 0);
+  const hasStar = (val >= 4.0 && total > 0) ? '1' : '0';
+  const cacheKey = `${tipo}_${hasStar}`;
+
+  if (ICON_CACHE[cacheKey]) {
+    return ICON_CACHE[cacheKey];
+  }
+
+  const cfg = CONFIG_POR_TIPO[tipo] || CONFIG_POR_TIPO.pernocta_libre;
+  const starBadge = hasStar === '1'
+    ? `<div style="position: absolute; top: -3px; right: -3px; background: #F59E0B; border: 1.5px solid #FFFFFF; border-radius: 50%; width: 11px; height: 11px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #FFFFFF; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.4);">★</div>`
+    : '';
+
+  const icon = L.divIcon({
     className: 'custom-camper-marker',
     html: `
-      <div style="
+      <div class="marker-pin-inner" style="
         position: relative;
-        width: 28px;
-        height: 34px;
+        width: 24px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+        cursor: pointer;
       ">
-        <svg viewBox="0 0 22 28" width="28" height="34" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));">
-          <path d="M11 0 C4.92 0 0 4.92 0 11 C0 18 11 28 11 28 C11 28 22 18 22 11 C22 4.92 17.08 0 11 0 Z" 
-                fill="${colorFondo}" stroke="${colorBorde}" stroke-width="1.8"/>
-          <circle cx="11" cy="10" r="6.8" fill="#FFFFFF"/>
+        <svg viewBox="0 0 24 28" width="24" height="28" style="display: block;">
+          <path d="M12 1 C6.48 1 2 5.48 2 11 C2 18.5 12 27.5 12 27.5 C12 27.5 22 18.5 22 11 C22 5.48 17.52 1 12 1 Z" 
+                fill="${cfg.colorFondo}" stroke="${cfg.colorBorde}" stroke-width="1.5"/>
+          <circle cx="12" cy="10.5" r="7.2" fill="#FFFFFF"/>
+          ${cfg.svgVector}
         </svg>
-        <div style="
-          position: absolute;
-          top: 3px;
-          left: 0;
-          right: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-        ">
-          ${emojiIcon}
-        </div>
+        ${starBadge}
       </div>
     `,
-    iconSize: [28, 34],
-    iconAnchor: [14, 34],
-    popupAnchor: [0, -32]
+    iconSize: [24, 28],
+    iconAnchor: [12, 28],
+    popupAnchor: [0, -26]
   });
-};
 
-const iconoDorado = (emoji) => crearIconoCamperColor('#F59E0B', '#B45309', emoji);
-const iconoPlateado = (emoji) => crearIconoCamperColor('#94A3B8', '#475569', emoji);
-const iconoBronce = (emoji) => crearIconoCamperColor('#D97706', '#92400E', emoji);
-const iconoVerde = (emoji) => crearIconoCamperColor('#10B981', '#047857', emoji);
-const iconoRojo = (emoji) => crearIconoCamperColor('#EF4444', '#B91C1C', emoji);
-const iconoGris = (emoji) => crearIconoCamperColor('#64748B', '#334155', emoji);
-
-const obtenerIconoPorLugar = (lugar) => {
-  if (!lugar) return iconoGris('⛺');
-  const emoji = EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐';
-  const total = lugar.total_valoraciones !== undefined
-    ? lugar.total_valoraciones
-    : (Array.isArray(lugar.valoraciones) ? lugar.valoraciones.length : 0);
-
-  if (total === 0) {
-    return iconoGris(emoji);
-  }
-
-  const val = parseFloat(lugar.valoracion_media) || 0;
-  if (val > 4.0) return iconoDorado(emoji);     // 4.1 - 5.0 ⭐ (Oro / Top)
-  if (val > 3.0) return iconoPlateado(emoji);   // 3.1 - 4.0 ⭐ (Plata)
-  if (val > 2.0) return iconoBronce(emoji);     // 2.1 - 3.0 ⭐ (Bronce)
-  if (val > 1.0) return iconoVerde(emoji);      // 1.1 - 2.0 ⭐ (Básico / Verde)
-  return iconoRojo(emoji);                      // <= 1.0 ⭐ (No recomendado / Rojo)
+  ICON_CACHE[cacheKey] = icon;
+  return icon;
 };
 
 // Componente auxiliar para centrar mapa
@@ -1228,9 +1286,13 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                   border: 2px solid #FFFFFF;
                   border-radius: 50%;
                   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                  font-size: 16px;
                 ">
-                  🚐
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                    <path d="M2.5 5 H14 V14 H2.5 Z" fill="#6EE7B7"/>
+                    <path d="M14 8 H17.5 L20 11 V14 H14 Z" fill="#6EE7B7"/>
+                    <circle cx="5.5" cy="14.5" r="2" fill="#111827" stroke="#6EE7B7" stroke-width="1.2"/>
+                    <circle cx="16.5" cy="14.5" r="2" fill="#111827" stroke="#6EE7B7" stroke-width="1.2"/>
+                  </svg>
                 </div>
               `,
               iconSize: [32, 32],
@@ -1248,7 +1310,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         )}
 
         {/* Marcadores de Lugares agrupados en Cluster */}
-        <MarkerClusterGroup chunkedLoading maxClusterRadius={80}>
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={100}>
           {lugaresFiltrados.map((lugar) => {
             const imagenLugar = obtenerImagenLugar(lugar);
             const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);

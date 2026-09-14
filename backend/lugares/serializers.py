@@ -24,6 +24,43 @@ class NotaPersonalLugarSerializer(serializers.ModelSerializer):
         read_only_fields = ['lugar', 'explorador', 'fecha_modificacion', 'fecha_creacion']
 
 
+class LugarListSerializer(serializers.ModelSerializer):
+    creador_username = serializers.CharField(source='creador.username', read_only=True, default='')
+    tipo_lugar_display = serializers.CharField(source='get_tipo_lugar_display', read_only=True)
+    total_valoraciones = serializers.IntegerField(default=0, read_only=True)
+
+    class Meta:
+        model = Lugar
+        fields = [
+            'id', 'creador', 'creador_username', 'nombre', 'descripcion', 
+            'tipo_lugar', 'tipo_lugar_display',
+            'latitud', 'longitud', 'pais', 'comunidad_autonoma', 'provincia', 'poblacion',
+            'precio', 'es_gratuito', 'foto_principal', 'valoracion_media',
+            # Servicios
+            'tiene_agua', 'tiene_lavabo', 'tiene_electricidad', 'tiene_wifi', 
+            'tiene_basuras', 'tiene_duchas', 'tiene_vaciado_aguas_grises', 'tiene_vaciado_aguas_negras',
+            # Entorno y Ocio
+            'ideal_familias', 'tiene_senderismo', 'playa_cercana', 'rutas_en_bici', 'admite_mascotas',
+            # Terreno y Acceso
+            'acceso_asfaltado', 'mucha_sombra', 'muy_soleado', 'terreno_nivelado', 
+            'apto_grandes_autocaravanas', 'permite_sacar_toldo',
+            # Campos legacy
+            'tiene_mesas_picnic', 'es_zona_recreativa', 'tiene_senderos_sencillos', 'ideal_ninos_10_anos',
+            'total_valoraciones', 'fecha_creacion'
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        fp = str(data.get('foto_principal') or '').split('?')[0]
+        presets = ['pernocta_libre', 'area_autocaravanas', 'camping', 'parking_urbano', 'area_recreativa', 'solo_servicios']
+        es_preset = any(fp.endswith(f'/{tipo}.jpg') or f'/lugares/{tipo}.jpg' in fp or f'/img/tipos/{tipo}.jpg' in fp for tipo in presets)
+        if not fp or es_preset:
+            data['foto_principal'] = f'/media/lugares/{instance.tipo_lugar}.jpg?v=5'
+        elif fp and not fp.startswith('http://') and not fp.startswith('https://') and not fp.startswith('/'):
+            data['foto_principal'] = f'/media/{fp}'
+        return data
+
+
 class LugarSerializer(serializers.ModelSerializer):
     creador_username = serializers.CharField(source='creador.username', read_only=True)
     tipo_lugar_display = serializers.CharField(source='get_tipo_lugar_display', read_only=True)

@@ -1,17 +1,22 @@
 import math
 from datetime import datetime, timedelta
 from django.http import HttpResponse
-from django.db.models import Q
+from django.db.models import Q, Count
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from .models import Lugar, FotoLugar, ValoracionLugar, NotaPersonalLugar
-from .serializers import LugarSerializer, ValoracionLugarSerializer, FotoLugarSerializer
+from .serializers import LugarSerializer, LugarListSerializer, ValoracionLugarSerializer, FotoLugarSerializer
 
 class LugarViewSet(viewsets.ModelViewSet):
     queryset = Lugar.objects.all()
     serializer_class = LugarSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return LugarListSerializer
+        return LugarSerializer
 
     def get_permissions(self):
         if self.action in ['extraer_maps']:
@@ -19,7 +24,9 @@ class LugarViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        qs = Lugar.objects.all()
+        qs = Lugar.objects.select_related('creador')
+        if self.action == 'list':
+            qs = qs.annotate(total_valoraciones=Count('valoraciones'))
         q = self.request.query_params.get('q', None)
         if q:
             import unicodedata

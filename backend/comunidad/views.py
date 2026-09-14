@@ -65,12 +65,19 @@ class PublicacionTallerViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get('destacado') == 'true':
             qs = qs.filter(destacado=True)
 
-        if self.request.query_params.get('tiene_stl') == 'true':
+        if self.request.query_params.get('tiene_stl') == 'true' or self.request.query_params.get('tiene_3d') == 'true':
             qs = qs.exclude(archivo_descargable='').exclude(archivo_descargable=None)
 
         q = self.request.query_params.get('q')
         if q:
-            qs = qs.filter(Q(titulo__icontains=q) | Q(resumen__icontains=q) | Q(contenido__icontains=q))
+            q_clean = q.strip()
+            qs = qs.filter(
+                Q(titulo__icontains=q_clean) |
+                Q(resumen__icontains=q_clean) |
+                Q(contenido__icontains=q_clean) |
+                Q(archivo_descargable__icontains=q_clean) |
+                Q(autor__username__icontains=q_clean)
+            )
 
         return qs
 

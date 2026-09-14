@@ -15,6 +15,7 @@ export default function CamperIconRating({
 }) {
   const valorEfectivo = Number(valor != null ? valor : (rating != null ? rating : 0)) || 0;
   const manejadorCambio = onChange || alCambiar;
+  const esSoloLectura = Boolean(soloLectura || !manejadorCambio);
   const tamañoEfectivo = size 
     ? (typeof size === 'number' ? `${size}px` : size) 
     : (tamaño === 'grande' ? '1.8rem' : tamaño === 'pequeño' ? '1.1rem' : '1.4rem');
@@ -25,23 +26,25 @@ export default function CamperIconRating({
   return (
     <div className="camper-rating-selector" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
       {iconos.map((num) => {
-        const activo = num <= (hover || Math.round(valorEfectivo));
+        const activo = num <= (!esSoloLectura && hover ? hover : Math.round(valorEfectivo));
         return (
           <span
             key={num}
-            onClick={() => !soloLectura && manejadorCambio && manejadorCambio(num)}
-            onMouseEnter={() => !soloLectura && setHover(num)}
-            onMouseLeave={() => !soloLectura && setHover(0)}
+            onClick={() => !esSoloLectura && manejadorCambio && manejadorCambio(num)}
+            onMouseEnter={() => !esSoloLectura && setHover(num)}
+            onMouseLeave={() => !esSoloLectura && setHover(0)}
             className={`camper-van-icon ${activo ? 'active' : 'inactive'}`}
             style={{
               fontSize: tamañoEfectivo,
               lineHeight: 1,
-              cursor: soloLectura ? 'default' : 'pointer',
+              cursor: esSoloLectura ? 'default' : 'pointer',
               opacity: activo ? 1 : 0.28,
               filter: activo ? 'none' : 'grayscale(100%)',
               transition: 'transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease',
               display: 'inline-block',
-              transform: hover === num && !soloLectura ? 'scale(1.25)' : 'scale(1)',
+              transform: !esSoloLectura && hover === num ? 'scale(1.25)' : 'scale(1)',
+              userSelect: 'none',
+              pointerEvents: esSoloLectura ? 'none' : 'auto'
             }}
             title={`${num} de ${maxIcons} furgonetas camper`}
           >

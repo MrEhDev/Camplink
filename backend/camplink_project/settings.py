@@ -213,5 +213,17 @@ default_backend = 'django.core.mail.backends.smtp.EmailBackend' if (EMAIL_HOST_U
 EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', default_backend)
 
 # URL base del frontend para enlaces transaccionales y notificaciones
-BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5173').rstrip('/')
+BASE_URL = os.environ.get('BASE_URL', 'https://camplinkapp.com').rstrip('/')
+
+# Configuración Web Push (VAPID)
+VAPID_PUBLIC_KEY = os.environ.get(
+    'VAPID_PUBLIC_KEY',
+    'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+)
+VAPID_PRIVATE_KEY = os.environ.get(
+    'VAPID_PRIVATE_KEY',
+    'UUxI6mZzU60eD499W7g1s3yYJ5y3U2K7b92R9G10g_Y'
+)
+VAPID_CLAIMS_EMAIL = os.environ.get('VAPID_CLAIMS_EMAIL', 'mailto:admin@camplinkapp.com')
+
 

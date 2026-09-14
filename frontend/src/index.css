@@ -601,7 +601,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 11000 !important;
   padding: 20px;
   animation: fadeIn 0.25s ease-out;
 }
@@ -1068,76 +1068,47 @@ button {
 }
 
 /* ==========================================================================
-   MOBILE RESPONSIVE RULES (80px NAVBAR & CAMPER CARD)
+   MOBILE RESPONSIVE RULES (OCULTAR NAVBAR SUPERIOR DE PC EN MÓVIL)
    ========================================================================== */
 @media (max-width: 768px) {
 
   header.camplink-navbar,
-  .camplink-navbar {
-    height: 68px !important;
-    min-height: 68px !important;
-    display: flex !important;
-    align-items: center !important;
+  .camplink-navbar,
+  .desktop-only-navbar {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
     padding: 0 !important;
-  }
-
-  header.camplink-navbar .camplink-container,
-  .camplink-navbar .camplink-container {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-    height: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-
-  .navbar-inner {
-    height: 100% !important;
-    min-height: unset !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 0 !important;
-  }
-
-  .navbar-brand-logo {
-    height: 46px !important;
-    width: 46px !important;
     margin: 0 !important;
+    border: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    overflow: hidden !important;
+  }
+
+  .camper-card {
+    padding: 16px;
   }
 }
 
 @media (max-width: 480px) {
 
   header.camplink-navbar,
-  .camplink-navbar {
-    height: 66px !important;
-    min-height: 66px !important;
-    display: flex !important;
-    align-items: center !important;
-    padding: 0 !important;
-  }
-
-  header.camplink-navbar .camplink-container,
-  .camplink-navbar .camplink-container {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-    height: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-
-  .navbar-inner {
-    height: 100% !important;
-    min-height: unset !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
+  .camplink-navbar,
+  .desktop-only-navbar {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
+    border: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    overflow: hidden !important;
   }
 
   .navbar-brand-logo {
@@ -1223,15 +1194,16 @@ button {
   background-color: #FFFFFF !important;
 }
 
-/* Notificaciones: Panel de ancho completo en móvil */
-@media (max-width: 480px) {
+/* Notificaciones: Panel en móvil posicionado directamente debajo del botón flotante */
+@media (max-width: 768px) {
   .notif-dropdown-panel {
-    position: fixed !important;
-    top: 80px !important;
-    left: 8px !important;
-    right: 8px !important;
-    width: auto !important;
-    max-width: calc(100vw - 16px) !important;
+    position: absolute !important;
+    top: calc(100% + 10px) !important;
+    right: 0 !important;
+    left: auto !important;
+    width: 340px !important;
+    max-width: calc(100vw - 24px) !important;
+    z-index: 99999 !important;
   }
 }
 
@@ -1350,53 +1322,56 @@ button {
 
 
 /* ==========================================================================
-   NAVBAR: SIMETRÍA VERTICAL Y DISTRIBUCIÓN IZQUIERDA / DERECHA PERFECTA
+   NAVBAR ESCRITORIO: SIMETRÍA VERTICAL Y DISTRIBUCIÓN IZQUIERDA / DERECHA PERFECTA
    ========================================================================== */
-header.camplink-navbar,
-.camplink-navbar {
-  z-index: 2500 !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  height: 68px !important;
-  min-height: 68px !important;
-  display: flex !important;
-  align-items: center !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
+@media (min-width: 769px) {
 
-header.camplink-navbar .camplink-container,
-.camplink-navbar .camplink-container {
-  width: 100% !important;
-  max-width: 1240px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  padding-left: 14px !important;
-  padding-right: 14px !important;
-  height: 100% !important;
-  box-sizing: border-box !important;
-}
+  header.camplink-navbar,
+  .camplink-navbar {
+    z-index: 2500 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 
-header.camplink-navbar .navbar-inner,
-.camplink-navbar .navbar-inner,
-.navbar-inner {
-  width: 100% !important;
-  height: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  box-sizing: border-box !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
+  header.camplink-navbar .camplink-container,
+  .camplink-navbar .camplink-container {
+    width: 100% !important;
+    max-width: 1240px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+  }
 
-.navbar-actions {
-  display: flex !important;
-  align-items: center !important;
-  margin-left: auto !important;
+  header.camplink-navbar .navbar-inner,
+  .camplink-navbar .navbar-inner,
+  .navbar-inner {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .navbar-actions {
+    display: flex !important;
+    align-items: center !important;
+    margin-left: auto !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1846,4 +1821,369 @@ header.camplink-navbar .navbar-inner,
     right: 12px;
     z-index: 10;
   }
+}
+
+/* ==========================================================================
+   BARRA DE NAVEGACIÓN INFERIOR MÓVIL, CONTROLES SUPERIORES FLOTANTES Y RADAR
+   ========================================================================== */
+
+.mobile-bottom-nav,
+.mobile-floating-radar,
+.mobile-top-floating-bar {
+  display: none;
+}
+
+.mapa-leyenda-flotante {
+  bottom: 24px;
+  left: 14px;
+}
+
+@media (max-width: 768px) {
+
+  /* Ocultar barra superior fija de PC */
+  .desktop-only-navbar {
+    display: none !important;
+  }
+
+  /* Reserva de espacio inferior en el body/contenido para no tapar contenido */
+  body {
+    padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* CONTROLES FLOTANTES SUPERIORES (TEMA + IDIOMA A LA IZQ, NOTIFICACIONES A LA DCHA) */
+  .mobile-top-floating-bar {
+    display: flex !important;
+    position: fixed !important;
+    top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    padding: 0 16px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    pointer-events: none !important;
+    z-index: 3000 !important;
+    box-sizing: border-box !important;
+    transition: opacity 0.25s ease, top 0.25s ease !important;
+  }
+
+  /* Si hay aviso de check-in activo en móvil, la barra flotante se posiciona por debajo del aviso */
+  .mobile-top-floating-bar.con-aviso-checkin {
+    top: calc(122px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Al hacer scroll hacia abajo, reducimos opacidad a 0.5 */
+  .mobile-top-floating-bar.scrolled {
+    opacity: 0.5 !important;
+  }
+
+  .mobile-top-floating-bar.scrolled:hover,
+  .mobile-top-floating-bar.scrolled:focus-within,
+  .mobile-top-floating-bar.scrolled:active {
+    opacity: 1 !important;
+  }
+
+  /* Espacio superior en móvil para vistas que no sean inicio/landing para que los botones flotantes no solapen la página */
+  .app-main-content.con-top-offset-movil {
+    padding-top: calc(70px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Posicionamiento de la leyenda en móvil sobre la barra inferior */
+  .mapa-leyenda-flotante {
+    bottom: 74px !important;
+    left: 2px !important;
+  }
+
+  .mobile-top-floating-left,
+  .mobile-top-floating-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-top-floating-left .btn-icon,
+  .mobile-top-floating-right .btn-icon {
+    background: var(--bg-surface-elevated) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1.5px solid var(--border-color) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  /* El botón de notificaciones en móvil tendrá el mismo tamaño que el de radar (48px) */
+  .mobile-top-floating-right .notif-bell-btn {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+  }
+
+  /* BARRA INFERIOR MÓVIL */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100% !important;
+    height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    background: var(--bg-surface-elevated) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid var(--border-color) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12) !important;
+    z-index: 9999 !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 6px 4px;
+    flex: 1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    border-radius: 10px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-bottom-nav-item svg {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.2s ease;
+  }
+
+  .mobile-bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  .mobile-bottom-nav-item.active {
+    color: var(--accent-forest);
+    font-weight: 700;
+  }
+
+  .mobile-bottom-nav-item.active svg {
+    stroke: var(--accent-forest);
+    transform: translateY(-2px) scale(1.1);
+  }
+
+  .mobile-bottom-nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    width: 16px;
+    height: 3px;
+    border-radius: 99px;
+    background: var(--accent-forest);
+  }
+
+  /* LOGO INICIO DESTACADO Y ELEVADO EN EL CENTRO */
+  .mobile-bottom-nav-home {
+    overflow: visible !important;
+    position: relative !important;
+  }
+
+  .mobile-home-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-surface-elevated);
+    border: 2.5px solid var(--accent-forest);
+    box-shadow: 0 4px 14px rgba(35, 83, 52, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -18px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+  }
+
+  .mobile-home-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .mobile-bottom-nav-item.mobile-bottom-nav-home.active .mobile-home-icon-wrap {
+    border-color: var(--accent-gold);
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 6px 20px rgba(242, 169, 0, 0.5);
+  }
+
+  .mobile-bottom-nav-item.mobile-bottom-nav-home.active::after {
+    display: none !important;
+  }
+
+  /* BOTÓN FLOTANTE RADAR EN MÓVIL (EN EL AIRE SOBRE EL ICONO DE PERFIL) */
+  .mobile-floating-radar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 12px !important;
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+    color: #ffffff !important;
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5) !important;
+    cursor: pointer !important;
+    z-index: 10000 !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .mobile-floating-radar:hover {
+    transform: scale(1.08) !important;
+    box-shadow: 0 12px 28px rgba(16, 185, 129, 0.65) !important;
+  }
+
+  .mobile-floating-radar:active {
+    transform: scale(0.94) !important;
+  }
+}
+
+/* ==========================================================================
+   BANNER DE INSTALACIÓN PWA (SOLO MÓVIL / TABLET, FLOTANDO SOBRE EL RADAR)
+   ========================================================================== */
+
+@media (min-width: 769px) {
+  .pwa-banner-overlay {
+    display: none !important;
+  }
+}
+
+.pwa-banner-overlay {
+  position: fixed;
+  bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 420px;
+  background: var(--bg-surface-elevated);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid var(--border-color);
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  z-index: 10050;
+  animation: slideUpBanner 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ==========================================================================
+   EXPERIENCIA NATIVA: OCULTAR FOOTER PESADO EN MÓVIL
+   ========================================================================== */
+@media (max-width: 768px) {
+
+  .camplink-footer,
+  footer.camplink-footer {
+    display: none !important;
+  }
+}
+
+@keyframes slideUpBanner {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.pwa-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pwa-banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pwa-banner-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.pwa-banner-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.pwa-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pwa-btn-instalar {
+  background: var(--accent-forest);
+  color: #ffffff;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(35, 83, 52, 0.3);
+}
+
+.pwa-btn-instalar:hover {
+  background: var(--accent-forest-light);
+  transform: translateY(-1px);
+}
+
+.pwa-btn-cerrar {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.pwa-btn-cerrar:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
 }

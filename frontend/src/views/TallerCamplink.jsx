@@ -8,7 +8,7 @@ import {
   Wrench, Hammer, Box, BookOpen, Shield, PlusCircle, ArrowLeft,
   Calendar, Tag, User, MessageSquare, Download, Send, ExternalLink,
   Play, CheckCircle, XCircle, AlertTriangle, Eye, Sparkles,
-  ChevronRight, Layers, Share2, ZoomIn, X, Check, FileCode, Edit3, Trash2
+  ChevronRight, Layers, Share2, ZoomIn, X, Check, FileCode, Edit3, Trash2, Search
 } from 'lucide-react';
 
 const obtenerIconoCategoria = (iconoNombre) => {
@@ -16,7 +16,7 @@ const obtenerIconoCategoria = (iconoNombre) => {
   const ic = String(iconoNombre).toLowerCase().trim();
   if (ic.includes('wrench') || ic.includes('manten')) return '🔧';
   if (ic.includes('hammer') || ic.includes('brico') || ic.includes('craft')) return '🔨';
-  if (ic.includes('box') || ic.includes('3d') || ic.includes('stl') || ic.includes('pieza')) return '📦';
+  if (ic.includes('box') || ic.includes('3d') || ic.includes('stl') || ic.includes('3mf') || ic.includes('pieza')) return '📦';
   if (ic.includes('zap') || ic.includes('elect') || ic.includes('solar') || ic.includes('bater')) return '⚡';
   if (ic.includes('cpu') || ic.includes('chip')) return '💻';
   if (ic.includes('shield') || ic.includes('auxilio') || ic.includes('segur') || ic.includes('salud')) return '🩹';
@@ -46,6 +46,8 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
   const [cargando, setCargando] = useState(true);
   const [categoriaActiva, setCategoriaActiva] = useState('todos');
   const [soloRevision, setSoloRevision] = useState(false);
+  const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [filtro3D, setFiltro3D] = useState(false);
   const [conteoPendientes, setConteoPendientes] = useState(0);
 
   // Detalle de Publicación
@@ -106,6 +108,12 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
         if (categoriaActiva !== 'todos') {
           url += `categoria=${encodeURIComponent(categoriaActiva)}&`;
         }
+        if (filtro3D) {
+          url += `tiene_3d=true&`;
+        }
+        if (terminoBusqueda.trim()) {
+          url += `q=${encodeURIComponent(terminoBusqueda.trim())}&`;
+        }
         const res = await peticionApi(url);
         const lista = Array.isArray(res) ? res : (res?.results || []);
         setPublicaciones(lista);
@@ -119,8 +127,11 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
   };
 
   useEffect(() => {
-    cargarPublicaciones();
-  }, [categoriaActiva, soloRevision]);
+    const timer = setTimeout(() => {
+      cargarPublicaciones();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [categoriaActiva, soloRevision, filtro3D, terminoBusqueda]);
 
   // Detectar enlaces profundos (?id=ID o ?publicacion=ID o ?revision=ID)
   useEffect(() => {
@@ -692,56 +703,59 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
             </div>
           )}
 
-          {/* ARCHIVO 3D .STL DESCARGABLE */}
-          {pub.archivo_descargable && (
-            <div style={{
-              marginTop: '32px',
-              padding: '18px 22px',
-              background: 'rgba(217, 119, 54, 0.1)',
-              borderRadius: 'var(--radius-md)',
-              border: '1.5px solid rgba(217, 119, 54, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '14px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--accent-earth)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#FFFFFF',
-                  flexShrink: 0
-                }}>
-                  <Box size={26} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                    Archivo Imprimible 3D (.STL / Fabricación)
+          {/* ARCHIVO 3D (.STL / .3MF / FABRICACIÓN) DESCARGABLE */}
+          {pub.archivo_descargable && (() => {
+            const extArchivo = (pub.archivo_descargable.split('?')[0].split('.').pop() || '3D').toUpperCase();
+            return (
+              <div style={{
+                marginTop: '32px',
+                padding: '18px 22px',
+                background: 'rgba(217, 119, 54, 0.1)',
+                borderRadius: 'var(--radius-md)',
+                border: '1.5px solid rgba(217, 119, 54, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--accent-earth)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#FFFFFF',
+                    flexShrink: 0
+                  }}>
+                    <Box size={26} />
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {pub.archivo_nombre || 'Modelo listo para laminar con Cura, PrusaSlicer o Bambu Studio'}
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                      Archivo Imprimible 3D (.{extArchivo} / Fabricación)
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {pub.archivo_nombre || `Modelo listo para laminar con Bambu Studio, PrusaSlicer, OrcaSlicer o Cura (.${extArchivo})`}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <a
-                href={pub.archivo_descargable}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-primary"
-                style={{ background: 'var(--accent-earth)', borderColor: 'var(--accent-earth)' }}
-              >
-                <Download size={16} /> Descargar .STL
-              </a>
-            </div>
-          )}
+                <a
+                  href={pub.archivo_descargable}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ background: 'var(--accent-earth)', borderColor: 'var(--accent-earth)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Download size={16} /> Descargar .{extArchivo}
+                </a>
+              </div>
+            );
+          })()}
 
           {/* ENLACE EXTERNO DE INTERÉS */}
           {pub.enlace_externo && (
@@ -1073,6 +1087,81 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
             )}
           </button>
         )}
+      </div>
+
+      {/* BARRA DE BÚSQUEDA POR PALABRAS CLAVE Y FILTRO 3D */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        marginBottom: '24px'
+      }}>
+        {/* Input Buscador */}
+        <div style={{ position: 'relative', flex: '1 1 280px' }}>
+          <Search size={17} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Buscar por palabra clave, brico, tornillo, relé, 3mf, stl..."
+            value={terminoBusqueda}
+            onChange={(e) => setTerminoBusqueda(e.target.value)}
+            style={{
+              paddingLeft: '40px',
+              paddingRight: terminoBusqueda ? '36px' : '14px',
+              height: '42px',
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--bg-surface)',
+              border: '1.5px solid var(--border-color)',
+              fontSize: '0.92rem'
+            }}
+          />
+          {terminoBusqueda && (
+            <button
+              type="button"
+              onClick={() => setTerminoBusqueda('')}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Borrar búsqueda"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Filtro Rápido 3D (.STL / .3MF) */}
+        <button
+          className={`btn btn-sm ${filtro3D ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setFiltro3D(!filtro3D)}
+          style={{
+            height: '42px',
+            borderRadius: 'var(--radius-full)',
+            padding: '0 16px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '7px',
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            background: filtro3D ? 'var(--accent-earth)' : undefined,
+            borderColor: filtro3D ? 'var(--accent-earth)' : undefined,
+            color: filtro3D ? '#FFFFFF' : undefined
+          }}
+          title="Ver solo proyectos con piezas y archivos 3D (.STL / .3MF / STEP)"
+        >
+          <Box size={16} />
+          <span>Piezas 3D (.STL / .3MF)</span>
+        </button>
       </div>
 
       {/* AVISO EN PESTAÑA DE REVISIÓN ADMIN */}

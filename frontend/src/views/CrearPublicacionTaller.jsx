@@ -632,7 +632,7 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
         <input
           ref={fileDescargaRef}
           type="file"
-          accept=".stl,.pdf,.zip,.step,.dwg,.obj"
+          accept=".stl,.3mf,.step,.stp,.obj,.pdf,.zip,.dwg"
           style={{ display: 'none' }}
           onChange={e => setArchivoDescargable(e.target.files[0] || null)}
         />
@@ -867,11 +867,11 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
                   background: (archivoDescargable || nombreArchivoExistente) ? 'rgba(59, 130, 246, 0.15)' : undefined,
                   borderColor: (archivoDescargable || nombreArchivoExistente) ? '#3B82F6' : undefined
                 }}
-                title="Adjuntar modelo 3D (.STL), esquemas o planos"
+                title="Adjuntar modelo 3D (.STL / .3MF), esquemas o planos"
               >
                 <Box size={15} color={(archivoDescargable || nombreArchivoExistente) ? '#3B82F6' : undefined} />
                 <span style={{ fontSize: '0.78rem' }}>
-                  {archivoDescargable ? 'Archivo 3D ✓' : (nombreArchivoExistente ? 'Archivo 3D ✓' : 'Archivo 3D (.STL)')}
+                  {archivoDescargable ? 'Archivo 3D ✓' : (nombreArchivoExistente ? 'Archivo 3D ✓' : 'Archivo 3D (.STL / .3MF)')}
                 </span>
               </button>
 

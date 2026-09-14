@@ -111,37 +111,37 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
       }}
     >
       {/* ── Cabecera de bienvenida ── */}
-      <div style={{
-        padding: '20px 20px 12px',
-        textAlign: 'center',
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(-12px)',
-        transition: 'opacity 0.45s ease, transform 0.45s ease',
-        flexShrink: 0,
-      }}>
+      <div
+        className="home-dashboard-header"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(-12px)',
+          transition: 'opacity 0.45s ease, transform 0.45s ease',
+        }}
+      >
         <p style={{
-          fontSize: '0.88rem',
+          fontSize: '0.82rem',
           color: 'var(--text-muted)',
           fontWeight: 500,
-          margin: '0 0 3px',
+          margin: '0 0 2px',
           letterSpacing: '0.02em',
         }}>
           {saludo()},
         </p>
         <h1 style={{
           fontFamily: 'var(--font-heading)',
-          fontSize: 'clamp(1.35rem, 5vw, 2rem)',
+          fontSize: 'clamp(1.2rem, 4.5vw, 1.85rem)',
           fontWeight: 800,
           color: 'var(--text-primary)',
           margin: 0,
-          lineHeight: 1.2,
+          lineHeight: 1.15,
         }}>
           {formatearNombre(usuario?.username)} 👋
         </h1>
         <p style={{
-          fontSize: '0.8rem',
+          fontSize: '0.76rem',
           color: 'var(--text-secondary)',
-          margin: '5px 0 0',
+          margin: '3px 0 0',
           fontWeight: 500,
         }}>
           ¿Qué quieres explorar hoy?
@@ -156,8 +156,8 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gridTemplateRows: 'repeat(3, 1fr)',
-          gap: '12px',
-          padding: '0 12px 14px',
+          gap: '8px',
+          padding: '0 10px 10px',
           boxSizing: 'border-box',
           minHeight: 0,
         }}
@@ -170,6 +170,7 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
             <button
               key={tarjeta.id}
               id={`home-card-${tarjeta.id}`}
+              className="home-dashboard-card"
               onClick={() => navegar(tarjeta)}
               onMouseEnter={() => setHoverId(tarjeta.id)}
               onMouseLeave={() => setHoverId(null)}
@@ -180,20 +181,20 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
                 flexDirection: 'column',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
-                padding: '16px 16px 20px',
+                padding: '10px 10px 12px',
                 boxSizing: 'border-box',
                 width: '100%',
-                minHeight: '130px',
+                minHeight: '94px',
                 // Imagen de fondo con overlay de color
                 backgroundImage: `${isHovered ? tarjeta.overlayHover : tarjeta.overlay}, url("${tarjeta.imagen}")`,
                 backgroundSize: 'cover, cover',
                 backgroundPosition: 'center, center',
                 backgroundRepeat: 'no-repeat, no-repeat',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-md)',
                 border: 'none',
                 boxShadow: isHovered
                   ? '0 24px 55px rgba(0,0,0,0.55), inset 0 0 0 1.5px rgba(255,255,255,0.32)'
-                  : '0 10px 30px rgba(0,0,0,0.38), inset 0 0 0 1px rgba(255,255,255,0.18)',
+                  : '0 8px 24px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.18)',
                 // Animación
                 opacity: visible ? 1 : 0,
                 transform: visible
@@ -218,23 +219,23 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
                 inset: 0,
                 background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)',
                 pointerEvents: 'none',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-md)',
               }} />
 
               {/* Insignia superior de categoría */}
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                padding: '3px 9px',
-                borderRadius: '12px',
+                padding: '2px 7px',
+                borderRadius: '8px',
                 background: 'rgba(255, 255, 255, 0.16)',
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
                 border: '1px solid rgba(255, 255, 255, 0.24)',
-                fontSize: '0.68rem',
+                fontSize: '0.62rem',
                 fontWeight: 700,
                 color: '#FFFFFF',
-                letterSpacing: '0.04em',
+                letterSpacing: '0.03em',
                 textTransform: 'uppercase',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
                 position: 'relative',
@@ -244,13 +245,13 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
               </div>
 
               {/* Textos con gran valor y jerarquía visual */}
-              <div style={{ position: 'relative', zIndex: 1, width: '100%', paddingRight: '28px', marginTop: '14px' }}>
+              <div style={{ position: 'relative', zIndex: 1, width: '100%', paddingRight: '22px', marginTop: '6px' }}>
                 <h2 style={{
                   fontFamily: 'var(--font-heading)',
-                  fontSize: 'clamp(1.15rem, 3.8vw, 1.5rem)',
+                  fontSize: 'clamp(0.92rem, 3.2vw, 1.35rem)',
                   fontWeight: 900,
                   color: '#FFFFFF',
-                  margin: '0 0 5px',
+                  margin: '0 0 2px',
                   lineHeight: 1.15,
                   letterSpacing: '-0.02em',
                   textShadow: '0 2px 12px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,1), 0 4px 20px rgba(0,0,0,0.8)',
@@ -258,10 +259,10 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
                   {tarjeta.titulo}
                 </h2>
                 <p style={{
-                  fontSize: 'clamp(0.7rem, 2vw, 0.85rem)',
+                  fontSize: 'clamp(0.66rem, 1.8vw, 0.8rem)',
                   color: 'rgba(255,255,255,0.92)',
                   margin: 0,
-                  lineHeight: 1.35,
+                  lineHeight: 1.25,
                   fontWeight: 600,
                   textShadow: '0 1px 6px rgba(0,0,0,0.9), 0 2px 10px rgba(0,0,0,0.7)',
                 }}>
@@ -272,17 +273,17 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
               {/* Botón flecha → */}
               <div style={{
                 position: 'absolute',
-                bottom: '12px',
-                right: '12px',
-                width: '26px',
-                height: '26px',
+                bottom: '8px',
+                right: '8px',
+                width: '22px',
+                height: '22px',
                 borderRadius: '50%',
                 background: isHovered ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.18)',
                 border: '1px solid rgba(255,255,255,0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '0.85rem',
+                fontSize: '0.75rem',
                 fontWeight: 800,
                 color: '#FFFFFF',
                 boxShadow: '0 3px 10px rgba(0,0,0,0.35)',
@@ -299,12 +300,31 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
       </div>
 
       <style>{`
+        .home-dashboard-header {
+          padding: 10px 14px 4px;
+          text-align: center;
+          flex-shrink: 0;
+        }
+        @media (max-width: 599px) {
+          .home-dashboard-grid {
+            max-height: calc(100dvh - 170px) !important;
+            padding: 0 10px 8px !important;
+          }
+        }
         @media (min-width: 600px) {
+          .home-dashboard-header {
+            padding: 22px 20px 12px;
+          }
           .home-dashboard-grid {
             grid-template-columns: repeat(3, 1fr) !important;
             grid-template-rows: repeat(2, 1fr) !important;
             gap: 16px !important;
             padding: 0 20px 20px !important;
+          }
+          .home-dashboard-card {
+            min-height: 140px !important;
+            padding: 16px 16px 20px !important;
+            border-radius: var(--radius-lg) !important;
           }
         }
         @media (min-width: 1024px) {
@@ -314,6 +334,9 @@ export default function HomeDashboard({ setVistaActiva, abrirRadar }) {
             width: 100% !important;
             gap: 22px !important;
             padding: 0 36px 28px !important;
+          }
+          .home-dashboard-card {
+            min-height: 160px !important;
           }
         }
         [id^="home-card-"]:focus-visible {

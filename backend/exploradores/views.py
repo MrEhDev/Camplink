@@ -441,7 +441,7 @@ def recuperar_password_vista(request):
                 f"El equipo de Camplink\n"
                 f"https://camplinkapp.com"
             )
-            base_url = getattr(settings, 'BASE_URL', 'http://localhost:5173').rstrip('/')
+            base_url = getattr(settings, 'BASE_URL', 'https://camplinkapp.com').rstrip('/')
             logo_url = f"{base_url}/camplink-logo.png" if base_url.startswith('https://') else "https://camplinkapp.com/camplink-logo.png"
             mensaje_rec_html = f"""
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
@@ -785,3 +785,44 @@ def cambiar_password_vista(request):
     update_session_auth_hash(request, usuario)
 
     return Response({'mensaje': '¡Contraseña actualizada con éxito!'})
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def webpush_vapid_key_vista(request):
+    """Retorna la clave pública VAPID para suscripción de notificaciones push en el navegador."""
+    vapid_key = getattr(settings, 'VAPID_PUBLIC_KEY', '')
+    return Response({'vapid_public_key': vapid_key})
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@csrf_exempt
+def webpush_subscribir_vista(request):
+    """Registra o actualiza un endpoint de suscripción Web Push para el navegador del usuario."""
+    from .models import SuscripcionWebPush
+    
+    endpoint = request.data.get('endpoint')
+    keys = request.data.get('keys', {})
+    p256dh = keys.get('p256dh', '')
+    auth = keys.get('auth', '')
+
+    if not endpoint or not p256dh or not auth:
+        return Response({'error': 'Datos de suscripción incompletos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    usuario = request.user if (request.user and request.user.is_authenticated) else None
+    
+    sub, created = SuscripcionWebPush.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            'usuario': usuario,
+            'p256dh': p256dh,
+            'auth': auth,
+        }
+    )
+
+    return Response({
+        'mensaje': 'Suscripción Web Push registrada con éxito.',
+        'id': sub.id
+    }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+

@@ -56,6 +56,8 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
   const [comentarioNuevo, setComentarioNuevo] = useState('');
   const [fotoOpinion, setFotoOpinion] = useState(null);
   const [previewFotoOpinion, setPreviewFotoOpinion] = useState(null);
+  const [publicarEnDiario, setPublicarEnDiario] = useState(false);
+  const [relatoDiario, setRelatoDiario] = useState('');
 
   const manejarFotoOpinion = async (e) => {
     const archivo = e.target.files?.[0];
@@ -666,6 +668,27 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
         method: 'POST',
         body: formData
       });
+
+      if (publicarEnDiario) {
+        try {
+          const formDiario = new FormData();
+          formDiario.append('contenido', (relatoDiario.trim() || comentarioNuevo.trim()));
+          formDiario.append('lugar', lugarId);
+          formDiario.append('visibilidad', 'publico');
+          if (fotoOpinion) {
+            formDiario.append('imagen', fotoOpinion);
+          }
+          await peticionApi('/api/diario/publicaciones/', {
+            method: 'POST',
+            body: formDiario
+          });
+          setRelatoDiario('');
+          setPublicarEnDiario(false);
+        } catch (errDiario) {
+          console.warn('Nota: valoración guardada, error secundario al publicar en diario:', errDiario);
+        }
+      }
+
       setComentarioNuevo('');
       setFotoOpinion(null);
       if (previewFotoOpinion) URL.revokeObjectURL(previewFotoOpinion);
@@ -1611,6 +1634,37 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
                     >
                       ×
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Opción adicional para publicar en el Diario de Ruta */}
+              <div style={{
+                marginBottom: '16px',
+                padding: '10px 12px',
+                background: 'rgba(35, 83, 52, 0.08)',
+                border: '1px solid rgba(35, 83, 52, 0.25)',
+                borderRadius: 'var(--radius-sm)'
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={publicarEnDiario}
+                    onChange={(e) => setPublicarEnDiario(e.target.checked)}
+                    style={{ accentColor: 'var(--accent-forest)' }}
+                  />
+                  <span>📖 Publicar también como relato en mi Diario de Ruta</span>
+                </label>
+                {publicarEnDiario && (
+                  <div style={{ marginTop: '10px' }}>
+                    <textarea
+                      className="form-control"
+                      rows="2"
+                      placeholder="Relato opcional para el diario nómada (si lo dejas vacío, se usará tu comentario anterior)..."
+                      value={relatoDiario}
+                      onChange={(e) => setRelatoDiario(e.target.value)}
+                      style={{ fontSize: '0.82rem' }}
+                    />
                   </div>
                 )}
               </div>

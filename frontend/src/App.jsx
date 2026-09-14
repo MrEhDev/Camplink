@@ -8,6 +8,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
 import { obtenerPosicionGps, calcularDistanciaKm } from './utils/geolocation';
+import BannerInstalarPWA from './components/BannerInstalarPWA';
 import { X } from 'lucide-react';
 
 // Vistas con Lazy Loading (Code Splitting dinámico para optimización de rendimiento y bundle inicial ligero)
@@ -298,6 +299,7 @@ export default function App() {
         abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
         alVerPerfilUsuario={abrirPerfilUsuario}
         abrirTutorial={abrirTutorial}
+        tieneAvisoCheckin={!!(usuario && lugarProgramadoHoy && !descartadoLugarHoy)}
         abrirLoginModal={() => {
           setVistaActiva('landing');
           setTimeout(() => {
@@ -353,10 +355,10 @@ export default function App() {
             gap: '12px'
           }}>
             <div style={{ fontSize: '0.94rem', color: '#FFFFFF' }}>
-              <span>¿Estás en <strong>{lugarProgramadoHoy.nombre}</strong>? Haz check-in al llegar para registrar tu pernocta</span>
+              <span>¿Estás en <strong>{lugarProgramadoHoy.nombre}</strong>? <br /> Haz check-in para registrar tu llegada</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginLeft: 'auto', marginRight: 'auto' }}>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -392,7 +394,7 @@ export default function App() {
       )}
 
       {/* Contenido Dinámico de la SPA con Error Boundary y Suspense para Lazy Loading */}
-      <main style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', minHeight: 0 }}>
+      <main className={`app-main-content ${vistaActiva !== 'home' && vistaActiva !== 'landing' ? 'con-top-offset-movil' : ''}`} style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', minHeight: 0 }}>
         <ErrorBoundary onReset={() => setVistaActiva(usuario ? 'home' : 'landing')}>
           <Suspense fallback={<CargandoCamper />}>
             {/* Landing Page para usuarios no autenticados en vista landing */}
@@ -672,7 +674,7 @@ export default function App() {
                 try {
                   const hoyKey = new Date().toISOString().split('T')[0];
                   localStorage.setItem(`camplink_checkin_realizado_${modalCheckInLugar.id}_${hoyKey}`, 'true');
-                } catch(e){}
+                } catch (e) { }
               }
               setVistaActiva('perfil');
             }}
@@ -719,6 +721,9 @@ export default function App() {
           />
         )}
       </Suspense>
+
+      {/* Banner de instalación PWA en móviles y escritorio */}
+      <BannerInstalarPWA />
     </div>
   );
 }

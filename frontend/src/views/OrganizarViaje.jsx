@@ -38,66 +38,66 @@ const CONFIG_POR_TIPO = {
   camping: {
     emoji: '⛺',
     nombre: 'Camping',
-    colorFondo: '#10B981', // Verde Esmeralda
+    colorFondo: '#059669', // Verde Camping
     colorBorde: '#047857',
     svgVector: `
-      <g transform="translate(5, 3.5)">
-        <path d="M7 1.5 L1.5 11.5 L12.5 11.5 Z M7 1.5 L7 11.5 M4.2 11.5 L7 7.2 L9.8 11.5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <g transform="translate(6, 4.5)">
+        <path d="M7 1.5 L1.5 11.5 L12.5 11.5 Z M7 1.5 L7 11.5 M4.2 11.5 L7 7.2 L9.8 11.5" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </g>
     `
   },
   area_autocaravanas: {
     emoji: '🚐',
     nombre: 'Área de Autocaravanas',
-    colorFondo: '#3B82F6', // Azul Nómada
+    colorFondo: '#2563EB', // Azul Área
     colorBorde: '#1D4ED8',
     svgVector: `
-      <g transform="translate(5, 4)">
-        <path d="M1.5 3 H9.5 V10 H1.5 Z M9.5 5.5 H12 L13.5 8 V10 H9.5 Z" fill="#3B82F6"/>
-        <circle cx="3.8" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
-        <circle cx="11.2" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
+      <g transform="translate(6, 5)">
+        <path d="M1.5 3 H9.5 V10 H1.5 Z M9.5 5.5 H12 L13.5 8 V10 H9.5 Z" fill="#FFFFFF"/>
+        <circle cx="3.8" cy="10.2" r="1.3" fill="#2563EB" stroke="#FFFFFF" stroke-width="0.9"/>
+        <circle cx="11.2" cy="10.2" r="1.3" fill="#2563EB" stroke="#FFFFFF" stroke-width="0.9"/>
       </g>
     `
   },
   pernocta_libre: {
     emoji: '🌲',
     nombre: 'Pernocta Libre (Naturaleza)',
-    colorFondo: '#059669', // Verde Bosque Naturaleza
-    colorBorde: '#064E3B',
+    colorFondo: '#15803D', // Verde Naturaleza
+    colorBorde: '#166534',
     svgVector: `
-      <g transform="translate(5, 3.5)">
-        <path d="M7 1 L2.5 6 H4.5 L2 10 H5.5 V13 H8.5 V10 H12 L9.5 6 H11.5 Z" fill="#059669"/>
+      <g transform="translate(6, 4.5)">
+        <path d="M7 1 L2.5 6 H4.5 L2 10 H5.5 V13 H8.5 V10 H12 L9.5 6 H11.5 Z" fill="#FFFFFF"/>
       </g>
     `
   },
   parking_urbano: {
     emoji: '🅿️',
     nombre: 'Parking Urbano / Mixto',
-    colorFondo: '#6366F1', // Indigo Parking
-    colorBorde: '#4338CA',
+    colorFondo: '#4F46E5', // Indigo Parking
+    colorBorde: '#3730A3',
     svgVector: `
-      <text x="12" y="14.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="11" fill="#6366F1">P</text>
+      <text x="13" y="15.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="12" fill="#FFFFFF">P</text>
     `
   },
   solo_servicios: {
     emoji: '💧',
     nombre: 'Solo Servicios',
-    colorFondo: '#06B6D4', // Cian Agua / Servicios
+    colorFondo: '#0891B2', // Cian Agua
     colorBorde: '#0E7490',
     svgVector: `
-      <g transform="translate(5, 3.5)">
-        <path d="M7 1.5 C7 1.5 2.5 7 2.5 9.8 C2.5 12.3 4.5 13.5 7 13.5 C9.5 13.5 11.5 12.3 11.5 9.8 C11.5 7 7 1.5 7 1.5 Z" fill="#06B6D4"/>
+      <g transform="translate(6, 4.5)">
+        <path d="M7 1.5 C7 1.5 2.5 7 2.5 9.8 C2.5 12.3 4.5 13.5 7 13.5 C9.5 13.5 11.5 12.3 11.5 9.8 C11.5 7 7 1.5 7 1.5 Z" fill="#FFFFFF"/>
       </g>
     `
   },
   area_recreativa: {
     emoji: '🏞️',
     nombre: 'Área Recreativa / Merendero',
-    colorFondo: '#F59E0B', // Ámbar Merendero
+    colorFondo: '#D97706', // Ámbar Merendero
     colorBorde: '#B45309',
     svgVector: `
-      <g transform="translate(5, 4)">
-        <path d="M1 4.5 H13 M7 4.5 V11 M3.5 11 L5.5 4.5 M10.5 11 L8.5 4.5 M1 8 H13" stroke="#F59E0B" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <g transform="translate(6, 5)">
+        <path d="M1 4.5 H13 M7 4.5 V11 M3.5 11 L5.5 4.5 M10.5 11 L8.5 4.5 M1 8 H13" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" fill="none"/>
       </g>
     `
   }
@@ -112,6 +112,61 @@ const EMOJIS_POR_TIPO = {
   solo_servicios: '💧'
 };
 
+// Helper para obtener color y propiedades visuales según el rating
+const obtenerColorRating = (valoracion, totalValoraciones) => {
+  const total = totalValoraciones !== undefined
+    ? totalValoraciones
+    : (Array.isArray(valoracion) ? valoracion.length : (valoracion ? 1 : 0));
+  const val = parseFloat(typeof valoracion === 'object' ? valoracion?.valoracion_media : valoracion) || 0;
+
+  if (val <= 0 || total === 0) {
+    return {
+      color: '#94A3B8', // Gris pizarra (sin valoraciones)
+      bgBadge: 'rgba(148, 163, 184, 0.2)',
+      label: 'Sin valoraciones',
+      bordeGrosor: 2.6
+    };
+  }
+  if (val >= 4.5) {
+    return {
+      color: '#F59E0B', // Oro Radiante / 4.5 a 5.0
+      bgBadge: 'rgba(245, 158, 11, 0.25)',
+      label: 'Sobresaliente (4.5 - 5.0)',
+      bordeGrosor: 3.2
+    };
+  }
+  if (val >= 3.8) {
+    return {
+      color: '#10B981', // Verde Esmeralda / 3.8 a 4.4
+      bgBadge: 'rgba(16, 185, 129, 0.25)',
+      label: 'Muy bueno (3.8 - 4.4)',
+      bordeGrosor: 3.0
+    };
+  }
+  if (val >= 2.8) {
+    return {
+      color: '#38BDF8', // Azul Cielo Brillante / 2.8 a 3.7
+      bgBadge: 'rgba(56, 189, 248, 0.25)',
+      label: 'Bueno (2.8 - 3.7)',
+      bordeGrosor: 2.8
+    };
+  }
+  if (val >= 2.0) {
+    return {
+      color: '#FB923C', // Naranja / 2.0 a 2.7
+      bgBadge: 'rgba(251, 146, 60, 0.25)',
+      label: 'Regular (2.0 - 2.7)',
+      bordeGrosor: 2.8
+    };
+  }
+  return {
+    color: '#EF4444', // Rojo Coral / < 2.0
+    bgBadge: 'rgba(239, 68, 68, 0.25)',
+    label: 'Mejorable (< 2.0)',
+    bordeGrosor: 2.8
+  };
+};
+
 const ICON_CACHE = {};
 
 const obtenerIconoPorLugar = (lugar) => {
@@ -120,15 +175,24 @@ const obtenerIconoPorLugar = (lugar) => {
   const total = lugar?.total_valoraciones !== undefined
     ? lugar.total_valoraciones
     : (Array.isArray(lugar?.valoraciones) ? lugar.valoraciones.length : 0);
-  const hasStar = (val >= 4.0 && total > 0) ? '1' : '0';
-  const cacheKey = `${tipo}_${hasStar}`;
+
+  const ratingTier = (val <= 0 || total === 0) ? '0'
+    : (val >= 4.5 ? '5'
+    : (val >= 3.8 ? '4'
+    : (val >= 2.8 ? '3'
+    : (val >= 2.0 ? '2' : '1'))));
+
+  const cacheKey = `${tipo}_${ratingTier}`;
 
   if (ICON_CACHE[cacheKey]) {
     return ICON_CACHE[cacheKey];
   }
 
   const cfg = CONFIG_POR_TIPO[tipo] || CONFIG_POR_TIPO.pernocta_libre;
-  const starBadge = hasStar === '1'
+  const ratingInfo = obtenerColorRating(val, total);
+  const hasStar = (val >= 4.0 && total > 0);
+
+  const starBadge = hasStar
     ? `<div style="position: absolute; top: -3px; right: -3px; background: #F59E0B; border: 1.5px solid #FFFFFF; border-radius: 50%; width: 11px; height: 11px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #FFFFFF; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.4);">★</div>`
     : '';
 
@@ -137,26 +201,25 @@ const obtenerIconoPorLugar = (lugar) => {
     html: `
       <div class="marker-pin-inner" style="
         position: relative;
-        width: 24px;
-        height: 28px;
+        width: 26px;
+        height: 30px;
         display: flex;
         align-items: center;
         justify-content: center;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+        filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
         cursor: pointer;
       ">
-        <svg viewBox="0 0 24 28" width="24" height="28" style="display: block;">
-          <path d="M12 1 C6.48 1 2 5.48 2 11 C2 18.5 12 27.5 12 27.5 C12 27.5 22 18.5 22 11 C22 5.48 17.52 1 12 1 Z" 
-                fill="${cfg.colorFondo}" stroke="${cfg.colorBorde}" stroke-width="1.5"/>
-          <circle cx="12" cy="10.5" r="7.2" fill="#FFFFFF"/>
+        <svg viewBox="0 0 26 30" width="26" height="30" style="display: block;">
+          <path d="M13 1.5 C7.2 1.5 2.5 6.2 2.5 12 C2.5 19.8 13 28.5 13 28.5 C13 28.5 23.5 19.8 23.5 12 C23.5 6.2 18.8 1.5 13 1.5 Z" 
+                fill="${cfg.colorFondo}" stroke="${ratingInfo.color}" stroke-width="${ratingInfo.bordeGrosor}" stroke-linejoin="round"/>
           ${cfg.svgVector}
         </svg>
         ${starBadge}
       </div>
     `,
-    iconSize: [24, 28],
-    iconAnchor: [12, 28],
-    popupAnchor: [0, -26]
+    iconSize: [26, 30],
+    iconAnchor: [13, 30],
+    popupAnchor: [0, -28]
   });
 
   ICON_CACHE[cacheKey] = icon;
@@ -843,7 +906,7 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
           lng: punto.lng,
           direccion: punto.direccion || punto.nombre,
           fecha: fecha || null,
-          dias_previstos: parseInt(noches ?? 0, 10)
+          dias_previstos: parseInt(noches != null && noches !== '' ? noches : 0, 10)
         }
       });
       setGeometriasRutas(prev => { const copy = { ...prev }; delete copy[viajeId]; return copy; });
@@ -2355,8 +2418,11 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Noches:</span>
                                       <input type="number" min="0" max="60" className="form-control" style={{ padding: '2px 6px', fontSize: '0.78rem', width: '55px' }}
-                                        value={puntoExternoConfig.noches}
-                                        onChange={(e) => setPuntoExternoConfig(prev => ({ ...prev, noches: e.target.value }))}
+                                        value={puntoExternoConfig.noches ?? ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setPuntoExternoConfig(prev => ({ ...prev, noches: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0) }));
+                                        }}
                                       />
                                     </div>
                                     <button
@@ -2464,8 +2530,11 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                             max="60"
                                             className="form-control"
                                             style={{ padding: '2px 6px', fontSize: '0.78rem', width: '55px' }}
-                                            value={lugarParaAnadirConfig.noches}
-                                            onChange={(e) => setLugarParaAnadirConfig(prev => ({ ...prev, noches: e.target.value }))}
+                                            value={lugarParaAnadirConfig.noches ?? ''}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setLugarParaAnadirConfig(prev => ({ ...prev, noches: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0) }));
+                                            }}
                                           />
                                         </div>
                                         <button
@@ -3176,15 +3245,28 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                                   </div>
 
                                   {/* Puntuación Camper */}
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
-                                    <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} />
-                                    <span style={{ fontWeight: 800, color: '#F3F4F6' }}>
-                                      {parseFloat(lugar.valoracion_media || 0).toFixed(1)}
-                                    </span>
-                                    <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
-                                      ({lugar.total_valoraciones || 0} valoraciones)
-                                    </span>
-                                  </div>
+                                  {(() => {
+                                    const rInfo = obtenerColorRating(lugar.valoracion_media, lugar.total_valoraciones);
+                                    const valNum = parseFloat(lugar.valoracion_media || 0);
+                                    return (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
+                                        <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} />
+                                        <span style={{ 
+                                          fontWeight: 900, 
+                                          color: rInfo.color,
+                                          background: rInfo.bgBadge,
+                                          padding: '1px 7px',
+                                          borderRadius: '4px',
+                                          border: `1px solid ${rInfo.color}50`
+                                        }}>
+                                          {valNum > 0 ? valNum.toFixed(1) : 'Nuevo'}
+                                        </span>
+                                        <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
+                                          ({lugar.total_valoraciones || 0} valoraciones)
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {/* Servicios destacados */}
                                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', fontSize: '0.71rem' }}>
@@ -3301,8 +3383,11 @@ export default function OrganizarViaje({ alSeleccionarLugar, alExplorarMapa, abr
                       <div style={{ width: '68px' }}>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '3px' }}>Noches</div>
                         <input type="number" min="0" max="60" className="form-control" style={{ padding: '4px 6px', fontSize: '0.8rem', width: '100%' }}
-                          value={puntoExternoConfig.noches}
-                          onChange={(e) => setPuntoExternoConfig(prev => ({ ...prev, noches: e.target.value }))} />
+                          value={puntoExternoConfig.noches ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPuntoExternoConfig(prev => ({ ...prev, noches: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0) }));
+                          }} />
                       </div>
                     </div>
                     <button type="button" className="btn btn-primary"

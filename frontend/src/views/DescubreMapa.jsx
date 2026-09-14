@@ -18,7 +18,7 @@ import {
   Layers, Filter, Search, MapPin, CloudRain,
   Moon, Users, Crosshair, Droplets, Zap,
   Dog, Sparkles, Navigation, Calendar, Plus, X, Check, Route, Shield,
-  TreePine, Home, Tent, Car, Waves, Compass, Trash2, Sun, Eye, ChevronLeft, ChevronRight
+  TreePine, Home, Tent, Car, Waves, Compass, Trash2, Sun, Eye, ChevronLeft, ChevronRight, ChevronUp, ChevronDown
 } from 'lucide-react';
 
 export const TIPOS_LUGAR_MAPA = [
@@ -35,66 +35,66 @@ export const CONFIG_POR_TIPO = {
   camping: {
     emoji: '⛺',
     nombre: 'Camping',
-    colorFondo: '#10B981', // Verde Esmeralda
+    colorFondo: '#059669', // Verde Camping
     colorBorde: '#047857',
     svgVector: `
-      <g transform="translate(5, 3.5)">
-        <path d="M7 1.5 L1.5 11.5 L12.5 11.5 Z M7 1.5 L7 11.5 M4.2 11.5 L7 7.2 L9.8 11.5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <g transform="translate(6, 4.5)">
+        <path d="M7 1.5 L1.5 11.5 L12.5 11.5 Z M7 1.5 L7 11.5 M4.2 11.5 L7 7.2 L9.8 11.5" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </g>
     `
   },
   area_autocaravanas: {
     emoji: '🚐',
     nombre: 'Área de Autocaravanas',
-    colorFondo: '#3B82F6', // Azul Nómada
+    colorFondo: '#2563EB', // Azul Área
     colorBorde: '#1D4ED8',
     svgVector: `
-      <g transform="translate(5, 4)">
-        <path d="M1.5 3 H9.5 V10 H1.5 Z M9.5 5.5 H12 L13.5 8 V10 H9.5 Z" fill="#3B82F6"/>
-        <circle cx="3.8" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
-        <circle cx="11.2" cy="10.2" r="1.3" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1"/>
+      <g transform="translate(6, 5)">
+        <path d="M1.5 3 H9.5 V10 H1.5 Z M9.5 5.5 H12 L13.5 8 V10 H9.5 Z" fill="#FFFFFF"/>
+        <circle cx="3.8" cy="10.2" r="1.3" fill="#2563EB" stroke="#FFFFFF" stroke-width="0.9"/>
+        <circle cx="11.2" cy="10.2" r="1.3" fill="#2563EB" stroke="#FFFFFF" stroke-width="0.9"/>
       </g>
     `
   },
   pernocta_libre: {
     emoji: '🌲',
     nombre: 'Pernocta Libre (Naturaleza)',
-    colorFondo: '#059669', // Verde Bosque Naturaleza
-    colorBorde: '#064E3B',
+    colorFondo: '#15803D', // Verde Naturaleza
+    colorBorde: '#166534',
     svgVector: `
-      <g transform="translate(5, 3.5)">
-        <path d="M7 1 L2.5 6 H4.5 L2 10 H5.5 V13 H8.5 V10 H12 L9.5 6 H11.5 Z" fill="#059669"/>
+      <g transform="translate(6, 4.5)">
+        <path d="M7 1 L2.5 6 H4.5 L2 10 H5.5 V13 H8.5 V10 H12 L9.5 6 H11.5 Z" fill="#FFFFFF"/>
       </g>
     `
   },
   parking_urbano: {
     emoji: '🅿️',
     nombre: 'Parking Urbano / Mixto',
-    colorFondo: '#6366F1', // Indigo Parking
-    colorBorde: '#4338CA',
+    colorFondo: '#4F46E5', // Indigo Parking
+    colorBorde: '#3730A3',
     svgVector: `
-      <text x="12" y="14.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="11" fill="#6366F1">P</text>
+      <text x="13" y="15.5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="12" fill="#FFFFFF">P</text>
     `
   },
   solo_servicios: {
     emoji: '💧',
     nombre: 'Solo Servicios',
-    colorFondo: '#06B6D4', // Cian Agua / Servicios
+    colorFondo: '#0891B2', // Cian Agua
     colorBorde: '#0E7490',
     svgVector: `
-      <g transform="translate(5, 3.5)">
-        <path d="M7 1.5 C7 1.5 2.5 7 2.5 9.8 C2.5 12.3 4.5 13.5 7 13.5 C9.5 13.5 11.5 12.3 11.5 9.8 C11.5 7 7 1.5 7 1.5 Z" fill="#06B6D4"/>
+      <g transform="translate(6, 4.5)">
+        <path d="M7 1.5 C7 1.5 2.5 7 2.5 9.8 C2.5 12.3 4.5 13.5 7 13.5 C9.5 13.5 11.5 12.3 11.5 9.8 C11.5 7 7 1.5 7 1.5 Z" fill="#FFFFFF"/>
       </g>
     `
   },
   area_recreativa: {
     emoji: '🏞️',
     nombre: 'Área Recreativa / Merendero',
-    colorFondo: '#F59E0B', // Ámbar Merendero
+    colorFondo: '#D97706', // Ámbar Merendero
     colorBorde: '#B45309',
     svgVector: `
-      <g transform="translate(5, 4)">
-        <path d="M1 4.5 H13 M7 4.5 V11 M3.5 11 L5.5 4.5 M10.5 11 L8.5 4.5 M1 8 H13" stroke="#F59E0B" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <g transform="translate(6, 5)">
+        <path d="M1 4.5 H13 M7 4.5 V11 M3.5 11 L5.5 4.5 M10.5 11 L8.5 4.5 M1 8 H13" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" fill="none"/>
       </g>
     `
   }
@@ -127,25 +127,89 @@ export const obtenerEtiquetaTipoLugar = (lugar) => {
   return `${emoji} ${nombre}`;
 };
 
-// Cache de instancias de L.divIcon para rendimiento óptimo con 1200+ puntos
+// Helper para obtener color y propiedades visuales según el rating
+export const obtenerColorRating = (valoracion, totalValoraciones) => {
+  const total = totalValoraciones !== undefined
+    ? totalValoraciones
+    : (Array.isArray(valoracion) ? valoracion.length : (valoracion ? 1 : 0));
+  const val = parseFloat(typeof valoracion === 'object' ? valoracion?.valoracion_media : valoracion) || 0;
+
+  if (val <= 0 || total === 0) {
+    return {
+      color: '#94A3B8', // Gris pizarra (sin valoraciones)
+      bgBadge: 'rgba(148, 163, 184, 0.2)',
+      label: 'Sin valoraciones',
+      bordeGrosor: 2.6
+    };
+  }
+  if (val >= 4.5) {
+    return {
+      color: '#F59E0B', // Oro Radiante / 4.5 a 5.0
+      bgBadge: 'rgba(245, 158, 11, 0.25)',
+      label: 'Sobresaliente (4.5 - 5.0)',
+      bordeGrosor: 3.2
+    };
+  }
+  if (val >= 3.8) {
+    return {
+      color: '#10B981', // Verde Esmeralda / 3.8 a 4.4
+      bgBadge: 'rgba(16, 185, 129, 0.25)',
+      label: 'Muy bueno (3.8 - 4.4)',
+      bordeGrosor: 3.0
+    };
+  }
+  if (val >= 2.8) {
+    return {
+      color: '#38BDF8', // Azul Cielo Brillante / 2.8 a 3.7
+      bgBadge: 'rgba(56, 189, 248, 0.25)',
+      label: 'Bueno (2.8 - 3.7)',
+      bordeGrosor: 2.8
+    };
+  }
+  if (val >= 2.0) {
+    return {
+      color: '#FB923C', // Naranja / 2.0 a 2.7
+      bgBadge: 'rgba(251, 146, 60, 0.25)',
+      label: 'Regular (2.0 - 2.7)',
+      bordeGrosor: 2.8
+    };
+  }
+  return {
+    color: '#EF4444', // Rojo Coral / < 2.0
+    bgBadge: 'rgba(239, 68, 68, 0.25)',
+    label: 'Mejorable (< 2.0)',
+    bordeGrosor: 2.8
+  };
+};
+
+// Cache de instancias de L.divIcon para rendimiento óptimo
 const ICON_CACHE = {};
 
-// Creador de marcadores camper según tipo de lugar con vector SVG
+// Creador de marcadores camper según tipo de lugar con borde coloreado según rating
 export const obtenerIconoPorLugar = (lugar) => {
   const tipo = lugar?.tipo_lugar || 'pernocta_libre';
   const val = parseFloat(lugar?.valoracion_media) || 0;
   const total = lugar?.total_valoraciones !== undefined
     ? lugar.total_valoraciones
     : (Array.isArray(lugar?.valoraciones) ? lugar.valoraciones.length : 0);
-  const hasStar = (val >= 4.0 && total > 0) ? '1' : '0';
-  const cacheKey = `${tipo}_${hasStar}`;
+
+  const ratingTier = (val <= 0 || total === 0) ? '0'
+    : (val >= 4.5 ? '5'
+      : (val >= 3.8 ? '4'
+        : (val >= 2.8 ? '3'
+          : (val >= 2.0 ? '2' : '1'))));
+
+  const cacheKey = `${tipo}_${ratingTier}`;
 
   if (ICON_CACHE[cacheKey]) {
     return ICON_CACHE[cacheKey];
   }
 
   const cfg = CONFIG_POR_TIPO[tipo] || CONFIG_POR_TIPO.pernocta_libre;
-  const starBadge = hasStar === '1'
+  const ratingInfo = obtenerColorRating(val, total);
+  const hasStar = (val >= 4.0 && total > 0);
+
+  const starBadge = hasStar
     ? `<div style="position: absolute; top: -3px; right: -3px; background: #F59E0B; border: 1.5px solid #FFFFFF; border-radius: 50%; width: 11px; height: 11px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #FFFFFF; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.4);">★</div>`
     : '';
 
@@ -154,26 +218,25 @@ export const obtenerIconoPorLugar = (lugar) => {
     html: `
       <div class="marker-pin-inner" style="
         position: relative;
-        width: 24px;
-        height: 28px;
+        width: 26px;
+        height: 30px;
         display: flex;
         align-items: center;
         justify-content: center;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+        filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
         cursor: pointer;
       ">
-        <svg viewBox="0 0 24 28" width="24" height="28" style="display: block;">
-          <path d="M12 1 C6.48 1 2 5.48 2 11 C2 18.5 12 27.5 12 27.5 C12 27.5 22 18.5 22 11 C22 5.48 17.52 1 12 1 Z" 
-                fill="${cfg.colorFondo}" stroke="${cfg.colorBorde}" stroke-width="1.5"/>
-          <circle cx="12" cy="10.5" r="7.2" fill="#FFFFFF"/>
+        <svg viewBox="0 0 26 30" width="26" height="30" style="display: block;">
+          <path d="M13 1.5 C7.2 1.5 2.5 6.2 2.5 12 C2.5 19.8 13 28.5 13 28.5 C13 28.5 23.5 19.8 23.5 12 C23.5 6.2 18.8 1.5 13 1.5 Z" 
+                fill="${cfg.colorFondo}" stroke="${ratingInfo.color}" stroke-width="${ratingInfo.bordeGrosor}" stroke-linejoin="round"/>
           ${cfg.svgVector}
         </svg>
         ${starBadge}
       </div>
     `,
-    iconSize: [24, 28],
-    iconAnchor: [12, 28],
-    popupAnchor: [0, -26]
+    iconSize: [26, 30],
+    iconAnchor: [13, 30],
+    popupAnchor: [0, -28]
   });
 
   ICON_CACHE[cacheKey] = icon;
@@ -207,6 +270,7 @@ function MonitorZoom({ onZoomChange }) {
 export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCambiarALista }) {
   const { usuario } = useAuth();
   const [lugares, setLugares] = useState([]);
+  const [leyendaAbierta, setLeyendaAbierta] = useState(false);
 
   // Radar de lluvia en vivo dinámico desde RainViewer
   const [radarLluviaUrl, setRadarLluviaUrl] = useState(null);
@@ -597,11 +661,11 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         margin: '0 auto'
       }}>
         {/* BUSCADOR + BOTÓN FILTROS + BOTÓN LISTA */}
-        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+        <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
             <input
               type="text"
-              placeholder="Buscar pernoctas, áreas, campings, pueblos..."
+              placeholder="Buscar Lugares"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               style={{
@@ -844,47 +908,76 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         </div>
       </div>
 
-      {/* LEYENDA FLOTANTE DE PUNTUACIONES / COLORES (EN ESQUINA INFERIOR IZQUIERDA) */}
-      <div style={{
+      {/* LEYENDA FLOTANTE DE PUNTUACIONES / COLORES (EN ESQUINA INFERIOR IZQUIERDA, PLEGABLE) */}
+      <div className="mapa-leyenda-flotante" style={{
         position: 'absolute',
-        bottom: '24px',
-        left: '14px',
         zIndex: 900,
-        background: 'rgba(18, 28, 22, 0.92)',
+        background: 'rgba(18, 28, 22, 0.94)',
         backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1.5px solid rgba(255, 255, 255, 0.22)',
         borderRadius: 'var(--radius-md)',
-        padding: '10px 14px',
+        padding: leyendaAbierta ? '10px 14px' : '7px 12px',
         fontSize: '0.74rem',
         color: '#FFFFFF',
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        boxShadow: '0 4px 18px rgba(0,0,0,0.45)'
+        boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+        cursor: 'pointer',
+        transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+        userSelect: 'none',
+        maxWidth: 'calc(100vw - 32px)'
       }}>
-        <div style={{ fontWeight: 800, fontSize: '0.76rem', color: '#F3F4F6', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Sparkles size={12} color="#F59E0B" /> Puntuación Camper:
+        {/* Cabecera / Botón interactivo para abrir/cerrar */}
+        <div
+          onClick={() => setLeyendaAbierta(!leyendaAbierta)}
+          style={{
+            fontWeight: 800,
+            fontSize: '0.76rem',
+            color: '#F3F4F6',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+            cursor: 'pointer'
+          }}
+          title={leyendaAbierta ? 'Plegar leyenda de puntuación' : 'Desplegar leyenda de puntuación camper'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={13} color="#F59E0B" />
+            <span>Puntuación Camper</span>
+          </div>
+          <span style={{ fontSize: '0.68rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
+            {leyendaAbierta ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }}></span>
-          <span>4.1 - 5.0 🚐 (Oro / Top)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94A3B8', display: 'inline-block' }}></span>
-          <span>3.1 - 4.0 🚐 (Plata)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D97706', display: 'inline-block' }}></span>
-          <span>2.1 - 3.0 🚐 (Bronce)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
-          <span>1.1 - 2.0 🚐 (Básico / Verde)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
-          <span>&le; 1.0 🚐 (No recomendado / Rojo)</span>
-        </div>
+
+        {/* Contenido desplegable con la escala de colores y ratings */}
+        {leyendaAbierta && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.14)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block', flexShrink: 0 }}></span>
+              <span>4.1 - 5.0 🚐 (Oro / Top)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94A3B8', display: 'inline-block', flexShrink: 0 }}></span>
+              <span>3.1 - 4.0 🚐 (Plata)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D97706', display: 'inline-block', flexShrink: 0 }}></span>
+              <span>2.1 - 3.0 🚐 (Bronce)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10B981', display: 'inline-block', flexShrink: 0 }}></span>
+              <span>1.1 - 2.0 🚐 (Básico / Verde)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', display: 'inline-block', flexShrink: 0 }}></span>
+              <span>&le; 1.0 🚐 (No recomendado / Rojo)</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* OVERLAY: Mensaje de zoom desactivado temporalmente para permitir clustering desde cualquier distancia */}
@@ -1399,15 +1492,28 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
                       </div>
 
                       {/* Puntuación Camper */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
-                        <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} />
-                        <span style={{ fontWeight: 800, color: '#F3F4F6' }}>
-                          {parseFloat(lugar.valoracion_media || 0).toFixed(1)}
-                        </span>
-                        <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
-                          ({lugar.total_valoraciones || 0} valoraciones)
-                        </span>
-                      </div>
+                      {(() => {
+                        const rInfo = obtenerColorRating(lugar.valoracion_media, lugar.total_valoraciones);
+                        const valNum = parseFloat(lugar.valoracion_media || 0);
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
+                            <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} soloLectura />
+                            <span style={{
+                              fontWeight: 900,
+                              color: rInfo.color,
+                              background: rInfo.bgBadge,
+                              padding: '1px 7px',
+                              borderRadius: '4px',
+                              border: `1px solid ${rInfo.color}50`
+                            }}>
+                              {valNum > 0 ? valNum.toFixed(1) : 'Nuevo'}
+                            </span>
+                            <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
+                              ({lugar.total_valoraciones || 0} valoraciones)
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       {/* Servicios destacados */}
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', fontSize: '0.71rem' }}>

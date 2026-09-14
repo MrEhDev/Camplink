@@ -9,8 +9,8 @@ import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import CamperIconRating from '../components/CamperIconRating';
 import { obtenerGeolocalizacionRapida } from '../utils/geolocation';
-import { 
-  Search, Filter, MapPin, Map, Route, Bookmark, 
+import {
+  Search, Filter, MapPin, Map, Route, Bookmark,
   Check, Navigation, Sparkles, Plus, X, Star,
   Droplets, Zap, Users, Dog, Sun, ArrowRight, Eye,
   Trash2, SlidersHorizontal, ArrowUpDown
@@ -60,16 +60,16 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c * 10) / 10;
 }
 
-export default function DescubreLista({ 
-  alSeleccionarLugar, 
-  alCambiarAMapa, 
+export default function DescubreLista({
+  alSeleccionarLugar,
+  alCambiarAMapa,
   alAbrirNuevoLugar,
   alNavegarOrganizar
 }) {
@@ -77,7 +77,7 @@ export default function DescubreLista({
   const [lugares, setLugares] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  
+
   // FILTRO PRINCIPAL: Multi-selección de Tipo de Lugar
   const [tiposLugarSeleccionados, setTiposLugarSeleccionados] = useState([]);
 
@@ -131,10 +131,11 @@ export default function DescubreLista({
   const [guardandoEnViaje, setGuardandoEnViaje] = useState(false);
   const [mensajeExitoViaje, setMensajeExitoViaje] = useState('');
 
-  // Paginación
+  // Paginación y Ordenación
   const [paginaActual, setPaginaActual] = useState(1);
   const [ubicacionUsuario, setUbicacionUsuario] = useState(null);
-  const [criterioOrden, setCriterioOrden] = useState('recientes');
+  const [criterioOrden, setCriterioOrden] = useState('distancia');
+  const [radioDistancia, setRadioDistancia] = useState('todos'); // '10' | '25' | '50' | '100' | 'todos'
   const lugaresPorPagina = 12;
 
   useEffect(() => {
@@ -311,7 +312,7 @@ export default function DescubreLista({
         body: {
           lugar_id: lugarParaViaje.id,
           fecha: fechaParada,
-          dias_previstos: diasParada,
+          dias_previstos: parseInt(diasParada != null && diasParada !== '' ? diasParada : 0, 10),
           notas_privadas: notasParada
         }
       });
@@ -386,6 +387,13 @@ export default function DescubreLista({
     if (filtros.apto_autocaravanas_grandes && !l.apto_autocaravanas_grandes && !l.apto_grandes_autocaravanas) return false;
     if (filtros.permitido_sacar_toldo && !l.permitido_sacar_toldo && !l.permite_sacar_toldo && !l.toldo) return false;
 
+    // 7. Filtro por Radio de Distancia Máxima
+    if (radioDistancia !== 'todos' && ubicacionUsuario && l.latitud != null && l.longitud != null) {
+      const dist = calcularDistanciaKm(ubicacionUsuario.lat, ubicacionUsuario.lng, l.latitud, l.longitud);
+      const radioMax = parseFloat(radioDistancia);
+      if (dist != null && dist > radioMax) return false;
+    }
+
     return true;
   });
 
@@ -416,10 +424,10 @@ export default function DescubreLista({
 
   return (
     <div className="container" style={{ padding: '24px 16px', maxWidth: '1240px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-      
+
       {/* CABECERA PRINCIPAL CON CONTROLES */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px', width: '100%' }}>
-        
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -451,10 +459,10 @@ export default function DescubreLista({
               }}
               title={soloGuardados ? "Ver todos los lugares" : "Ver solo lugares guardados"}
             >
-              <Bookmark 
-                size={16} 
-                fill={soloGuardados ? "#FFFFFF" : (lugaresGuardados.length > 0 ? "var(--accent-earth)" : "none")} 
-                color={soloGuardados ? "#FFFFFF" : "var(--accent-earth)"} 
+              <Bookmark
+                size={16}
+                fill={soloGuardados ? "#FFFFFF" : (lugaresGuardados.length > 0 ? "var(--accent-earth)" : "none")}
+                color={soloGuardados ? "#FFFFFF" : "var(--accent-earth)"}
               />
               <span>{soloGuardados ? "Ver Todos" : `Guardados (${lugaresGuardados.length})`}</span>
             </button>
@@ -477,7 +485,7 @@ export default function DescubreLista({
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.86rem', fontWeight: 700 }}
               >
                 <Plus size={16} />
-                <span>Publicar Lugar</span>
+                <span> Lugar</span>
               </button>
             )}
           </div>
@@ -666,7 +674,7 @@ export default function DescubreLista({
 
             {/* Contenido */}
             <div style={{ overflowY: 'auto', paddingRight: '6px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
+
               {/* 1. SELECCIÓN DE TIPOS DE LUGAR */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -936,10 +944,32 @@ export default function DescubreLista({
                     setPaginaActual(1);
                   }}
                 >
-                  <option value="recientes">Más recientes</option>
-                  <option value="distancia">📍 Distancia: más cercanos</option>
+                  <option value="distancia">📍 Cercanía (más próximos)</option>
                   <option value="valoracion">⭐ Mejor valorados</option>
+                  <option value="recientes">🕒 Más recientes</option>
                   <option value="alfabetico">🔤 Alfabético (A-Z)</option>
+                </select>
+              </div>
+
+              {/* Selector de Radio de Distancia (para cualquier ordenación, incluyendo valoración y recientes) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MapPin size={14} color="var(--accent-forest)" />
+                <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Radio:</span>
+                <select
+                  className="form-control"
+                  style={{ width: 'auto', padding: '4px 10px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
+                  value={radioDistancia}
+                  onChange={(e) => {
+                    setRadioDistancia(e.target.value);
+                    setPaginaActual(1);
+                  }}
+                  title="Filtrar lugares dentro de un radio de distancia desde tu ubicación"
+                >
+                  <option value="todos">Cualquier distancia</option>
+                  <option value="10">Hasta 10 km</option>
+                  <option value="25">Hasta 25 km</option>
+                  <option value="50">Hasta 50 km</option>
+                  <option value="100">Hasta 100 km</option>
                 </select>
               </div>
               <span>Página {paginaActual} de {totalPaginas}</span>
@@ -981,9 +1011,9 @@ export default function DescubreLista({
                   {/* IMAGEN DEL LUGAR O BANNER PAISAJÍSTICO */}
                   <div style={{ position: 'relative', width: '100%', height: '170px', background: '#0D1A12', overflow: 'hidden' }}>
                     {imagenLugar ? (
-                      <img loading="lazy" decoding="async" 
-                        src={imagenLugar} 
-                        alt={lugar.nombre} 
+                      <img loading="lazy" decoding="async"
+                        src={imagenLugar}
+                        alt={lugar.nombre}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
@@ -1093,7 +1123,7 @@ export default function DescubreLista({
                       </h3>
 
                       <p style={{ margin: '0 0 10px 0', fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                        <MapPin size={14} color="#10B981" /> 
+                        <MapPin size={14} color="#10B981" />
                         <span>{lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}</span>
                         {distanciaKm != null && (
                           <span style={{ color: '#10B981', fontWeight: 800, background: 'rgba(16, 185, 129, 0.12)', padding: '1px 7px', borderRadius: '4px', fontSize: '0.78rem' }}>
@@ -1314,12 +1344,11 @@ export default function DescubreLista({
                     <label style={{ fontSize: '0.80rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Noches / Días:</label>
                     <input
                       type="number"
-                      min="1"
-                      max="30"
+                      min="0"
+                      max="60"
                       className="form-control"
-                      value={diasParada}
-                      onChange={(e) => setDiasParada(parseInt(e.target.value) || 1)}
-                      required
+                      value={diasParada ?? ''}
+                      onChange={(e) => setDiasParada(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0))}
                     />
                   </div>
                 </div>

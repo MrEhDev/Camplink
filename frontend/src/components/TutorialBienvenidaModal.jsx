@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Sparkles, Compass, Map, Radar, Route, Trophy,
-  ChevronLeft, ChevronRight, X, Check, Navigation, BookOpen, User
+  ChevronLeft, ChevronRight, X, Check
 } from 'lucide-react';
 
 export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
@@ -14,7 +14,6 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       subtitulo: 'Tu comunidad nómada y compañero de ruta',
       icono: <Sparkles size={36} color="#F59E0B" />,
       colorAcento: '#F59E0B',
-      descripcion: 'Camplink ha sido diseñado para conectar a campers, autocaravanistas y apasionados del viaje al aire libre. Descubre nuevos destinos, comparte tus aventuras y viaja con total tranquilidad.',
       puntos: [
         '🗺️ Catálogo de lugares y mapa interactivo',
         '📖 Diario de ruta donde publicar tus vivencias y seguir a otros nómadas',
@@ -29,7 +28,6 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       subtitulo: 'Comparte crónicas, fotos y conecta con viajeros',
       icono: <Compass size={36} color="var(--accent-forest)" />,
       colorAcento: 'var(--accent-forest)',
-      descripcion: 'El Diario de Ruta es el corazón social de Camplink. Publica tus paradas, sube fotos de tus rincones favoritos, comenta en las experiencias de otros exploradores y envía mensajes de apoyo.',
       puntos: [
         '✍️ Publica notas de viaje con fotos comprimidas de alta calidad',
         '❤️ Reacciona y comenta en las historias de la comunidad',
@@ -45,7 +43,6 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       subtitulo: 'Miles de spots verificados por la comunidad',
       icono: <Map size={36} color="#38BDF8" />,
       colorAcento: '#38BDF8',
-      descripcion: 'Encuentra el sitio perfecto para pasar la noche o disfrutar del día. Explora campings, áreas camper gratuitas o de pago, parkings y puntos con servicios de agua y vaciado.',
       puntos: [
         '🔍 Filtros avanzados por tipo de lugar, precio y servicios',
         '⭐ Opiniones reales, fotos y valoraciones de otros usuarios',
@@ -61,11 +58,10 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       subtitulo: 'Tu copiloto inteligente para no quedarte tirado',
       icono: <Radar size={36} color="var(--accent-earth)" />,
       colorAcento: 'var(--accent-earth)',
-      descripcion: 'En carretera cada minuto cuenta. El Radar Nómada localiza al instante lo que necesitas cerca de ti o alrededor de cualquier lugar que estés planeando visitar.',
       puntos: [
         '⛽ Gasolineras con precios de carburante actualizados diariamente',
         '🛒 Supermercados y tiendas de alimentación cercanas',
-        '🧺 Lavanderías y otros servicion'
+        '🧺 Lavanderías y otros servicios esenciales'
       ],
       tip: '¡Tienes el botón Radar disponible directamente en la barra de navegación móvil y de escritorio!'
     },
@@ -75,7 +71,6 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       subtitulo: 'Planifica tus etapas teniendo en cuenta el consumo de combustible',
       icono: <Route size={36} color="#8B5CF6" />,
       colorAcento: '#8B5CF6',
-      descripcion: 'Convierte tus ideas de viaje en itinerarios detallados. Define tu punto de partida, añade paradas intermedias y deja que Camplink calcule los consumos exactos.',
       puntos: [
         '📏 Estimación automática de kilómetros y coste total de combustible',
         '⛽ Cálculos basados en el depósito y consumo real de tu vehículo',
@@ -90,7 +85,6 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       subtitulo: 'Personaliza tus datos y desbloquea logros',
       icono: <Trophy size={36} color="#EAB308" />,
       colorAcento: '#EAB308',
-      descripcion: 'En tu perfil puedes configurar tu avatar, definir las especificaciones de tu vehículo y ver tus trofeos por tus aventuras.',
       puntos: [
         '🚐 Datos de vehículo: tipo de combustible, depósito y consumo medio',
         '🏆 Trofeos que se desbloquean con tu actividad',
@@ -137,7 +131,7 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
       background: 'rgba(5, 10, 8, 0.82)',
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)',
-      zIndex: 2000,
+      zIndex: 12000,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -261,15 +255,17 @@ export default function TutorialBienvenidaModal({ alCerrar, alNavegar }) {
             </div>
           </div>
 
-          {/* Descripción */}
-          <p style={{
-            margin: 0,
-            fontSize: '0.9rem',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.55
-          }}>
-            {paso.descripcion}
-          </p>
+          {/* Descripción (si existe) */}
+          {paso.descripcion && (
+            <p style={{
+              margin: 0,
+              fontSize: '0.9rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.55
+            }}>
+              {paso.descripcion}
+            </p>
+          )}
 
           {/* Lista de Puntos Clave */}
           <div style={{

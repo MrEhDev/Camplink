@@ -48,6 +48,7 @@ import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ModalViajeDetallePdf from '../components/ModalViajeDetallePdf';
 import ModalResumenViajes from '../components/ModalResumenViajes';
+import { suscribirNotificacionesPush } from '../utils/webPush';
 import { 
   Compass, Award, Truck, MapPin, Calendar, Route, Lock, Eye, EyeOff, 
   Sparkles, Camera, Plus, Trash2, Edit3, 
@@ -228,10 +229,32 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [modalRecorteAbierto, setModalRecorteAbierto] = useState(false);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
 
-  // Preferencias de notificaciones por email
+  // Preferencias de notificaciones por email y web push
   const [notifEmailComentarios, setNotifEmailComentarios] = useState(true);
   const [notifEmailReacciones, setNotifEmailReacciones] = useState(true);
   const [notifEmailTaller, setNotifEmailTaller] = useState(true);
+  const [estadoPush, setEstadoPush] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [activandoPush, setActivandoPush] = useState(false);
+
+  const handleActivarPush = async () => {
+    setActivandoPush(true);
+    try {
+      const res = await suscribirNotificacionesPush();
+      if (res?.exito) {
+        setEstadoPush('granted');
+        setMensajeExito('¡Notificaciones Push activadas en este dispositivo!');
+        setTimeout(() => setMensajeExito(''), 4000);
+      } else if (res?.motivo === 'denied') {
+        setEstadoPush('denied');
+        setMensajeError('Permiso de notificaciones denegado en el navegador.');
+        setTimeout(() => setMensajeError(''), 4000);
+      }
+    } catch (e) {
+      console.warn('Error al activar push:', e);
+    } finally {
+      setActivandoPush(false);
+    }
+  };
 
   // Estados de autocompletado de dirección
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
@@ -970,6 +993,59 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
               <span>Tutorial</span>
             </button>
           )}
+
+          {/* CHIP INSTALAR APP (EN MÓVIL) */}
+          <button
+            type="button"
+            className="badge-camper hide-on-pc"
+            onClick={async () => {
+              const yaInstalada = window.matchMedia('(display-mode: standalone)').matches ||
+                                  window.navigator.standalone === true ||
+                                  localStorage.getItem('camplink_pwa_instalada') === 'true';
+              if (yaInstalada) {
+                setMensajeExito('¡Camplink ya está instalada en tu dispositivo!');
+                setTimeout(() => setMensajeExito(''), 4000);
+                return;
+              }
+              if (window.__camplink_pwa_prompt) {
+                window.__camplink_pwa_prompt.prompt();
+                const { outcome } = await window.__camplink_pwa_prompt.userChoice;
+                if (outcome === 'accepted') {
+                  localStorage.setItem('camplink_pwa_instalada', 'true');
+                  setMensajeExito('¡Camplink instalada con éxito!');
+                  setTimeout(() => setMensajeExito(''), 4000);
+                }
+                window.__camplink_pwa_prompt = null;
+              } else {
+                const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (esIOS) {
+                  alert('Para instalar Camplink en tu iPhone/iPad: pulsa el botón Compartir ⎋ de Safari y elige "Añadir a la pantalla de inicio".');
+                } else {
+                  alert('Para instalar Camplink: abre el menú del navegador (los 3 puntos ⋮) y selecciona "Instalar aplicación" o "Añadir a pantalla de inicio".');
+                }
+              }
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.84rem',
+              padding: '9px 20px',
+              borderRadius: 'var(--radius-full)',
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-surface-elevated)',
+              color: 'var(--text-primary)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
+            }}
+            title="Instalar Camplink como App en tu teléfono o tablet"
+          >
+            <Download size={15} color="var(--accent-forest)" />
+            <span>Instalar</span>
+          </button>
 
           {/* CHIP CONFIGURAR PERFIL Y VEHÍCULO */}
           <button
@@ -3180,7 +3256,45 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                     />
                   </label>
                 </div>
+
+                {/* NOTIFICACIONES PUSH DEL NAVEGADOR / DISPOSITIVO */}
+                <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        📲 Notificaciones Push en este dispositivo
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {estadoPush === 'granted'
+                          ? '✅ Notificaciones activas en este navegador/móvil.'
+                          : estadoPush === 'denied'
+                          ? '❌ Notificaciones bloqueadas en los ajustes del navegador.'
+                          : 'Recibe alertas instantáneas de comentarios, viajes y taller en tu móvil o PC.'}
+                      </div>
+                    </div>
+                    {estadoPush !== 'granted' && estadoPush !== 'unsupported' && (
+                      <button
+                        type="button"
+                        onClick={handleActivarPush}
+                        disabled={activandoPush}
+                        className="btn btn-sm"
+                        style={{
+                          background: 'var(--accent-forest)',
+                          color: '#fff',
+                          fontSize: '0.78rem',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {activandoPush ? 'Activando...' : 'Activar Push'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
+
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button

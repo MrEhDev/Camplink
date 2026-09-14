@@ -8,7 +8,11 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './i18n/LanguageContext';
+import { registrarServiceWorker } from './utils/webPush';
 import './index.css';
+
+// Registrar Service Worker para PWA y Web Push
+registrarServiceWorker();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

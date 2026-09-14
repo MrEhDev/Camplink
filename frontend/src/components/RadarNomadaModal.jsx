@@ -29,10 +29,31 @@ export default function RadarNomadaModal({ alCerrar, alSeleccionarLugar, alHacer
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null);
 
   // Estados del Buscador de Gasolineras Baratas
-  const [radioGasolinera, setRadioGasolinera] = useState(25);
+  const [radioGasolinera, setRadioGasolinera] = useState(10);
   const [combustibleSeleccionado, setCombustibleSeleccionado] = useState(usuario?.tipo_combustible || 'gasoleo_a');
   const [gasolineras, setGasolineras] = useState([]);
   const [cargandoGasolineras, setCargandoGasolineras] = useState(false);
+
+  // Cerrar radar si la ventana pierde el foco o se cambia de pestaña/aplicación
+  useEffect(() => {
+    const manejarPerdidaFoco = () => {
+      if (alCerrar) alCerrar();
+    };
+
+    const manejarVisibilidad = () => {
+      if (document.hidden && alCerrar) {
+        alCerrar();
+      }
+    };
+
+    window.addEventListener('blur', manejarPerdidaFoco);
+    document.addEventListener('visibilitychange', manejarVisibilidad);
+
+    return () => {
+      window.removeEventListener('blur', manejarPerdidaFoco);
+      document.removeEventListener('visibilitychange', manejarVisibilidad);
+    };
+  }, [alCerrar]);
 
   const serviciosConfig = [
     { id: 'supermercados', nombre: 'Supermercados', icono: ShoppingBag, color: '#8A63D2', queryMaps: 'supermercados' },

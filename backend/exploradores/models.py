@@ -178,8 +178,28 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
     if enviar:
         try:
             remitente = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Camplink <notificaciones@camplinkapp.com>')
-            asunto = instance.titulo
-            base_url = getattr(settings, 'BASE_URL', 'http://localhost:5173').rstrip('/')
+            autor_nombre = instance.usuario_origen.username.capitalize() if instance.usuario_origen and instance.usuario_origen.username else ''
+
+            # Construcción de Asunto conciso y descriptivo de la acción
+            if instance.tipo == 'comentario':
+                if 'taller' in (instance.enlace or '').lower() or 'brico' in (instance.titulo or '').lower():
+                    asunto = "💬 Nuevo comentario en tu brico del Taller"
+                else:
+                    asunto = "💬 Nuevo comentario en tu diario"
+            elif instance.tipo == 'reaccion':
+                asunto = "❤️ Nueva reacción en tu publicación"
+            elif instance.tipo == 'seguimiento':
+                asunto = f"👥 Nuevo compañero de ruta: {autor_nombre}" if autor_nombre else "👥 Nuevo compañero de ruta en Camplink"
+            elif instance.tipo == 'trofeo':
+                asunto = "🏆 ¡Nuevo trofeo nómada desbloqueado!"
+            elif 'organizar' in (instance.enlace or '').lower() or 'viaje' in (instance.titulo or '').lower():
+                asunto = f"🚐 Invitación a viaje compartido: {autor_nombre}" if autor_nombre else "🚐 Invitación a viaje compartido"
+            elif instance.tipo == 'taller':
+                asunto = "🛠️ Novedad en tu publicación del Taller"
+            else:
+                asunto = instance.titulo or "🔔 Notificación en Camplink"
+
+            base_url = getattr(settings, 'BASE_URL', 'https://camplinkapp.com').rstrip('/')
             enlace_completo = f"{base_url}{instance.enlace}" if instance.enlace else base_url
             logo_url = f"{base_url}/camplink-logo.png" if base_url.startswith('https://') else "https://camplinkapp.com/camplink-logo.png"
 
@@ -261,3 +281,78 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
             ).start()
         except Exception as e:
             logger.warning(f"No se pudo enviar email de notificación a {destinatario.email}: {e}")
+
+        # Disparar notificación Web Push en hilo en segundo plano
+        try:
+            import threading
+            threading.Thread(
+                target=enviar_notificacion_push_async,
+                args=(destinatario, instance.titulo or "Camplink", instance.mensaje, instance.enlace or "/"),
+                daemon=True
+            ).start()
+        except Exception as e:
+            logger.debug(f"No se pudo iniciar hilo de push: {e}")
+
+
+class SuscripcionWebPush(models.Model):
+    # Modelo para registrar suscripciones de notificaciones push del navegador
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='suscripciones_push', null=True, blank=True)
+    endpoint = models.TextField(unique=True, verbose_name='Endpoint Push')
+    p256dh = models.TextField(verbose_name='Clave p256dh')
+    auth = models.TextField(verbose_name='Clave Auth')
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Suscripción Web Push'
+        verbose_name_plural = 'Suscripciones Web Push'
+
+    def __str__(self):
+        return f"Push de {self.usuario.username if self.usuario else 'Anónimo'} ({self.endpoint[:30]}...)"
+
+
+def enviar_notificacion_push_async(usuario, titulo, mensaje, enlace='/'):
+    """Envía notificaciones Web Push a todos los dispositivos registrados del usuario usando pywebpush."""
+    import json
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return
+
+    vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
+    vapid_claims_email = getattr(settings, 'VAPID_CLAIMS_EMAIL', 'mailto:admin@camplinkapp.com')
+    if not vapid_private_key:
+        return
+
+    suscripciones = SuscripcionWebPush.objects.filter(usuario=usuario)
+    if not suscripciones.exists():
+        return
+
+    payload = json.dumps({
+        'titulo': titulo,
+        'mensaje': mensaje,
+        'enlace': enlace,
+        'icon': '/camplink-logo.png'
+    })
+
+    for sub in suscripciones:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {
+                        "p256dh": sub.p256dh,
+                        "auth": sub.auth
+                    }
+                },
+                data=payload,
+                vapid_private_key=vapid_private_key,
+                vapid_claims={"sub": vapid_claims_email},
+                timeout=5
+            )
+        except WebPushException as ex:
+            if ex.response is not None and ex.response.status_code in [404, 410]:
+                sub.delete()
+        except Exception as e:
+            logger.debug(f"Error enviando webpush: {e}")
+

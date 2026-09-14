@@ -34,8 +34,6 @@ id_ed25519*
 *.sql
 fixtures_temp/
 
-# Documentación interna privada
-MEMORIA_TECNICA.md
 
 # IDE & Sistema Operativo
 .vscode/

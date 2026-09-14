@@ -7,7 +7,7 @@ import {
   Send, Image, MessageSquare, MapPin,
   Globe, Users, Lock, Search, UserPlus,
   UserCheck, User, Compass, Sparkles, Shield,
-  X, Filter, Flame, AlertTriangle, Heart, Share2, Check, Edit3, Trash2
+  X, Filter, Flame, AlertTriangle, Heart, Share2, Check, Edit3, Trash2, ZoomIn
 } from 'lucide-react';
 
 const formatearUsuario = (u) => {
@@ -31,6 +31,18 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario, a
   const [editandoPostId, setEditandoPostId] = useState(null);
   const [textoEditadoPost, setTextoEditadoPost] = useState('');
   const [guardandoEdicionPost, setGuardandoEdicionPost] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
+
+  // Cerrar lightbox con tecla Escape
+  useEffect(() => {
+    const manejarKeyDown = (e) => {
+      if (e.key === 'Escape') setFotoAmpliada(null);
+    };
+    if (fotoAmpliada) {
+      window.addEventListener('keydown', manejarKeyDown);
+      return () => window.removeEventListener('keydown', manejarKeyDown);
+    }
+  }, [fotoAmpliada]);
 
   const [checkinReciente, setCheckinReciente] = useState(null);
   const [lugarSeleccionado, setLugarSeleccionado] = useState(null);
@@ -636,10 +648,45 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario, a
                 ) : (
                   <p style={{ fontSize: '0.96rem', color: 'var(--text-primary)', lineHeight: '1.6', marginBottom: '14px', whiteSpace: 'pre-line' }}>{pub.contenido}</p>
                 )}
-                {/* Imagen */}
+                {/* Imagen con visor ampliado al hacer clic */}
                 {pub.imagen && (
-                  <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '16px' }}>
-                    <img loading="lazy" decoding="async" src={construirUrlImagen(pub.imagen)} alt="Foto de ruta" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover' }} />
+                  <div
+                    onClick={() => setFotoAmpliada(construirUrlImagen(pub.imagen))}
+                    style={{
+                      position: 'relative',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden',
+                      marginBottom: '16px',
+                      cursor: 'zoom-in',
+                      border: '1px solid var(--border-color)',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                    }}
+                    title="Clic para ampliar foto"
+                  >
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={construirUrlImagen(pub.imagen)}
+                      alt="Foto de ruta"
+                      style={{ width: '100%', maxHeight: '440px', objectFit: 'cover', display: 'block' }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '10px',
+                      right: '10px',
+                      background: 'rgba(0,0,0,0.65)',
+                      color: '#FFFFFF',
+                      borderRadius: '50px',
+                      padding: '4px 10px',
+                      fontSize: '0.74rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      backdropFilter: 'blur(6px)',
+                      pointerEvents: 'none'
+                    }}>
+                      <ZoomIn size={12} /> Ampliar
+                    </div>
                   </div>
                 )}
                 {/* Reacciones y acciones */}
@@ -960,6 +1007,68 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario, a
         }}>
           <Check size={18} />
           <span>{toastCopiado}</span>
+        </div>
+      )}
+
+      {/* MODAL LIGHTBOX FOTO AMPLIADA */}
+      {fotoAmpliada && (
+        <div
+          onClick={() => setFotoAmpliada(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.92)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 11000,
+            padding: '20px',
+            cursor: 'zoom-out'
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setFotoAmpliada(null); }}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: '#FFFFFF',
+              width: '42px',
+              height: '42px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 11001,
+              transition: 'background 0.2s ease'
+            }}
+            title="Cerrar imagen (Esc)"
+          >
+            <X size={22} />
+          </button>
+
+          <img
+            src={fotoAmpliada}
+            alt="Foto ampliada"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '92vw',
+              maxHeight: '90vh',
+              objectFit: 'contain',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+              cursor: 'default'
+            }}
+          />
         </div>
       )}
     </div>

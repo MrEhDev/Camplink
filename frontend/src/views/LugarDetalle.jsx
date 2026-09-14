@@ -22,7 +22,7 @@ import {
   AlertTriangle, Navigation, CalendarPlus, Route, X, Plus, Radar,
   Edit3, Image, Camera, Trash2, UploadCloud, Users, BookOpen
 } from 'lucide-react';
-import { obtenerImagenLugar, tieneImagenPropia, ETIQUETAS_TIPO_LUGAR, IMAGENES_PREESTABLECIDAS_POR_TIPO } from '../utils/lugarImagenes';
+import { obtenerImagenLugar, tieneImagenPropia, ETIQUETAS_TIPO_LUGAR, IMAGENES_PREESTABLECIDAS_POR_TIPO, construirUrlImagen } from '../utils/lugarImagenes';
 
 const TIPOS_LUGAR_OPCIONES = [
   { valor: 'pernocta_libre', emoji: '🌲', label: 'Pernocta Libre (Naturaleza)' },
@@ -381,7 +381,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
     setEditEsGratuito(Boolean(lugar.es_gratuito));
     setEditDescripcion(lugar.descripcion || '');
     setEditFotoArchivo(null);
-    setEditFotoPreview(lugar.foto_principal || null);
+    setEditFotoPreview(construirUrlImagen(lugar.foto_principal) || null);
 
     setEditTieneAgua(Boolean(lugar.tiene_agua || lugar.agua_potable));
     setEditTieneLavabo(Boolean(lugar.tiene_lavabo || lugar.lavabos));
@@ -840,6 +840,18 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
     (usuario && lugar.creador && usuario.id === lugar.creador)
   );
 
+  const manejarEliminarLugar = async () => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente el lugar "${lugar.nombre}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await peticionApi(`/api/lugares/puntos/${lugar.id}/`, { method: 'DELETE' });
+      alert('Lugar eliminado con éxito.');
+      if (alVolver) alVolver();
+    } catch (err) {
+      console.error('Error al eliminar lugar:', err);
+      alert('No se pudo eliminar el lugar: ' + (err.message || ''));
+    }
+  };
+
   return (
     <div className="camplink-container" style={{ padding: '30px 20px 80px', width: '100%', margin: '0 auto', maxWidth: '1100px' }}>
       {/* Botón de Retorno y Acciones Rápidas de Cabecera */}
@@ -849,17 +861,28 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
         </button>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Botón Editar Lugar para Administrador o Creador */}
+          {/* Botones Editar y Eliminar Lugar para Administrador o Creador */}
           {esAdminOPermitido && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={abrirModalEditar}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-earth)' }}
-              title="Editar datos completos, equipamiento o fotografía de este lugar (Admin)"
-            >
-              <Edit3 size={15} />
-              <span>Editar Lugar</span>
-            </button>
+            <>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={abrirModalEditar}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-earth)', borderColor: 'var(--accent-earth)' }}
+                title="Editar datos completos, equipamiento o fotografía de este lugar (Admin)"
+              >
+                <Edit3 size={15} />
+                <span>Editar Lugar</span>
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={manejarEliminarLugar}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                title="Eliminar permanentemente este lugar (Admin)"
+              >
+                <Trash2 size={15} />
+                <span>Eliminar Lugar</span>
+              </button>
+            </>
           )}
 
           {/* Botón Radar en este lugar */}
@@ -925,8 +948,15 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
         padding: '24px'
       }}>
         <img loading="lazy" decoding="async" 
-          src={fotoHeroActiva || obtenerImagenLugar(lugar)} 
-          alt={lugar.nombre} 
+          src={construirUrlImagen(fotoHeroActiva) || (lugar ? obtenerImagenLugar(lugar) : '')} 
+          alt={lugar?.nombre || 'Lugar camper'} 
+          onError={(e) => {
+            const fallback = IMAGENES_PREESTABLECIDAS_POR_TIPO[lugar?.tipo_lugar] || '/img/tipos/pernocta_libre.jpg';
+            if (!e.currentTarget.dataset.fallbackApplied) {
+              e.currentTarget.dataset.fallbackApplied = 'true';
+              e.currentTarget.src = fallback;
+            }
+          }}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
         />
         {/* Degradado para máxima legibilidad */}
@@ -988,29 +1018,6 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
               💶 {lugar.precio} €/noche
             </span>
           )}
-        </div>
-
-        {/* INDICADOR DE FOTO EN LA ESQUINA SUPERIOR DERECHA */}
-        <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2 }}>
-          <span style={{
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(8px)',
-            color: 'rgba(255,255,255,0.9)',
-            padding: '5px 12px',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            border: '1px solid rgba(255,255,255,0.15)'
-          }}>
-            {tieneFotoPropia ? (
-              <>📸 Foto de la comunidad</>
-            ) : (
-              <>🖼️ Imagen preestablecida ({etiquetaTipo.label})</>
-            )}
-          </span>
         </div>
 
         {/* CONTENIDO DENTRO DEL HERO: TÍTULO, UBICACIÓN, GPS Y DESCRIPCIÓN "SOBRE ESTA PERNOCTA" */}
@@ -1080,19 +1087,19 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
             <button
               type="button"
               key={foto.id || idx}
-              onClick={() => setFotoHeroActiva(foto.imagen)}
+              onClick={() => setFotoHeroActiva(construirUrlImagen(foto.imagen))}
               style={{
                 width: '80px',
                 height: '56px',
                 borderRadius: 'var(--radius-sm)',
                 overflow: 'hidden',
-                border: `2px solid ${fotoHeroActiva === foto.imagen ? 'var(--accent-forest)' : 'var(--border-color)'}`,
+                border: `2px solid ${fotoHeroActiva === construirUrlImagen(foto.imagen) ? 'var(--accent-forest)' : 'var(--border-color)'}`,
                 padding: 0,
                 cursor: 'pointer',
                 flexShrink: 0
               }}
             >
-              <img loading="lazy" decoding="async" src={foto.imagen} alt={foto.pie_foto || `Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img loading="lazy" decoding="async" src={construirUrlImagen(foto.imagen)} alt={foto.pie_foto || `Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </button>
           ))}
         </div>
@@ -1103,10 +1110,10 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
         <div>
           {/* VALORACIONES PROMEDIO */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
-            {(lugar.total_valoraciones > 0 || (lugar.valoraciones && lugar.valoraciones.length > 0)) ? (
+            {(Number(lugar.valoracion_media) > 0 || lugar.total_valoraciones > 0 || (lugar.valoraciones && lugar.valoraciones.length > 0)) ? (
               <>
-                <CamperIconRating valor={lugar.valoracion_media} soloLectura tamaño="grande" />
-                <span style={{ fontWeight: 800, fontSize: '1.15rem' }}>{lugar.valoracion_media} / 5</span>
+                <CamperIconRating valor={Number(lugar.valoracion_media) || 0} soloLectura tamaño="grande" />
+                <span style={{ fontWeight: 800, fontSize: '1.15rem' }}>{Number(lugar.valoracion_media) || 0} / 5</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   ({lugar.total_valoraciones || lugar.valoraciones?.length || 0} {(lugar.total_valoraciones === 1 || lugar.valoraciones?.length === 1) ? 'explorador ha puntuado' : 'exploradores han puntuado'})
                 </span>
@@ -1492,9 +1499,9 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
                         <img
                           loading="lazy"
                           decoding="async"
-                          src={pub.imagen}
+                          src={construirUrlImagen(pub.imagen)}
                           alt="Foto de la ruta"
-                          onClick={() => setFotoAmpliadaModal(pub.imagen)}
+                          onClick={() => setFotoAmpliadaModal(construirUrlImagen(pub.imagen))}
                           style={{
                             width: '100%',
                             maxHeight: '280px',
@@ -1851,7 +1858,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
                   </label>
                   {editFotoPreview && (
                     <div style={{ width: '100px', height: '65px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                      <img loading="lazy" decoding="async" src={editFotoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img loading="lazy" decoding="async" src={construirUrlImagen(editFotoPreview)} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   )}
                 </div>
@@ -2292,7 +2299,7 @@ export default function LugarDetalle({ lugarId, alVolver, alHacerCheckin, abrirR
             }}
           >
             <img
-              src={fotoAmpliadaModal}
+              src={construirUrlImagen(fotoAmpliadaModal)}
               alt="Foto ampliada"
               style={{
                 maxWidth: '92vw',

@@ -40,17 +40,29 @@ class ComentarioPublicacionSerializer(serializers.ModelSerializer):
 class PublicacionTallerSerializer(serializers.ModelSerializer):
     autor_detalle = ExploradorPerfilSerializer(source='autor', read_only=True)
     categoria_detalle = CategoriaPublicacionSerializer(source='categoria', read_only=True)
+    categoria = serializers.PrimaryKeyRelatedField(
+        queryset=CategoriaPublicacion.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    imagen_principal_url = serializers.URLField(
+        required=False,
+        allow_blank=True,
+        allow_null=True
+    )
     galeria = ImagenGaleriaPublicacionSerializer(many=True, read_only=True)
     comentarios = ComentarioPublicacionSerializer(many=True, read_only=True)
     total_comentarios = serializers.SerializerMethodField()
     video_embed_info = serializers.SerializerMethodField()
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    imagen_principal_efectiva = serializers.SerializerMethodField()
 
     class Meta:
         model = PublicacionTaller
         fields = [
             'id', 'autor', 'autor_detalle', 'titulo', 'slug', 'categoria',
             'categoria_detalle', 'resumen', 'contenido', 'imagen_principal',
+            'imagen_principal_url', 'imagen_principal_efectiva',
             'video_url', 'video_embed_info', 'archivo_descargable',
             'enlace_externo', 'enlace_externo_texto', 'es_guia_oficial',
             'destacado', 'estado', 'estado_display', 'motivo_rechazo',
@@ -61,6 +73,19 @@ class PublicacionTallerSerializer(serializers.ModelSerializer):
 
     def get_total_comentarios(self, obj):
         return obj.comentarios.count()
+
+    def get_imagen_principal_efectiva(self, obj):
+        # Aqui resuelvo cual imagen de portada mostrar: primero el upload del servidor,
+        # si no hay, la URL externa proporcionada por el autor.
+        request = self.context.get('request')
+        if obj.imagen_principal:
+            url = obj.imagen_principal.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        if obj.imagen_principal_url:
+            return str(obj.imagen_principal_url)
+        return None
 
     def get_video_embed_info(self, obj):
         url = obj.video_url

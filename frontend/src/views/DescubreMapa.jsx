@@ -8,14 +8,16 @@ import { obtenerImagenLugar } from '../utils/lugarImagenes';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, useMap, useMapEvents } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import CamperIconRating from '../components/CamperIconRating';
-import { 
-  Layers, Filter, Search, MapPin, CloudRain, 
-  Moon, Users, Crosshair, Droplets, Zap, 
-  Dog, Sparkles, Navigation, Calendar, Plus, X, Check, Route, Shield, 
+import { obtenerGeolocalizacionRapida } from '../utils/geolocation';
+import {
+  Layers, Filter, Search, MapPin, CloudRain,
+  Moon, Users, Crosshair, Droplets, Zap,
+  Dog, Sparkles, Navigation, Calendar, Plus, X, Check, Route, Shield,
   TreePine, Home, Tent, Car, Waves, Compass, Trash2, Sun, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -104,8 +106,8 @@ const iconoGris = (emoji) => crearIconoCamperColor('#64748B', '#334155', emoji);
 const obtenerIconoPorLugar = (lugar) => {
   if (!lugar) return iconoGris('⛺');
   const emoji = EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐';
-  const total = lugar.total_valoraciones !== undefined 
-    ? lugar.total_valoraciones 
+  const total = lugar.total_valoraciones !== undefined
+    ? lugar.total_valoraciones
     : (Array.isArray(lugar.valoraciones) ? lugar.valoraciones.length : 0);
 
   if (total === 0) {
@@ -303,22 +305,19 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
   }, []);
 
   const obtenerUbicacionActual = () => {
-    if ('geolocation' in navigator) {
-      setObteniendoGps(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = [pos.coords.latitude, pos.coords.longitude];
-          setMiUbicacion(coords);
-          setCentroMapa(coords);
-          setObteniendoGps(false);
-        },
-        (err) => {
-          console.warn('Geolocalización GPS no disponible:', err.message);
-          setObteniendoGps(false);
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    }
+    setObteniendoGps(true);
+    obtenerGeolocalizacionRapida(
+      (pos) => {
+        const coords = [pos.coords.latitude, pos.coords.longitude];
+        setMiUbicacion(coords);
+        setCentroMapa(coords);
+        setObteniendoGps(false);
+      },
+      (err) => {
+        console.warn('Geolocalización GPS no disponible:', err.message);
+        setObteniendoGps(false);
+      }
+    );
   };
 
   // Alternar selección múltiple de tipos de lugar
@@ -498,7 +497,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 'calc(100dvh - 56px)', overflow: 'hidden' }}>
-      
+
       {/* Estilo para asegurar que los controles de Leaflet (+/- y capas) no tapen el buscador y filtros */}
       <style>{`
         .leaflet-top.leaflet-left {
@@ -667,7 +666,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
             </button>
           )}
 
-          <div 
+          <div
             ref={chipsRef}
             className="chips-scroll-container"
             onMouseDown={(e) => {
@@ -704,57 +703,57 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
               userSelect: 'none'
             }}
           >
-          {TIPOS_LUGAR_MAPA.map((tipo) => {
-            const esTodos = tipo.id === 'todos';
-            const activo = esTodos 
-              ? tiposLugarSeleccionados.length === 0 
-              : tiposLugarSeleccionados.includes(tipo.id);
-            
-            const cantidad = esTodos 
-              ? lugares.length 
-              : lugares.filter(l => l.tipo_lugar === tipo.id).length;
+            {TIPOS_LUGAR_MAPA.map((tipo) => {
+              const esTodos = tipo.id === 'todos';
+              const activo = esTodos
+                ? tiposLugarSeleccionados.length === 0
+                : tiposLugarSeleccionados.includes(tipo.id);
 
-            return (
-              <button
-                key={tipo.id}
-                type="button"
-                onClick={() => alternarTipoLugar(tipo.id)}
-                style={{
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap',
-                  padding: '7px 14px',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.81rem',
-                  fontWeight: activo ? 800 : 600,
-                  cursor: 'pointer',
-                  border: activo ? '2px solid #6EE7B7' : '1px solid rgba(255,255,255,0.22)',
-                  background: activo ? 'var(--accent-forest)' : 'rgba(18, 28, 22, 0.92)',
-                  color: '#FFFFFF',
-                  backdropFilter: 'blur(16px)',
-                  boxShadow: activo ? '0 3px 14px rgba(35,83,52,0.65)' : '0 2px 8px rgba(0,0,0,0.3)',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <span>{tipo.emoji}</span>
-                <span>{tipo.label}</span>
-                <span style={{
-                  fontSize: '0.70rem',
-                  background: activo ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.12)',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  fontWeight: 800
-                }}>
-                  {cantidad}
-                </span>
-              </button>
-            );
-          })}
-          {/* Espacio derecho de resguardo */}
-          <div style={{ minWidth: '24px', flexShrink: 0 }} />
-        </div>
+              const cantidad = esTodos
+                ? lugares.length
+                : lugares.filter(l => l.tipo_lugar === tipo.id).length;
+
+              return (
+                <button
+                  key={tipo.id}
+                  type="button"
+                  onClick={() => alternarTipoLugar(tipo.id)}
+                  style={{
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    padding: '7px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.81rem',
+                    fontWeight: activo ? 800 : 600,
+                    cursor: 'pointer',
+                    border: activo ? '2px solid #6EE7B7' : '1px solid rgba(255,255,255,0.22)',
+                    background: activo ? 'var(--accent-forest)' : 'rgba(18, 28, 22, 0.92)',
+                    color: '#FFFFFF',
+                    backdropFilter: 'blur(16px)',
+                    boxShadow: activo ? '0 3px 14px rgba(35,83,52,0.65)' : '0 2px 8px rgba(0,0,0,0.3)',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>{tipo.emoji}</span>
+                  <span>{tipo.label}</span>
+                  <span style={{
+                    fontSize: '0.70rem',
+                    background: activo ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.12)',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    fontWeight: 800
+                  }}>
+                    {cantidad}
+                  </span>
+                </button>
+              );
+            })}
+            {/* Espacio derecho de resguardo */}
+            <div style={{ minWidth: '24px', flexShrink: 0 }} />
+          </div>
 
           {puedeScrollDerecha && (
             <button
@@ -830,8 +829,8 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
         </div>
       </div>
 
-      {/* OVERLAY: Mensaje cuando el zoom es insuficiente para ver marcadores */}
-      {zoomActual < ZOOM_MOSTRAR_LUGARES && (
+      {/* OVERLAY: Mensaje de zoom desactivado temporalmente para permitir clustering desde cualquier distancia */}
+      {/* zoomActual < ZOOM_MOSTRAR_LUGARES && (
         <div style={{
           position: 'absolute',
           bottom: '80px',
@@ -856,7 +855,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           <span style={{ fontSize: '1.1rem' }}>🔍</span>
           Acércate para buscar lugares
         </div>
-      )}
+      ) */}
 
       {/* BOTÓN FLOTANTE PARA CENTRAR GPS */}
       <button
@@ -925,7 +924,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
 
             {/* Cuerpo con scroll */}
             <div style={{ overflowY: 'auto', paddingRight: '6px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
+
               {/* 1. SELECCIÓN DE TIPOS DE LUGAR (MULTI-SELECCIÓN) */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -1248,180 +1247,182 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
           </Marker>
         )}
 
-        {/* Marcadores de Lugares — solo visibles con zoom suficiente */}
-        {zoomActual >= ZOOM_MOSTRAR_LUGARES && lugaresFiltrados.map((lugar) => {
-          const imagenLugar = obtenerImagenLugar(lugar);
-          const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
+        {/* Marcadores de Lugares agrupados en Cluster */}
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={80}>
+          {lugaresFiltrados.map((lugar) => {
+            const imagenLugar = obtenerImagenLugar(lugar);
+            const etiquetaTipo = obtenerEtiquetaTipoLugar(lugar);
 
-          return (
-            <Marker
-              key={lugar.id}
-              position={[parseFloat(lugar.latitud), parseFloat(lugar.longitud)]}
-              icon={obtenerIconoPorLugar(lugar)}
-            >
-              <Popup className="custom-camper-popup" maxWidth={310}>
-                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                  
-                  {/* FOTO DEL LUGAR O BANNER PAISAJÍSTICO */}
-                  {imagenLugar ? (
-                    <div style={{ position: 'relative', width: '100%', height: '135px', overflow: 'hidden', background: '#0D1A12' }}>
-                      <img loading="lazy" decoding="async" 
-                        src={imagenLugar} 
-                        alt={lugar.nombre} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+            return (
+              <Marker
+                key={lugar.id}
+                position={[parseFloat(lugar.latitud), parseFloat(lugar.longitud)]}
+                icon={obtenerIconoPorLugar(lugar)}
+              >
+                <Popup className="custom-camper-popup" maxWidth={310}>
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+
+                    {/* FOTO DEL LUGAR O BANNER PAISAJÍSTICO */}
+                    {imagenLugar ? (
+                      <div style={{ position: 'relative', width: '100%', height: '135px', overflow: 'hidden', background: '#0D1A12' }}>
+                        <img loading="lazy" decoding="async"
+                          src={imagenLugar}
+                          alt={lugar.nombre}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'linear-gradient(to top, rgba(17,28,22,0.95) 0%, transparent 60%)'
+                        }} />
+                      </div>
+                    ) : (
                       <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(to top, rgba(17,28,22,0.95) 0%, transparent 60%)'
-                      }} />
-                    </div>
-                  ) : (
-                    <div style={{
-                      position: 'relative',
-                      width: '100%',
-                      height: '80px',
-                      background: 'linear-gradient(135deg, #183d26 0%, #0d2115 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderBottom: '1px solid rgba(255,255,255,0.1)'
-                    }}>
-                      <span style={{ fontSize: '2.4rem', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
-                        {EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐'}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* CUERPO DE LA TARJETA */}
-                  <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    
-                    {/* Fila: Tipo de Lugar (1 solo icono) + Precio */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                      <span style={{
-                        display: 'inline-flex',
+                        position: 'relative',
+                        width: '100%',
+                        height: '80px',
+                        background: 'linear-gradient(135deg, #183d26 0%, #0d2115 100%)',
+                        display: 'flex',
                         alignItems: 'center',
-                        background: 'rgba(35, 83, 52, 0.25)',
-                        color: '#6EE7B7',
-                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                        borderRadius: 'var(--radius-full)',
-                        padding: '2px 8px',
-                        fontSize: '0.73rem',
-                        fontWeight: 800
+                        justifyContent: 'center',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)'
                       }}>
-                        {etiquetaTipo}
-                      </span>
+                        <span style={{ fontSize: '2.4rem', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
+                          {EMOJIS_POR_TIPO[lugar.tipo_lugar] || '🚐'}
+                        </span>
+                      </div>
+                    )}
 
-                      <span style={{
-                        fontSize: '0.74rem',
-                        fontWeight: 900,
-                        color: lugar.es_gratuito ? '#34D399' : '#FBBF24',
-                        background: lugar.es_gratuito ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 191, 36, 0.15)',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        border: lugar.es_gratuito ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(251, 191, 36, 0.3)'
-                      }}>
-                        {lugar.es_gratuito || (!parseFloat(lugar.precio) && !parseFloat(lugar.precio_noche)) ? 'Gratis' : `${parseFloat(lugar.precio || lugar.precio_noche)} €/n`}
-                      </span>
-                    </div>
+                    {/* CUERPO DE LA TARJETA */}
+                    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
-                    {/* Nombre y Ubicación */}
-                    <div>
-                      <h4 style={{ margin: '0 0 3px 0', fontSize: '1.02rem', fontWeight: 900, color: '#FFFFFF', lineHeight: '1.25' }}>
-                        {lugar.nombre}
-                      </h4>
-                      <p style={{ margin: 0, fontSize: '0.76rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <MapPin size={12} color="#10B981" />
-                        <span>{lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}</span>
-                      </p>
-                    </div>
-
-                    {/* Puntuación Camper */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
-                      <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} />
-                      <span style={{ fontWeight: 800, color: '#F3F4F6' }}>
-                        {parseFloat(lugar.valoracion_media || 0).toFixed(1)}
-                      </span>
-                      <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
-                        ({lugar.total_valoraciones || 0} valoraciones)
-                      </span>
-                    </div>
-
-                    {/* Servicios destacados */}
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', fontSize: '0.71rem' }}>
-                      {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>💧 Agua</span>}
-                      {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>⚡ Luz</span>}
-                      {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>🔘 Vaciado</span>}
-                      {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>🐕 Mascotas</span>}
-                      {(lugar.ideal_familias || lugar.ideal_ninos_10_anos) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
-                    </div>
-
-                    {/* Botones de acción con alto contraste */}
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                      <button
-                        onClick={() => alSeleccionarLugar(lugar.id)}
-                        className="btn btn-primary btn-sm"
-                        style={{
-                          flex: 1,
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          padding: '6px 10px',
-                          display: 'flex',
+                      {/* Fila: Tipo de Lugar (1 solo icono) + Precio */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                        <span style={{
+                          display: 'inline-flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '5px',
-                          background: 'var(--accent-forest)',
-                          color: '#FFFFFF',
-                          borderRadius: '8px'
-                        }}
-                      >
-                        <Eye size={13} /> Ver Ficha
-                      </button>
+                          background: 'rgba(35, 83, 52, 0.25)',
+                          color: '#6EE7B7',
+                          border: '1px solid rgba(16, 185, 129, 0.4)',
+                          borderRadius: 'var(--radius-full)',
+                          padding: '2px 8px',
+                          fontSize: '0.73rem',
+                          fontWeight: 800
+                        }}>
+                          {etiquetaTipo}
+                        </span>
 
-                      <button
-                        onClick={() => abrirModalAnadirViaje(lugar)}
-                        className="btn btn-secondary btn-sm"
-                        title="Añadir a mi viaje planificado"
-                        style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 700,
-                          padding: '6px 10px',
-                          background: 'rgba(255,255,255,0.1)',
-                          color: '#FFFFFF',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px'
-                        }}
-                      >
-                        <Plus size={14} /> Viaje
-                      </button>
+                        <span style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 900,
+                          color: lugar.es_gratuito ? '#34D399' : '#FBBF24',
+                          background: lugar.es_gratuito ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: lugar.es_gratuito ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(251, 191, 36, 0.3)'
+                        }}>
+                          {lugar.es_gratuito || (!parseFloat(lugar.precio) && !parseFloat(lugar.precio_noche)) ? 'Gratis' : `${parseFloat(lugar.precio || lugar.precio_noche)} €/n`}
+                        </span>
+                      </div>
 
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary btn-sm"
-                        title="Abrir navegación GPS"
-                        style={{
-                          fontSize: '0.78rem',
-                          padding: '6px 10px',
-                          background: 'rgba(255,255,255,0.1)',
-                          color: '#FFFFFF',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <Navigation size={13} />
-                      </a>
+                      {/* Nombre y Ubicación */}
+                      <div>
+                        <h4 style={{ margin: '0 0 3px 0', fontSize: '1.02rem', fontWeight: 900, color: '#FFFFFF', lineHeight: '1.25' }}>
+                          {lugar.nombre}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '0.76rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <MapPin size={12} color="#10B981" />
+                          <span>{lugar.poblacion || ''}{lugar.poblacion && lugar.provincia ? ', ' : ''}{lugar.provincia || ''}</span>
+                        </p>
+                      </div>
+
+                      {/* Puntuación Camper */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem' }}>
+                        <CamperIconRating rating={lugar.valoracion_media} maxIcons={5} size={14} />
+                        <span style={{ fontWeight: 800, color: '#F3F4F6' }}>
+                          {parseFloat(lugar.valoracion_media || 0).toFixed(1)}
+                        </span>
+                        <span style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>
+                          ({lugar.total_valoraciones || 0} valoraciones)
+                        </span>
+                      </div>
+
+                      {/* Servicios destacados */}
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', fontSize: '0.71rem' }}>
+                        {(lugar.agua_potable || lugar.tiene_agua) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>💧 Agua</span>}
+                        {(lugar.electricidad || lugar.tiene_electricidad) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>⚡ Luz</span>}
+                        {(lugar.vaciado_aguas_grises || lugar.vaciado_aguas_negras || lugar.vaciado_aguas) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>🔘 Vaciado</span>}
+                        {(lugar.admite_mascotas || lugar.mascotas) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>🐕 Mascotas</span>}
+                        {(lugar.ideal_familias || lugar.ideal_ninos_10_anos) && <span style={{ background: 'rgba(255,255,255,0.08)', color: '#D1D5DB', padding: '2px 6px', borderRadius: '4px' }}>👨‍👩‍👧 Familias</span>}
+                      </div>
+
+                      {/* Botones de acción con alto contraste */}
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <button
+                          onClick={() => alSeleccionarLugar(lugar.id)}
+                          className="btn btn-primary btn-sm"
+                          style={{
+                            flex: 1,
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            padding: '6px 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '5px',
+                            background: 'var(--accent-forest)',
+                            color: '#FFFFFF',
+                            borderRadius: '8px'
+                          }}
+                        >
+                          <Eye size={13} /> Ver Ficha
+                        </button>
+
+                        <button
+                          onClick={() => abrirModalAnadirViaje(lugar)}
+                          className="btn btn-secondary btn-sm"
+                          title="Añadir a mi viaje planificado"
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            padding: '6px 10px',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: '#FFFFFF',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '8px'
+                          }}
+                        >
+                          <Plus size={14} /> Viaje
+                        </button>
+
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${lugar.latitud},${lugar.longitud}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary btn-sm"
+                          title="Abrir navegación GPS"
+                          style={{
+                            fontSize: '0.78rem',
+                            padding: '6px 10px',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: '#FFFFFF',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Navigation size={13} />
+                        </a>
+                      </div>
+
                     </div>
-
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
       </MapContainer>
 
       {/* MODAL PARA AÑADIR LUGAR A VIAJE PLANIFICADO */}

@@ -82,6 +82,8 @@ class CheckInSerializer(serializers.ModelSerializer):
 
 
 class CheckInCrearSerializer(serializers.ModelSerializer):
+    valoracion_camper = serializers.IntegerField(required=False, allow_null=True)
+
     # Aquí serializo la creación de un nuevo Check-in recibiendo las notas privadas y los días de pernocta
     class Meta:
         model = CheckIn

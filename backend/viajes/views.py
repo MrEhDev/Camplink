@@ -1,6 +1,7 @@
 # Aquí implemento los controladores para consultar, crear y editar Viajes,
 # añadir paradas planificadas desde la ficha de lugares, obtener estadísticas y vitrina de Trofeos.
 
+from django.db.models import Q
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -11,19 +12,30 @@ from lugares.models import Lugar
 from diario.models import CheckIn
 from django.utils import timezone
 
+
+def tiene_permiso_viaje(viaje, user):
+    if not user or not user.is_authenticated:
+        return False
+    if viaje.explorador == user or getattr(user, 'es_admin', False) or user.is_staff or user.is_superuser:
+        return True
+    return InvitacionViaje.objects.filter(viaje_origen=viaje, destinatario=user, estado='aceptada').exists()
+
+
 class ViajeViewSet(viewsets.ModelViewSet):
     # Aquí configuro el ViewSet para gestionar los viajes agrupados y planificados del explorador
     serializer_class = ViajeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        # Aquí permito ver todos los viajes o filtrar por un explorador concreto o solo mis viajes
+        # Aquí permito ver todos los viajes o filtrar por un explorador concreto o mis viajes + compartidos
         qs = Viaje.objects.all().prefetch_related('checkins_asociados__lugar')
         usuario_id = self.request.query_params.get('usuario_id')
         if usuario_id:
             qs = qs.filter(explorador_id=usuario_id)
         elif self.request.user.is_authenticated and self.request.query_params.get('mis_viajes') == 'true':
-            qs = qs.filter(explorador=self.request.user)
+            user = self.request.user
+            viajes_compartidos_ids = InvitacionViaje.objects.filter(destinatario=user, estado='aceptada').values_list('viaje_origen_id', flat=True)
+            qs = qs.filter(Q(explorador=user) | Q(id__in=viajes_compartidos_ids)).distinct()
         return qs
 
     def perform_create(self, serializer):
@@ -31,9 +43,9 @@ class ViajeViewSet(viewsets.ModelViewSet):
         serializer.save(explorador=self.request.user)
 
     def perform_update(self, serializer):
-        # Aquí permito al propietario del viaje o al administrador modificar el viaje
+        # Aquí permito al propietario del viaje, colaboradores o al administrador modificar el viaje
         viaje = self.get_object()
-        if viaje.explorador == self.request.user or self.request.user.es_admin:
+        if tiene_permiso_viaje(viaje, self.request.user):
             serializer.save()
         else:
             raise permissions.PermissionDenied('No tienes permiso para editar este viaje.')
@@ -42,7 +54,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def modificar_parada(self, request, pk=None):
         # Aquí modifico la fecha y los días/noches previstos de una etapa del viaje
         viaje = self.get_object()
-        if viaje.explorador != request.user and not request.user.es_admin:
+        if not tiene_permiso_viaje(viaje, request.user):
             return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
 
         parada_id = request.data.get('parada_id') or request.data.get('checkin_id')
@@ -62,7 +74,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
                         from viajes.services import normalizar_fecha_llegada
                         ch.fecha_llegada = normalizar_fecha_llegada(nueva_fecha)
                     if nuevas_noches is not None:
-                        ch.dias_previstos = max(1, int(nuevas_noches))
+                        ch.dias_previstos = max(0, int(nuevas_noches))
                     ch.save()
         except Exception as e:
             print("Error al actualizar CheckIn:", e)
@@ -75,8 +87,8 @@ class ViajeViewSet(viewsets.ModelViewSet):
                         p['fecha'] = str(nueva_fecha).split('T')[0]
                         p['fecha_llegada'] = str(nueva_fecha).split('T')[0]
                     if nuevas_noches is not None:
-                        p['dias'] = max(1, int(nuevas_noches))
-                        p['dias_previstos'] = max(1, int(nuevas_noches))
+                        p['dias'] = max(0, int(nuevas_noches))
+                        p['dias_previstos'] = max(0, int(nuevas_noches))
             viaje.save()
 
         recalcular_viaje(viaje)
@@ -162,7 +174,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def anadir_parada(self, request, pk=None):
         # Aquí añado un lugar o parada planificada al itinerario de este viaje
         viaje = self.get_object()
-        if viaje.explorador != request.user and not request.user.es_admin:
+        if not tiene_permiso_viaje(viaje, request.user):
             return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
 
         lugar_id = request.data.get('lugar_id')
@@ -177,7 +189,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
         from viajes.services import normalizar_fecha_llegada
         fecha_raw = request.data.get('fecha') or viaje.fecha_inicio
         fecha = normalizar_fecha_llegada(fecha_raw)
-        dias_previstos = int(request.data.get('dias_previstos', 1))
+        dias_previstos = max(0, int(request.data.get('dias_previstos') if request.data.get('dias_previstos') is not None else 0))
         notas = request.data.get('notas_privadas', '')
 
         checkin = CheckIn.objects.create(
@@ -205,7 +217,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         from datetime import timedelta
         viaje = self.get_object()
-        if viaje.explorador != request.user and not request.user.es_admin:
+        if not tiene_permiso_viaje(viaje, request.user):
             return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
 
         nuevo_orden = request.data.get('orden', [])
@@ -260,7 +272,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def anadir_gasolinera(self, request, pk=None):
         # Aquí inserto una estación de servicio seleccionada como parada de repostaje en el itinerario
         viaje = self.get_object()
-        if viaje.explorador != request.user and not request.user.es_admin:
+        if not tiene_permiso_viaje(viaje, request.user):
             return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
 
         nombre = request.data.get('nombre', 'Estación de Servicio')
@@ -337,7 +349,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def marcar_repostaje(self, request, pk=None):
         # Aquí alterno el estado de repostaje en una parada específica del viaje
         viaje = self.get_object()
-        if viaje.explorador != request.user and not request.user.es_admin:
+        if not tiene_permiso_viaje(viaje, request.user):
             return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
 
         indice = request.data.get('indice')
@@ -367,7 +379,7 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def eliminar_parada(self, request, pk=None):
         # Aquí elimino una etapa o parada del itinerario de este viaje
         viaje = self.get_object()
-        if viaje.explorador != request.user and not request.user.es_admin:
+        if not tiene_permiso_viaje(viaje, request.user):
             return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
 
         indice = request.data.get('indice')
@@ -418,12 +430,90 @@ class ViajeViewSet(viewsets.ModelViewSet):
         })
 
 
+    @action(detail=True, methods=['post'], url_path='anadir-parada-libre')
+    def anadir_parada_libre(self, request, pk=None):
+        # Aqui añado una parada libre (dirección externa, geocodificada o URL de Google Maps)
+        # al itinerario sin necesidad de que exista en la base de datos de Lugares.
+        viaje = self.get_object()
+        if not tiene_permiso_viaje(viaje, request.user):
+            return Response({'error': 'No tienes permiso sobre este viaje.'}, status=status.HTTP_403_FORBIDDEN)
+
+        nombre = request.data.get('nombre', '').strip()
+        lat = request.data.get('lat')
+        lng = request.data.get('lng')
+        direccion = request.data.get('direccion', '').strip()
+        fecha_raw = request.data.get('fecha') or str(viaje.fecha_inicio)
+        dias_previstos = max(0, int(request.data.get('dias_previstos') if request.data.get('dias_previstos') is not None else 0))
+
+        if not nombre:
+            nombre = direccion or 'Parada libre'
+        if lat is None or lng is None:
+            return Response({'error': 'Se requieren coordenadas lat y lng.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            lat = float(lat)
+            lng = float(lng)
+        except (ValueError, TypeError):
+            return Response({'error': 'Coordenadas inválidas.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Construir el punto de parada libre
+        punto = {
+            'id': f'libre-{int(lat*10000)}-{int(lng*10000)}',
+            'nombre': nombre,
+            'lat': lat,
+            'lng': lng,
+            'latitud': lat,
+            'longitud': lng,
+            'direccion': direccion,
+            'poblacion': direccion,
+            'tipo': 'parada_libre',
+            'tipo_lugar': 'parada_libre',
+            'fecha': str(fecha_raw).split('T')[0] if fecha_raw else None,
+            'fecha_llegada': str(fecha_raw).split('T')[0] if fecha_raw else None,
+            'dias_previstos': dias_previstos,
+            'dias': dias_previstos,
+            'lugar_id': None,
+            'es_base': False,
+            'es_repostaje': False,
+        }
+
+        ruta = list(viaje.resumen_ruta or [])
+        # Insertar antes de la parada base_vuelta si existe, o al final
+        if ruta and ruta[-1].get('tipo') in ('base_vuelta', 'base'):
+            ruta.insert(len(ruta) - 1, punto)
+        else:
+            ruta.append(punto)
+
+        viaje.resumen_ruta = ruta
+
+        from viajes.services import calcular_distancia_carretera
+        coords = []
+        for p in ruta:
+            plat = p.get('lat') if p.get('lat') is not None else p.get('latitud')
+            plng = p.get('lng') if p.get('lng') is not None else p.get('longitud')
+            if plat is not None and plng is not None:
+                try:
+                    coords.append((float(plat), float(plng)))
+                except (ValueError, TypeError):
+                    pass
+        viaje.km_totales = calcular_distancia_carretera(coords)
+        viaje.save()
+
+        viaje.refresh_from_db()
+        serializer = ViajeSerializer(viaje, context={'request': request})
+        return Response({
+            'mensaje': f'{nombre} ha sido añadido como parada libre a {viaje.titulo}.',
+            'viaje': serializer.data
+        })
+
+
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def mis_estadisticas_vista(request):
     # Aquí compilo las métricas de viaje del usuario para la vista "Mis Viajes" y la generación del cartel PDF
+    # NOTA: los trofeos SOLO se desbloquean al hacer Check-in real (diario/views.py), nunca al consultar estadísticas
     explorador = request.user
-    verificar_y_desbloquear_trofeos(explorador)
 
     viajes_usuario = list(explorador.viajes.all())
     from .services import recalcular_viaje
@@ -501,7 +591,7 @@ def vitrina_trofeos_vista(request):
 
     metricas = {}
     if usuario:
-        verificar_y_desbloquear_trofeos(usuario)
+        # NOTA: los trofeos SOLO se desbloquean al hacer Check-in real; aquí solo calculamos el progreso para mostrar
         metricas = calcular_metricas_usuario(usuario)
         conseguidos = TrofeoExplorador.objects.filter(explorador=usuario).select_related('trofeo')
         for c in conseguidos:
@@ -731,44 +821,19 @@ def aceptar_invitacion(request, inv_id):
     remitente_cap = inv.remitente.username.capitalize() if inv.remitente and inv.remitente.username else 'Explorador'
     destinatario_cap = request.user.username.capitalize() if request.user and request.user.username else 'Explorador'
 
-    # Crear copia del viaje para el destinatario con remitente Capitalize
-    copia = Viaje.objects.create(
-        explorador=request.user,
-        titulo=f'{viaje_orig.titulo} (compartido por {remitente_cap})',
-        descripcion=viaje_orig.descripcion,
-        fecha_inicio=viaje_orig.fecha_inicio,
-        fecha_fin=viaje_orig.fecha_fin,
-        esta_cerrado=False,
-        km_totales=viaje_orig.km_totales,
-        comunidades_visitadas=list(viaje_orig.comunidades_visitadas or []),
-        paises_visitados=list(viaje_orig.paises_visitados or []),
-        resumen_ruta=list(viaje_orig.resumen_ruta or []),
-    )
-
-    # Copiar las paradas (check-ins planificados) del viaje original
-    for checkin in viaje_orig.checkins_asociados.all().order_by('fecha_llegada'):
-        CheckIn.objects.create(
-            explorador=request.user,
-            lugar=checkin.lugar,
-            viaje=copia,
-            fecha_llegada=checkin.fecha_llegada,
-            dias_previstos=checkin.dias_previstos,
-            comentario_publico='',
-            notas_privadas=checkin.notas_privadas or '',
-            valoracion_camper=checkin.valoracion_camper or 5,
-        )
-
-    try:
-        from viajes.services import recalcular_viaje
-        recalcular_viaje(copia)
-        copia.refresh_from_db()
-    except Exception as e:
-        print('Error recalculando copia viaje:', e)
-
+    # Aceptar la invitación enlazando directamente al viaje original compartido en tiempo real
     inv.estado = 'aceptada'
     inv.fecha_respuesta = timezone.now()
-    inv.viaje_copia = copia
-    inv.save()
+    if inv.viaje_copia:
+        copia_vieja = inv.viaje_copia
+        inv.viaje_copia = None
+        inv.save()
+        try:
+            copia_vieja.delete()
+        except Exception:
+            pass
+    else:
+        inv.save()
 
     try:
         from exploradores.models import Notificacion
@@ -777,14 +842,17 @@ def aceptar_invitacion(request, inv_id):
             usuario_origen=request.user,
             tipo='sistema',
             titulo=f'🎉 {destinatario_cap} ha aceptado tu viaje compartido',
-            mensaje=f'{destinatario_cap} ha añadido el viaje "{viaje_orig.titulo}" a sus viajes planificados.',
+            mensaje=f'{destinatario_cap} se ha unido al viaje "{viaje_orig.titulo}". Ahora ambos podéis colaborar y sincronizar la ruta en tiempo real.',
             enlace='/organizar',
         )
     except Exception as e:
         print('Error notificando aceptacion:', e)
 
-    serializer = ViajeSerializer(copia, context={'request': request})
-    return Response({'mensaje': f'Viaje añadido a tus viajes planificados.', 'viaje': serializer.data}, status=status.HTTP_201_CREATED)
+    serializer = ViajeSerializer(viaje_orig, context={'request': request})
+    return Response({
+        'mensaje': f'¡Te has unido al viaje "{viaje_orig.titulo}" de {remitente_cap}!',
+        'viaje': serializer.data
+    })
 
 
 @api_view(['POST'])

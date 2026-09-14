@@ -91,7 +91,7 @@ class CheckIn(models.Model):
     )
     fecha_llegada = models.DateTimeField(default=timezone.now, verbose_name='Fecha de Llegada / Pernocta')
     dias_previstos = models.IntegerField(default=1, verbose_name='¿Cuántos días tienes pensado quedarte?')
-    valoracion_camper = models.IntegerField(default=5, verbose_name='Valoración Camper (1-5 🚐)')
+    valoracion_camper = models.IntegerField(default=5, null=True, blank=True, verbose_name='Valoración Camper (1-5 🚐)')
     comentario_publico = models.TextField(blank=True, default='', verbose_name='Comentario Público para el Diario')
     foto = models.ImageField(upload_to='checkins/', null=True, blank=True, verbose_name='Foto de la Pernocta')
 

@@ -30,6 +30,7 @@ class LugarSerializer(serializers.ModelSerializer):
     fotos = FotoLugarSerializer(many=True, read_only=True)
     valoraciones = ValoracionLugarSerializer(many=True, read_only=True)
     total_valoraciones = serializers.SerializerMethodField()
+    valoracion_media = serializers.SerializerMethodField()
     checkins_ultimo_mes = serializers.SerializerMethodField()
     mi_nota_personal = serializers.SerializerMethodField()
     mis_notas_personales = serializers.SerializerMethodField()
@@ -55,6 +56,14 @@ class LugarSerializer(serializers.ModelSerializer):
             'fotos', 'valoraciones', 'mi_nota_personal', 'mis_notas_personales', 'fecha_creacion'
         ]
         read_only_fields = ['creador', 'valoracion_media', 'fecha_creacion']
+
+    def get_valoracion_media(self, obj):
+        vals = obj.valoraciones.all()
+        if vals.exists():
+            return round(sum(v.puntuacion_camper for v in vals) / vals.count(), 1)
+        if obj.valoracion_media is not None and obj.valoracion_media > 0:
+            return round(float(obj.valoracion_media), 1)
+        return 0.0
 
     def get_total_valoraciones(self, obj):
         return obj.valoraciones.count()
@@ -93,7 +102,8 @@ class LugarSerializer(serializers.ModelSerializer):
         presets = ['pernocta_libre', 'area_autocaravanas', 'camping', 'parking_urbano', 'area_recreativa', 'solo_servicios']
         es_preset = any(fp.endswith(f'/{tipo}.jpg') or f'/lugares/{tipo}.jpg' in fp or f'/img/tipos/{tipo}.jpg' in fp for tipo in presets)
         if not fp or es_preset:
-            request = self.context.get('request')
             preset = f'/media/lugares/{instance.tipo_lugar}.jpg?v=5'
-            data['foto_principal'] = request.build_absolute_uri(preset) if request else preset
+            data['foto_principal'] = preset
+        elif fp and not fp.startswith('http://') and not fp.startswith('https://') and not fp.startswith('/'):
+            data['foto_principal'] = f'/media/{fp}'
         return data

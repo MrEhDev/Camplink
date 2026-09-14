@@ -1,4 +1,5 @@
 import { comprimirImagen } from '../utils/imageCompressor';
+import { construirUrlImagen } from '../utils/lugarImagenes';
 import React, { useState, useEffect } from 'react';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -638,7 +639,7 @@ export default function DiarioDeRuta({ alSeleccionarLugar, alVerPerfilUsuario, a
                 {/* Imagen */}
                 {pub.imagen && (
                   <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '16px' }}>
-                    <img loading="lazy" decoding="async" src={pub.imagen} alt="Foto de ruta" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover' }} />
+                    <img loading="lazy" decoding="async" src={construirUrlImagen(pub.imagen)} alt="Foto de ruta" style={{ width: '100%', maxHeight: '420px', objectFit: 'cover' }} />
                   </div>
                 )}
                 {/* Reacciones y acciones */}

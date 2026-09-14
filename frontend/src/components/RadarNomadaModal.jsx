@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { buscarGasolinerasCercanas } from '../services/gasolineras';
 import WidgetClima from './WidgetClima';
 import CamperIconRating from './CamperIconRating';
+import { obtenerGeolocalizacionRapida } from '../utils/geolocation';
 import {
   X, Radar, Navigation, MapPin, Fuel,
   ShoppingBag, Droplet, Sparkles, ShowerHead,
@@ -60,37 +61,28 @@ export default function RadarNomadaModal({ alCerrar, alSeleccionarLugar, alHacer
       return;
     }
 
-    // Solicito la posición actual por el navegador y obtengo el municipio real
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = {
-            lat: parseFloat(pos.coords.latitude.toFixed(4)),
-            lng: parseFloat(pos.coords.longitude.toFixed(4)),
-          };
-          setGps(coords);
-          setCargandoGps(false);
-          obtenerMunicipioReal(coords.lat, coords.lng);
-          buscarCercanos(coords.lat, coords.lng);
-          consultarGasolineras(coords.lat, coords.lng, radioGasolinera, combustibleSeleccionado);
-        },
-        () => {
-          const fallback = { lat: 41.6523, lng: -0.8814 }; // Zaragoza por defecto
-          setGps(fallback);
-          setCargandoGps(false);
-          obtenerMunicipioReal(fallback.lat, fallback.lng);
-          buscarCercanos(fallback.lat, fallback.lng);
-          consultarGasolineras(fallback.lat, fallback.lng, radioGasolinera, combustibleSeleccionado);
-        }
-      );
-    } else {
-      const fallback = { lat: 41.6523, lng: -0.8814 };
-      setGps(fallback);
-      setCargandoGps(false);
-      obtenerMunicipioReal(fallback.lat, fallback.lng);
-      buscarCercanos(fallback.lat, fallback.lng);
-      consultarGasolineras(fallback.lat, fallback.lng, radioGasolinera, combustibleSeleccionado);
-    }
+    // Solicito la posición actual por el navegador de forma optimizada
+    obtenerGeolocalizacionRapida(
+      (pos) => {
+        const coords = {
+          lat: parseFloat(pos.coords.latitude.toFixed(4)),
+          lng: parseFloat(pos.coords.longitude.toFixed(4)),
+        };
+        setGps(coords);
+        setCargandoGps(false);
+        obtenerMunicipioReal(coords.lat, coords.lng);
+        buscarCercanos(coords.lat, coords.lng);
+        consultarGasolineras(coords.lat, coords.lng, radioGasolinera, combustibleSeleccionado);
+      },
+      () => {
+        const fallback = { lat: 41.6523, lng: -0.8814 }; // Zaragoza por defecto
+        setGps(fallback);
+        setCargandoGps(false);
+        obtenerMunicipioReal(fallback.lat, fallback.lng);
+        buscarCercanos(fallback.lat, fallback.lng);
+        consultarGasolineras(fallback.lat, fallback.lng, radioGasolinera, combustibleSeleccionado);
+      }
+    );
   }, []);
 
   const obtenerMunicipioReal = async (lat, lng) => {

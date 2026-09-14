@@ -57,7 +57,7 @@ class PublicacionTallerViewSet(viewsets.ModelViewSet):
             if str(cat).isdigit():
                 qs = qs.filter(categoria_id=int(cat))
             else:
-                qs = qs.filter(categoria__slug=cat)
+                qs = qs.filter(Q(categoria__slug=cat) | Q(categoria__nombre__iexact=cat))
 
         if self.request.query_params.get('es_guia') == 'true':
             qs = qs.filter(es_guia_oficial=True)
@@ -229,6 +229,39 @@ class PublicacionTallerViewSet(viewsets.ModelViewSet):
             creadas.append(ImagenGaleriaPublicacionSerializer(img_obj).data)
 
         return Response({'creadas': creadas, 'total': pub.galeria.count()}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], permission_classes=[permissions.IsAuthenticated],
+            url_path='galeria/(?P<imagen_id>[^/.]+)')
+    def eliminar_imagen_galeria(self, request, pk=None, imagen_id=None):
+        # Aqui permito eliminar una foto concreta de la galeria por su ID, solo al autor o admin
+        pub = self.get_object()
+        es_admin = request.user.is_staff or request.user.is_superuser or getattr(request.user, 'rol', '') == 'administrador'
+        if pub.autor != request.user and not es_admin:
+            return Response({'error': 'No tienes permiso para eliminar esta imagen.'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            img = ImagenGaleriaPublicacion.objects.get(id=imagen_id, publicacion=pub)
+            img.delete()
+            return Response({'eliminada': True, 'total': pub.galeria.count()}, status=status.HTTP_200_OK)
+        except ImagenGaleriaPublicacion.DoesNotExist:
+            return Response({'error': 'Imagen no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ImagenGaleriaPublicacionViewSet(viewsets.ModelViewSet):
+    # Aqui gestiono el CRUD individual de fotos de galeria de publicaciones del Taller
+    serializer_class = ImagenGaleriaPublicacionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    queryset = ImagenGaleriaPublicacion.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        es_admin = user.is_staff or user.is_superuser or getattr(user, 'rol', '') == 'administrador'
+        if instance.publicacion.autor != user and not es_admin:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('No tienes permiso para eliminar esta imagen de galeria.')
+        instance.delete()
 
 
 # Vistas Legacy

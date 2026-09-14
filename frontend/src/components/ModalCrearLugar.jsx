@@ -170,12 +170,25 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
   };
 
   const manejarCambioFoto = async (e) => {
-    const archivo = e.target.files[0];
-    if (archivo) {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    // Previsualización inmediata para respuesta instantánea en la interfaz
+    if (fotoPreview && fotoPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoPreview);
+    }
+    const previewUrl = URL.createObjectURL(archivo);
+    setFotoPreview(previewUrl);
+    setFotoPrincipal(archivo);
+    setUrlFotoExterna('');
+
+    try {
       const archivoComprimido = await comprimirImagen(archivo, { maxAncho: 1600, maxAlto: 1600, calidad: 0.82 });
-      setFotoPrincipal(archivoComprimido);
-      setUrlFotoExterna('');
-      setFotoPreview(URL.createObjectURL(archivoComprimido));
+      if (archivoComprimido) {
+        setFotoPrincipal(archivoComprimido);
+      }
+    } catch (err) {
+      console.warn('Compresión omitida, subiendo foto original:', err);
     }
   };
 
@@ -436,12 +449,12 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
                 marginBottom: '10px',
                 lineHeight: 1.35
               }}>
-                💡 Si no adjuntas una foto propia ni pegas una URL externa, se asignará automáticamente la imagen preestablecida para <strong>{tipoSeleccionadoObj.label}</strong>.
+                💡 Si no adjuntas una foto propia ni pegas una URL externa, se asignará automáticamente una foto representativa para <strong>{tipoSeleccionadoObj.label}</strong>.
               </div>
             )}
 
             {fotoPreview ? (
-              <div style={{ position: 'relative', width: '100%', height: '180px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+              <div style={{ position: 'relative', width: '100%', height: '200px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-color)', background: '#0D1A12' }}>
                 <img loading="lazy" decoding="async" 
                   src={fotoPreview} 
                   alt="Vista previa" 
@@ -454,7 +467,7 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
                     position: 'absolute',
                     top: '8px',
                     right: '8px',
-                    background: 'rgba(217, 56, 56, 0.85)',
+                    background: 'rgba(217, 56, 56, 0.9)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '50%',
@@ -464,7 +477,7 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
                   }}
                   title="Quitar foto"
                 >
@@ -474,74 +487,46 @@ export default function ModalCrearLugar({ cerrado, alCerrar, alGuardarLugar, alC
                   position: 'absolute',
                   bottom: '8px',
                   left: '8px',
-                  background: 'rgba(0,0,0,0.7)',
+                  background: 'rgba(0,0,0,0.75)',
                   color: '#fff',
-                  padding: '3px 8px',
+                  padding: '4px 10px',
                   borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.75rem',
-                  fontWeight: 600
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
                 }}>
-                  ✅ Foto lista para publicar
+                  <span>✅ Foto seleccionada</span>
                 </div>
               </div>
             ) : (
               <div>
-                <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <label style={{
-                    flex: '1',
-                    minWidth: '220px',
-                    border: '2px dashed var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '16px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: 'rgba(255,255,255,0.02)',
-                    transition: 'border-color 0.2s ease'
-                  }}>
-                    <UploadCloud size={24} color="var(--accent-forest)" style={{ margin: '0 auto 6px' }} />
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Subir foto desde tu dispositivo
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      JPG, PNG o WebP
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={manejarCambioFoto}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-
-                  {/* Previsualización de la imagen por defecto representativa */}
-                  <div style={{
-                    width: '140px',
-                    height: '90px',
-                    borderRadius: 'var(--radius-sm)',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid var(--border-color)',
-                    flexShrink: 0
-                  }}>
-                    <img loading="lazy" decoding="async" 
-                      src={IMAGENES_PREESTABLECIDAS_POR_TIPO[tipoLugar] || '/img/tipos/pernocta_libre.jpg'}
-                      alt="Por defecto"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)',
-                      display: 'flex',
-                      alignItems: 'flex-end',
-                      padding: '4px 6px'
-                    }}>
-                      <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 600, lineHeight: 1.1 }}>
-                        Imagen preestablecida ({tipoSeleccionadoObj.emoji})
-                      </span>
-                    </div>
+                <label style={{
+                  display: 'block',
+                  width: '100%',
+                  border: '2px dashed var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '20px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.02)',
+                  transition: 'border-color 0.2s ease'
+                }}>
+                  <UploadCloud size={28} color="var(--accent-forest)" style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Subir foto desde tu dispositivo
                   </div>
-                </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    JPG, PNG o WebP (se optimizará automáticamente)
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={manejarCambioFoto}
+                    style={{ display: 'none' }}
+                  />
+                </label>
 
                 {/* Input para URL externa debajo de subir foto desde tu dispositivo */}
                 <div style={{ marginTop: '12px' }}>

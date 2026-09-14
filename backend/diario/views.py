@@ -187,7 +187,7 @@ class CheckInViewSet(viewsets.ModelViewSet):
         if checkin.comentario_publico:
             Publicacion.objects.create(
                 autor=self.request.user,
-                contenido=f"¡Pernoctando en {checkin.lugar.nombre}! {checkin.comentario_publico}",
+                contenido=checkin.comentario_publico,
                 imagen=checkin.foto,
                 lugar=checkin.lugar,
                 visibilidad='publico'

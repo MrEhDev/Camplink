@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import CamperIconRating from '../components/CamperIconRating';
+import { obtenerGeolocalizacionRapida } from '../utils/geolocation';
 import { 
   Search, Filter, MapPin, Map, Route, Bookmark, 
   Check, Navigation, Sparkles, Plus, X, Star,
@@ -139,30 +140,22 @@ export default function DescubreLista({
   useEffect(() => {
     cargarLugares();
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
+    obtenerGeolocalizacionRapida(
+      (pos) => {
+        setUbicacionUsuario({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+      },
+      () => {
+        if (usuario?.lat_base && usuario?.lng_base) {
           setUbicacionUsuario({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
+            lat: parseFloat(usuario.lat_base),
+            lng: parseFloat(usuario.lng_base)
           });
-        },
-        () => {
-          if (usuario?.lat_base && usuario?.lng_base) {
-            setUbicacionUsuario({
-              lat: parseFloat(usuario.lat_base),
-              lng: parseFloat(usuario.lng_base)
-            });
-          }
-        },
-        { enableHighAccuracy: false, timeout: 8000 }
-      );
-    } else if (usuario?.lat_base && usuario?.lng_base) {
-      setUbicacionUsuario({
-        lat: parseFloat(usuario.lat_base),
-        lng: parseFloat(usuario.lng_base)
-      });
-    }
+        }
+      }
+    );
     try {
       const guardados = JSON.parse(localStorage.getItem('camplink_lugares_guardados') || '[]');
       setLugaresGuardados(guardados);

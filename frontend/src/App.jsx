@@ -7,6 +7,7 @@ import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
+import { obtenerPosicionGps, calcularDistanciaKm } from './utils/geolocation';
 import { X } from 'lucide-react';
 
 // Vistas con Lazy Loading (Code Splitting dinámico para optimización de rendimiento y bundle inicial ligero)
@@ -93,6 +94,8 @@ export default function App() {
 
   // Modales Globales
   const [modalCheckInLugar, setModalCheckInLugar] = useState(null);
+  const [toastCheckinAlerta, setToastCheckinAlerta] = useState(null);
+  const [verificandoGpsCheckin, setVerificandoGpsCheckin] = useState(false);
   const [modalNuevoLugarAbierto, setModalNuevoLugarAbierto] = useState(false);
   const [modalRadarAbierto, setModalRadarAbierto] = useState(false);
   const [radarUbicacion, setRadarUbicacion] = useState(null);
@@ -242,8 +245,43 @@ export default function App() {
     setVistaActiva('perfil_publico');
   };
 
-  const abrirCheckIn = (lugar) => {
-    // Aquí despliego el modal para registrar una pernocta en el lugar seleccionado
+  const mostrarAlertaCheckin = (mensaje = 'Acércate más al lugar o activa el GPS') => {
+    setToastCheckinAlerta(mensaje);
+    setTimeout(() => {
+      setToastCheckinAlerta(null);
+    }, 4500);
+  };
+
+  const abrirCheckIn = async (lugar) => {
+    if (!lugar) return;
+
+    // Si el lugar cuenta con coordenadas geográficas, validar restricción de 20 km
+    if (lugar.latitud != null && lugar.longitud != null) {
+      setVerificandoGpsCheckin(true);
+      try {
+        const pos = await obtenerPosicionGps();
+        const distKm = calcularDistanciaKm(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          parseFloat(lugar.latitud),
+          parseFloat(lugar.longitud)
+        );
+
+        if (distKm == null || distKm > 20) {
+          mostrarAlertaCheckin('Acércate más al lugar o activa el GPS');
+          setVerificandoGpsCheckin(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Geolocalización GPS requerida para Check-in:', err);
+        mostrarAlertaCheckin('Acércate más al lugar o activa el GPS');
+        setVerificandoGpsCheckin(false);
+        return;
+      }
+      setVerificandoGpsCheckin(false);
+    }
+
+    // Distancia válida dentro de los 20 km permitidos
     setModalCheckInLugar(lugar);
   };
 
@@ -509,6 +547,60 @@ export default function App() {
       {/* Pie de Página */}
       {(!usuario || (vistaActiva !== 'home' && vistaActiva !== 'descubre' && vistaActiva !== 'descubre_lista')) && (
         <Footer setVistaActiva={setVistaActiva} />
+      )}
+
+      {/* TOAST FLOTANTE DE RESTRICCIÓN DE DISTANCIA CHECK-IN */}
+      {toastCheckinAlerta && (
+        <div style={{
+          position: 'fixed',
+          top: '30px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 999999,
+          background: 'rgba(32, 14, 14, 0.96)',
+          border: '1.5px solid #EF4444',
+          color: '#FEE2E2',
+          padding: '13px 24px',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: '0 10px 35px rgba(0,0,0,0.55)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          fontWeight: 700,
+          fontSize: '0.94rem',
+          maxWidth: '92vw',
+          backdropFilter: 'blur(12px)',
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <span style={{ fontSize: '1.3rem' }}>📍</span>
+          <span>{toastCheckinAlerta}</span>
+        </div>
+      )}
+
+      {/* INDICADOR DE VERIFICACIÓN GPS AL ABRIR CHECK-IN */}
+      {verificandoGpsCheckin && (
+        <div style={{
+          position: 'fixed',
+          top: '30px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 999999,
+          background: 'rgba(16, 30, 22, 0.95)',
+          border: '1.5px solid var(--accent-forest)',
+          color: '#A3E635',
+          padding: '10px 20px',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '0.88rem',
+          fontWeight: 600,
+          backdropFilter: 'blur(10px)'
+        }}>
+          <span>🛰️</span>
+          <span>Comprobando cercanía GPS al lugar...</span>
+        </div>
       )}
 
       {/* MODALES GLOBALES CON LAZY LOADING (Solo si está autenticado) */}

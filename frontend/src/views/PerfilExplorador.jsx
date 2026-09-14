@@ -720,6 +720,46 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
     }
   };
 
+  const manejarVerNotificacion = async (notif) => {
+    try {
+      await peticionApi('/api/exploradores/notificaciones/', {
+        method: 'POST',
+        body: { notificacion_id: notif.id }
+      });
+      setNotificacionesPerfil(prev => prev.map(n => n.id === notif.id ? { ...n, leida: true } : n));
+    } catch (err) {
+      console.warn('Error al marcar notificación como leída:', err);
+    }
+
+    if (!notif.enlace && notif.tipo === 'trofeo') {
+      setPestañaActiva('trofeos');
+      return;
+    }
+
+    const enlace = notif.enlace || '';
+    if (enlace.startsWith('/explorador/')) {
+      const uid = parseInt(enlace.replace('/explorador/', ''));
+      if (alVerPerfilUsuario && uid) {
+        alVerPerfilUsuario(uid);
+      }
+    } else if (enlace.startsWith('/lugar/')) {
+      const lid = parseInt(enlace.replace('/lugar/', ''));
+      if (alSeleccionarLugar && lid) {
+        alSeleccionarLugar(lid);
+      }
+    } else if (enlace.includes('/organizar') || enlace.includes('/viajes')) {
+      if (alNavegarOrganizar) {
+        alNavegarOrganizar();
+      } else {
+        window.location.href = enlace;
+      }
+    } else if (notif.tipo === 'trofeo' || enlace.includes('/trofeos')) {
+      setPestañaActiva('trofeos');
+    } else if (enlace) {
+      window.location.href = enlace;
+    }
+  };
+
   const alternarSeguirCompanero = async (companeroId) => {
     try {
       const res = await peticionApi(`/api/exploradores/seguir/${companeroId}/`, { method: 'POST' });
@@ -2011,24 +2051,11 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                        {notif.enlace && (
+                        {(notif.enlace || notif.tipo === 'trofeo') && (
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              if (notif.enlace.startsWith('/explorador/')) {
-                                const uid = parseInt(notif.enlace.replace('/explorador/', ''));
-                                if (alVerPerfilUsuario && uid) alVerPerfilUsuario(uid);
-                              } else if (notif.enlace.includes('/diario')) {
-                                if (notif.enlace.includes('?')) {
-                                  const q = notif.enlace.substring(notif.enlace.indexOf('?'));
-                                  window.history.pushState({}, '', '/diario' + q);
-                                }
-                                window.location.href = notif.enlace;
-                              } else if (notif.tipo === 'trofeo') {
-                                setPestanaActiva('trofeos');
-                              }
-                            }}
+                            onClick={() => manejarVerNotificacion(notif)}
                             style={{ fontSize: '0.78rem', padding: '6px 12px' }}
                           >
                             Ver

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { renderizarMarkdownHtml } from '../utils/markdown';
+import { construirUrlImagen } from '../utils/lugarImagenes';
 import {
   ArrowLeft, Upload, Image, Video, Box, PlusCircle,
   Sparkles, Shield, CheckCircle, X, FileCode, AlertCircle, Info,
@@ -51,10 +53,14 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
 
   // Adjuntos
   const [imagenPrincipal, setImagenPrincipal] = useState(null);
-  const [previewPrincipal, setPreviewPrincipal] = useState(publicacionAEditar?.imagen_principal || null);
+  const [imagenPrincipalUrl, setImagenPrincipalUrl] = useState(publicacionAEditar?.imagen_principal_url || '');
+  const [previewPrincipal, setPreviewPrincipal] = useState(
+    publicacionAEditar?.imagen_principal || publicacionAEditar?.imagen_principal_url || null
+  );
   const [imagenesGaleria, setImagenesGaleria] = useState([]);
+  const [urlGaleriaInput, setUrlGaleriaInput] = useState('');
   const [previewsGaleria, setPreviewsGaleria] = useState(
-    publicacionAEditar?.fotos_galeria?.map(f => ({ url: f.foto, esExistente: true })) || []
+    publicacionAEditar?.galeria?.map(f => ({ id: f.id, url: f.imagen, esExistente: true })) || []
   );
   const [videoUrl, setVideoUrl] = useState(publicacionAEditar?.video_url || '');
   const [mostrarPanelVideo, setMostrarPanelVideo] = useState(Boolean(publicacionAEditar?.video_url));
@@ -116,6 +122,7 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
     const file = e.target.files[0];
     if (file) {
       setImagenPrincipal(file);
+      setImagenPrincipalUrl('');
       setPreviewPrincipal(URL.createObjectURL(file));
     }
   };
@@ -128,7 +135,31 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
     }
   };
 
-  const eliminarFotoGaleria = (idx) => {
+  const anadirUrlGaleria = (e) => {
+    e?.preventDefault?.();
+    if (!urlGaleriaInput.trim()) return;
+    const url = urlGaleriaInput.trim();
+    setPreviewsGaleria(prev => [...prev, { url, esUrlExterna: true }]);
+    setUrlGaleriaInput('');
+  };
+
+  const eliminarFotoGaleria = async (idx) => {
+    const item = previewsGaleria[idx];
+    if (item && item.esExistente && item.id) {
+      if (confirm('¿Eliminar esta foto de la galería del taller?')) {
+        try {
+          await peticionApi(`/api/comunidad/fotos-galeria/${item.id}/`, {
+            method: 'DELETE'
+          });
+        } catch (err) {
+          console.error('Error eliminando foto de galería:', err);
+          alert('No se pudo eliminar la foto de la galería: ' + (err.message || ''));
+          return;
+        }
+      } else {
+        return;
+      }
+    }
     setImagenesGaleria(prev => prev.filter((_, i) => i !== idx));
     setPreviewsGaleria(prev => prev.filter((_, i) => i !== idx));
   };
@@ -218,7 +249,12 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
 
       if (imagenPrincipal) {
         formData.append('imagen_principal', imagenPrincipal);
+      } else if (imagenPrincipalUrl.trim()) {
+        formData.append('imagen_principal_url', imagenPrincipalUrl.trim());
+      } else if (esEdicion && !previewPrincipal) {
+        formData.append('imagen_principal_url', '');
       }
+
       if (videoUrl.trim()) {
         formData.append('video_url', videoUrl.trim());
       } else if (esEdicion) {
@@ -262,7 +298,7 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
         for (const foto of nuevasFotos) {
           const fData = new FormData();
           fData.append('publicacion', respuesta.id);
-          fData.append('foto', foto);
+          fData.append('imagen', foto);
           try {
             await peticionApi('/api/comunidad/fotos-galeria/', {
               method: 'POST',
@@ -292,89 +328,17 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
     }
   };
 
-  // Renderizador simplificado y limpio para la vista previa con soporte de fotos en texto
+  // Renderizador de Markdown con soporte de fotos en texto, GFM y formato enriquecido
   const renderizarMarkdown = (texto) => {
     if (!texto) return <p style={{ color: 'var(--text-muted)' }}>Escribe algo en el editor para previsualizarlo aquí...</p>;
 
-    const lineas = texto.split('\n');
-    return lineas.map((linea, idx) => {
-      // Imagen en texto ![alt](url)
-      const imgMatch = linea.match(/!\[(.*?)\]\((.*?)\)/);
-      if (imgMatch) {
-        const alt = imgMatch[1];
-        const url = imgMatch[2];
-        return (
-          <div key={idx} style={{ margin: '18px 0', textAlign: 'center' }}>
-            <img
-              src={url}
-              alt={alt || 'Foto paso a paso'}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '420px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                objectFit: 'contain'
-              }}
-            />
-            {alt && alt !== 'Foto' && alt !== 'Foto explicativa' && (
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '6px', fontStyle: 'italic' }}>
-                📷 {alt}
-              </div>
-            )}
-          </div>
-        );
-      }
-
-      // H2
-      if (linea.startsWith('## ')) {
-        return (
-          <h3 key={idx} style={{ fontSize: '1.35rem', fontWeight: 800, marginTop: '22px', marginBottom: '10px', color: 'var(--text-primary)' }}>
-            {linea.replace('## ', '')}
-          </h3>
-        );
-      }
-      // H3
-      if (linea.startsWith('### ')) {
-        return (
-          <h4 key={idx} style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: '18px', marginBottom: '8px', color: 'var(--accent-forest)' }}>
-            {linea.replace('### ', '')}
-          </h4>
-        );
-      }
-      // Cita
-      if (linea.startsWith('> ')) {
-        return (
-          <blockquote key={idx} style={{ margin: '14px 0', padding: '10px 16px', borderLeft: '4px solid var(--accent-forest)', background: 'rgba(255,255,255,0.03)', borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', fontStyle: 'italic', color: 'var(--text-muted)' }}>
-            {linea.replace('> ', '')}
-          </blockquote>
-        );
-      }
-      // Lista no ordenada
-      if (linea.startsWith('- ') || linea.startsWith('* ')) {
-        return (
-          <div key={idx} style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '4px 0 4px 12px' }}>
-            <span style={{ color: 'var(--accent-forest)', fontWeight: 'bold' }}>•</span>
-            <span>{linea.substring(2)}</span>
-          </div>
-        );
-      }
-      // Línea vacía
-      if (!linea.trim()) {
-        return <div key={idx} style={{ height: '12px' }} />;
-      }
-      // Párrafo con soporte básico de **negrita**
-      const partes = linea.split(/(\*\*.*?\*\*)/g);
-      return (
-        <p key={idx} style={{ lineHeight: 1.7, margin: '6px 0', color: 'var(--text-primary)' }}>
-          {partes.map((parte, pIdx) => {
-            if (parte.startsWith('**') && parte.endsWith('**')) {
-              return <strong key={pIdx}>{parte.slice(2, -2)}</strong>;
-            }
-            return parte;
-          })}
-        </p>
-      );
-    });
+    return (
+      <div 
+        className="markdown-body"
+        style={{ color: 'var(--text-primary)', lineHeight: 1.75, fontSize: '0.96rem' }}
+        dangerouslySetInnerHTML={{ __html: renderizarMarkdownHtml(texto) }}
+      />
+    );
   };
 
   return (
@@ -548,54 +512,89 @@ export default function CrearPublicacionTaller({ alVolver, alPublicarExitoso, pu
             />
           </div>
 
-          {/* FOTO DE PORTADA EN DATOS PRINCIPALES (NO OBLIGATORIA) */}
+          {/* FOTO DE PORTADA EN DATOS PRINCIPALES (SUBIDA O URL EXTERNA) */}
           <div className="form-group" style={{ marginBottom: '14px' }}>
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Image size={16} color="var(--accent-forest)" /> Foto de Portada (Opcional)
             </label>
 
             {previewPrincipal ? (
-              <div style={{ position: 'relative', width: '100%', height: '180px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+              <div style={{ position: 'relative', width: '100%', height: '200px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', background: '#0D1A12' }}>
                 <img src={previewPrincipal} alt="Portada" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <button
                   type="button"
-                  onClick={() => { setImagenPrincipal(null); setPreviewPrincipal(null); }}
+                  onClick={() => { setImagenPrincipal(null); setImagenPrincipalUrl(''); setPreviewPrincipal(null); }}
                   style={{
                     position: 'absolute',
                     top: 8,
                     right: 8,
-                    background: 'rgba(0,0,0,0.7)',
+                    background: 'rgba(217, 56, 56, 0.9)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '50%',
-                    width: 28,
-                    height: 28,
+                    width: 30,
+                    height: 30,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
                   }}
                   title="Eliminar foto de portada"
                 >
-                  <X size={14} />
+                  <X size={15} />
                 </button>
+                <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', padding: '3px 8px', borderRadius: 'var(--radius-xs)', fontSize: '0.74rem' }}>
+                  {imagenPrincipal ? 'Archivo subido' : 'URL Externa'}
+                </div>
               </div>
             ) : (
-              <div
-                onClick={() => filePortadaRef.current?.click()}
-                style={{
-                  border: '2px dashed var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '20px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.02)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <Upload size={22} style={{ margin: '0 auto 6px', color: 'var(--accent-forest)', display: 'block' }} />
-                <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Seleccionar Foto de Portada</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px' }}>JPG, PNG o WebP (opcional)</div>
+              <div>
+                <div
+                  onClick={() => filePortadaRef.current?.click()}
+                  style={{
+                    border: '2px dashed var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '20px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.02)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Upload size={22} style={{ margin: '0 auto 6px', color: 'var(--accent-forest)', display: 'block' }} />
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Subir Foto de Portada</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px' }}>JPG, PNG o WebP</div>
+                </div>
+
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                    O introduce la URL de una imagen externa de portada:
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="url"
+                      className="form-control"
+                      placeholder="https://.../portada.jpg"
+                      value={imagenPrincipalUrl}
+                      onChange={(e) => {
+                        const u = e.target.value;
+                        setImagenPrincipalUrl(u);
+                        if (u.startsWith('http://') || u.startsWith('https://')) {
+                          setPreviewPrincipal(u);
+                        }
+                      }}
+                      style={{ fontSize: '0.82rem' }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => { if (imagenPrincipalUrl) setPreviewPrincipal(imagenPrincipalUrl); }}
+                    >
+                      Cargar
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

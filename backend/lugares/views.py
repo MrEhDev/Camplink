@@ -22,12 +22,25 @@ class LugarViewSet(viewsets.ModelViewSet):
         qs = Lugar.objects.all()
         q = self.request.query_params.get('q', None)
         if q:
-            qs = qs.filter(
-                Q(nombre__icontains=q) |
-                Q(poblacion__icontains=q) |
-                Q(provincia__icontains=q) |
-                Q(descripcion__icontains=q)
-            )
+            import unicodedata
+            def normalizar(s):
+                if not s:
+                    return ""
+                return "".join(c for c in unicodedata.normalize('NFD', str(s).lower()) if unicodedata.category(c) != 'Mn')
+
+            q_norm = normalizar(q.strip())
+            matching_ids = []
+            for lugar in qs:
+                nombre_norm = normalizar(lugar.nombre)
+                poblacion_norm = normalizar(lugar.poblacion)
+                provincia_norm = normalizar(lugar.provincia)
+                desc_norm = normalizar(lugar.descripcion)
+                if (q_norm in nombre_norm or 
+                    q_norm in poblacion_norm or 
+                    q_norm in provincia_norm or 
+                    q_norm in desc_norm):
+                    matching_ids.append(lugar.id)
+            qs = qs.filter(id__in=matching_ids)
 
         # Filtro por tipo_lugar
         tipo_lugar = self.request.query_params.get('tipo_lugar', None)

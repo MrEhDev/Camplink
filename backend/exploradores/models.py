@@ -179,7 +179,9 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
         try:
             remitente = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Camplink <notificaciones@camplinkapp.com>')
             asunto = instance.titulo
-            enlace_completo = f"http://localhost:5173{instance.enlace}" if instance.enlace else "http://localhost:5173"
+            base_url = getattr(settings, 'BASE_URL', 'http://localhost:5173').rstrip('/')
+            enlace_completo = f"{base_url}{instance.enlace}" if instance.enlace else base_url
+            logo_url = f"{base_url}/camplink-logo.png" if base_url.startswith('https://') else "https://camplinkapp.com/camplink-logo.png"
 
             texto_boton = "Ver en Camplink"
             if instance.tipo == 'comentario':
@@ -224,7 +226,7 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                         <tr>
                             <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
-                                <img src="cid:camplink-logo.png" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                                <img src="{logo_url}" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                             </td>
                         </tr>
                     </table>

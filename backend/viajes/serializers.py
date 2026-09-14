@@ -52,7 +52,18 @@ class ViajeSerializer(serializers.ModelSerializer):
                 instance.refresh_from_db()
             except Exception:
                 pass
-        return super().to_representation(instance)
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated and instance.explorador_id != request.user.id:
+            remitente_cap = instance.explorador.username.capitalize() if instance.explorador and instance.explorador.username else 'Explorador'
+            data['titulo_original'] = instance.titulo
+            data['titulo'] = f"{instance.titulo} (compartido por {remitente_cap})"
+            data['es_compartido'] = True
+            data['propietario_nombre'] = remitente_cap
+        else:
+            data['es_compartido'] = False
+            data['propietario_nombre'] = instance.explorador.username.capitalize() if instance.explorador and instance.explorador.username else ''
+        return data
 
     def get_tipo_estado(self, obj):
         # Aquí determino si el viaje está finalizado, en curso o planificado para el futuro

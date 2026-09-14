@@ -1,8 +1,9 @@
-// Taller Camplink - Hub unificado de Bricolaje, Mantenimiento, Piezas 3D y Guías Camper
 import React, { useState, useEffect } from 'react';
 import { peticionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LanguageContext';
+import { construirUrlImagen } from '../utils/lugarImagenes';
+import { renderizarMarkdownHtml } from '../utils/markdown';
 import {
   Wrench, Hammer, Box, BookOpen, Shield, PlusCircle, ArrowLeft,
   Calendar, Tag, User, MessageSquare, Download, Send, ExternalLink,
@@ -321,91 +322,15 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
     );
   };
 
-  // Renderizador de contenido con soporte de formato y fotos entre el texto
+  // Renderizador de contenido con soporte de formato Markdown completo (marked GFM)
   const renderizarContenido = (texto) => {
     if (!texto) return null;
-    const lineas = texto.split('\n');
-    return lineas.map((linea, idx) => {
-      // Imagen en texto ![alt](url)
-      const imgMatch = linea.match(/!\[(.*?)\]\((.*?)\)/);
-      if (imgMatch) {
-        const alt = imgMatch[1];
-        const url = imgMatch[2];
-        return (
-          <div key={idx} style={{ margin: '22px 0', textAlign: 'center' }}>
-            <img
-              loading="lazy"
-              decoding="async"
-              src={url}
-              alt={alt || 'Foto explicativa'}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '480px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                objectFit: 'contain'
-              }}
-            />
-            {alt && alt !== 'Foto' && alt !== 'Foto explicativa' && (
-              <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic' }}>
-                📷 {alt}
-              </div>
-            )}
-          </div>
-        );
-      }
-
-      // H2
-      if (linea.startsWith('## ')) {
-        return (
-          <h3 key={idx} style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '26px', marginBottom: '12px', color: 'var(--text-primary)' }}>
-            {linea.replace('## ', '')}
-          </h3>
-        );
-      }
-      // H3
-      if (linea.startsWith('### ')) {
-        return (
-          <h4 key={idx} style={{ fontSize: '1.18rem', fontWeight: 700, marginTop: '20px', marginBottom: '10px', color: 'var(--accent-forest)' }}>
-            {linea.replace('### ', '')}
-          </h4>
-        );
-      }
-      // Cita
-      if (linea.startsWith('> ')) {
-        return (
-          <blockquote key={idx} style={{ margin: '16px 0', padding: '12px 18px', borderLeft: '4px solid var(--accent-forest)', background: 'rgba(255,255,255,0.03)', borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', fontStyle: 'italic', color: 'var(--text-muted)' }}>
-            {linea.replace('> ', '')}
-          </blockquote>
-        );
-      }
-      // Lista no ordenada
-      if (linea.startsWith('- ') || linea.startsWith('* ')) {
-        return (
-          <div key={idx} style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '4px 0 4px 12px' }}>
-            <span style={{ color: 'var(--accent-forest)', fontWeight: 'bold' }}>•</span>
-            <span>{linea.substring(2)}</span>
-          </div>
-        );
-      }
-      // Línea vacía
-      if (!linea.trim()) {
-        return <div key={idx} style={{ height: '12px' }} />;
-      }
-      // Párrafo con soporte básico de **negrita**
-      const partes = linea.split(/(\*\*.*?\*\*)/g);
-      return (
-        <p key={idx} style={{ lineHeight: 1.85, margin: '8px 0', color: 'var(--text-primary)' }}>
-          {partes.map((parte, pIdx) => {
-            if (parte.startsWith('**') && parte.endsWith('**')) {
-              return <strong key={pIdx}>{parte.slice(2, -2)}</strong>;
-            }
-            return parte;
-          })}
-        </p>
-      );
-    });
+    return (
+      <div 
+        className="markdown-taller-body"
+        dangerouslySetInnerHTML={{ __html: renderizarMarkdownHtml(texto) }} 
+      />
+    );
   };
 
   // Eliminar publicación (para administradores y autor)
@@ -635,44 +560,49 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
           </div>
 
           {/* IMAGEN DE PORTADA OPTIMIZADA */}
-          {pub.imagen_principal && (
-            <div
-              style={{
-                width: '100%',
-                maxHeight: '460px',
-                borderRadius: 'var(--radius-md)',
-                overflow: 'hidden',
-                marginBottom: '28px',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                cursor: 'pointer',
-                position: 'relative'
-              }}
-              onClick={() => setLightboxImagen(pub.imagen_principal)}
-              title="Clic para ampliar imagen"
-            >
-              <img
-                src={pub.imagen_principal}
-                alt={pub.titulo}
-                style={{ width: '100%', height: '100%', maxHeight: '460px', objectFit: 'cover', display: 'block' }}
-              />
-              <div style={{
-                position: 'absolute',
-                bottom: '12px',
-                right: '12px',
-                background: 'rgba(0,0,0,0.65)',
-                color: '#FFFFFF',
-                borderRadius: '50px',
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                backdropFilter: 'blur(6px)'
-              }}>
-                <ZoomIn size={13} /> Ampliar
+          {(() => {
+            const imgPortada = pub.imagen_principal_efectiva || pub.imagen_principal_url || pub.imagen_principal;
+            if (!imgPortada) return null;
+            const srcUrl = construirUrlImagen(imgPortada);
+            return (
+              <div
+                style={{
+                  width: '100%',
+                  maxHeight: '460px',
+                  borderRadius: 'var(--radius-md)',
+                  overflow: 'hidden',
+                  marginBottom: '28px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                onClick={() => setLightboxImagen(srcUrl)}
+                title="Clic para ampliar imagen"
+              >
+                <img
+                  src={srcUrl}
+                  alt={pub.titulo}
+                  style={{ width: '100%', height: '100%', maxHeight: '460px', objectFit: 'cover', display: 'block' }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  bottom: '12px',
+                  right: '12px',
+                  background: 'rgba(0,0,0,0.65)',
+                  color: '#FFFFFF',
+                  borderRadius: '50px',
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backdropFilter: 'blur(6px)'
+                }}>
+                  <ZoomIn size={13} /> Ampliar
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* REPRODUCTOR DE VÍDEO (YOUTUBE / TIKTOK) */}
           {renderizarVideo(pub.video_embed_info || pub.video_embed, pub.video_url)}
@@ -715,46 +645,49 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
                 gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                 gap: '14px'
               }}>
-                {pub.galeria.map((imgItem) => (
-                  <div
-                    key={imgItem.id}
-                    onClick={() => setLightboxImagen(imgItem.imagen)}
-                    style={{
-                      position: 'relative',
-                      aspectRatio: '4/3',
-                      borderRadius: 'var(--radius-sm)',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      border: '1px solid var(--border-color)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }}
-                    title={imgItem.pie_de_foto || 'Clic para ampliar'}
-                  >
-                    <img
-                      src={imgItem.imagen}
-                      alt={imgItem.pie_de_foto || 'Detalle'}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      loading="lazy"
-                    />
-                    {imgItem.pie_de_foto && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                        color: '#FFFFFF',
-                        fontSize: '0.72rem',
-                        padding: '12px 8px 4px',
-                        whiteSpace: 'nowrap',
+                {pub.galeria.map((imgItem) => {
+                  const srcItem = construirUrlImagen(imgItem.imagen);
+                  return (
+                    <div
+                      key={imgItem.id}
+                      onClick={() => setLightboxImagen(srcItem)}
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '4/3',
+                        borderRadius: 'var(--radius-sm)',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        {imgItem.pie_de_foto}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                        cursor: 'pointer',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      }}
+                      title={imgItem.pie_de_foto || 'Clic para ampliar'}
+                    >
+                      <img
+                        src={srcItem}
+                        alt={imgItem.pie_de_foto || 'Detalle'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        loading="lazy"
+                      />
+                      {imgItem.pie_de_foto && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                          color: '#FFFFFF',
+                          fontSize: '0.72rem',
+                          padding: '12px 8px 4px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {imgItem.pie_de_foto}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1217,9 +1150,9 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
                   background: 'linear-gradient(135deg, #1B3826 0%, #2A543A 60%, #15291C 100%)',
                   overflow: 'hidden'
                 }}>
-                  {pub.imagen_principal ? (
+                  {(pub.imagen_principal_efectiva || pub.imagen_principal_url || pub.imagen_principal) ? (
                     <img
-                      src={pub.imagen_principal}
+                      src={construirUrlImagen(pub.imagen_principal_efectiva || pub.imagen_principal_url || pub.imagen_principal)}
                       alt={pub.titulo}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       loading="lazy"

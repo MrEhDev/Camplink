@@ -85,15 +85,6 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
             if mensaje_html:
                 payload['htmlContent'] = mensaje_html
 
-            logo_b64 = _obtener_logo_base64()
-            if logo_b64:
-                payload['attachment'] = [
-                    {
-                        'content': logo_b64,
-                        'name': 'camplink-logo.png'
-                    }
-                ]
-
             req = urllib.request.Request(
                 'https://api.brevo.com/v3/smtp/email',
                 data=json.dumps(payload).encode('utf-8'),
@@ -151,14 +142,6 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
                 reply_to=['hola@camplinkapp.com']
             )
             email_msg.attach_alternative(mensaje_html, "text/html")
-            logo_b64 = _obtener_logo_base64()
-            if logo_b64:
-                import base64
-                from email.mime.image import MIMEImage
-                img_mime = MIMEImage(base64.b64decode(logo_b64))
-                img_mime.add_header('Content-ID', '<camplink-logo.png>')
-                img_mime.add_header('Content-Disposition', 'inline', filename='camplink-logo.png')
-                email_msg.attach(img_mime)
             email_msg.send(fail_silently=False)
         else:
             send_mail(
@@ -176,9 +159,13 @@ def enviar_email_transaccional(destinatario, asunto, mensaje_texto, mensaje_html
 
 
 def enviar_correo_verificacion(request, explorador, codigo, uid, token):
-    host = request.get_host()
-    scheme = 'https' if request.is_secure() or 'trycloudflare.com' in host or 'localtunnel.me' in host or 'camplinkapp.com' in host else 'http'
-    enlace = f"{scheme}://{host}/?activar_token={token}&uid={uid}&email={explorador.email}"
+    base_url = getattr(settings, 'BASE_URL', '').rstrip('/')
+    if not base_url:
+        host = request.get_host()
+        scheme = 'https' if request.is_secure() or 'trycloudflare.com' in host or 'localtunnel.me' in host or 'camplinkapp.com' in host else 'http'
+        base_url = f"{scheme}://{host}"
+    enlace = f"{base_url}/?activar_token={token}&uid={uid}&email={explorador.email}"
+    logo_url = f"{base_url}/camplink-logo.png" if base_url.startswith('https://') else "https://camplinkapp.com/camplink-logo.png"
     
     asunto = "🚐 ¡Confirma tu cuenta en Camplink!"
     dest_saludo = (explorador.first_name or explorador.username).capitalize()
@@ -202,7 +189,7 @@ https://camplinkapp.com
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                 <tr>
                     <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
-                        <img src="cid:camplink-logo.png" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                        <img src="{logo_url}" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                     </td>
                 </tr>
             </table>
@@ -454,13 +441,15 @@ def recuperar_password_vista(request):
                 f"El equipo de Camplink\n"
                 f"https://camplinkapp.com"
             )
+            base_url = getattr(settings, 'BASE_URL', 'http://localhost:5173').rstrip('/')
+            logo_url = f"{base_url}/camplink-logo.png" if base_url.startswith('https://') else "https://camplinkapp.com/camplink-logo.png"
             mensaje_rec_html = f"""
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #EDECE6; padding: 24px; border-radius: 16px;">
                 <div style="background: #235334; color: white; padding: 24px; border-radius: 12px; text-align: center;">
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto; text-align: center;">
                 <tr>
                     <td align="center" style="text-align: center; vertical-align: middle; background-color: #ffffff; border-radius: 50%; padding: 4px; width: 68px; height: 68px; box-shadow: 0 4px 10px rgba(0,0,0,0.18);">
-                        <img src="cid:camplink-logo.png" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
+                        <img src="{logo_url}" alt="Camplink" width="68" height="68" border="0" style="display: block; margin: 0 auto; width: 68px; height: 68px; max-width: 68px; max-height: 68px; border-radius: 50%; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic;" />
                     </td>
                 </tr>
             </table>

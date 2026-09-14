@@ -489,8 +489,12 @@ def calcular_metricas_usuario(explorador):
     checkins = list(explorador.checkins.select_related('lugar').all())
     posts = list(explorador.publicaciones.all())
 
-    # 1. Tragamillas: km totales
-    km_totales = sum(v.km_totales for v in viajes)
+    # 1. Tragamillas: km totales solo de viajes con al menos un check-in real confirmado
+    # Los viajes creados manualmente o sin pernocta validada no cuentan para la medalla
+    km_totales = sum(
+        v.km_totales for v in viajes
+        if v.checkins_asociados.exists()
+    )
 
     # 2. Nómada Nocturno: noches de pernocta
     total_noches = sum(c.dias_previstos for c in checkins) if checkins else 0

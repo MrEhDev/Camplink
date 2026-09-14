@@ -3,25 +3,39 @@
 
 import React, { useState } from 'react';
 
-export default function CamperIconRating({ valor = 0, onChange = null, soloLectura = false, tamaño = 'normal' }) {
-  // Aquí dibujo los 5 iconos camper y gestiono el evento de selección
-  const iconos = [1, 2, 3, 4, 5];
-  const estiloTamaño = tamaño === 'grande' ? '1.8rem' : tamaño === 'pequeño' ? '1.1rem' : '1.4rem';
+export default function CamperIconRating({ 
+  valor = null, 
+  rating = null, 
+  onChange = null, 
+  alCambiar = null, 
+  soloLectura = false, 
+  tamaño = 'normal',
+  size = null,
+  maxIcons = 5
+}) {
+  const valorEfectivo = Number(valor != null ? valor : (rating != null ? rating : 0)) || 0;
+  const manejadorCambio = onChange || alCambiar;
+  const tamañoEfectivo = size 
+    ? (typeof size === 'number' ? `${size}px` : size) 
+    : (tamaño === 'grande' ? '1.8rem' : tamaño === 'pequeño' ? '1.1rem' : '1.4rem');
+
+  const iconos = Array.from({ length: maxIcons }, (_, i) => i + 1);
   const [hover, setHover] = useState(0);
 
   return (
-    <div className="camper-rating-selector" style={{ display: 'inline-flex', gap: '4px' }}>
+    <div className="camper-rating-selector" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
       {iconos.map((num) => {
-        const activo = num <= (hover || Math.round(valor));
+        const activo = num <= (hover || Math.round(valorEfectivo));
         return (
           <span
             key={num}
-            onClick={() => !soloLectura && onChange && onChange(num)}
+            onClick={() => !soloLectura && manejadorCambio && manejadorCambio(num)}
             onMouseEnter={() => !soloLectura && setHover(num)}
             onMouseLeave={() => !soloLectura && setHover(0)}
             className={`camper-van-icon ${activo ? 'active' : 'inactive'}`}
             style={{
-              fontSize: estiloTamaño,
+              fontSize: tamañoEfectivo,
+              lineHeight: 1,
               cursor: soloLectura ? 'default' : 'pointer',
               opacity: activo ? 1 : 0.28,
               filter: activo ? 'none' : 'grayscale(100%)',
@@ -29,7 +43,7 @@ export default function CamperIconRating({ valor = 0, onChange = null, soloLectu
               display: 'inline-block',
               transform: hover === num && !soloLectura ? 'scale(1.25)' : 'scale(1)',
             }}
-            title={`${num} de 5 furgonetas camper`}
+            title={`${num} de ${maxIcons} furgonetas camper`}
           >
             🚐
           </span>

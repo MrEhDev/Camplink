@@ -1,35 +1,102 @@
 // Aquí implemento el modal para registrar un Check-in (pernocta),
-// gestionando la estancia prevista, valoración camper y notas privadas exclusivas del explorador.
+// gestionando la estancia prevista, restricción GPS de 20 km, valoración opcional en visitas recurrentes
+// y notas privadas exclusivas del explorador.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { peticionApi } from '../services/api';
 import CamperIconRating from './CamperIconRating';
 import confetti from 'canvas-confetti';
-import { X, Lock, Camera, Calendar, Moon } from 'lucide-react';
+import { X, Lock, Camera, Calendar, Moon, Star } from 'lucide-react';
+import { obtenerPosicionGps, calcularDistanciaKm } from '../utils/geolocation';
 
 export default function ModalCheckIn({ lugar, alCerrar, alCompletar }) {
   // Aquí controlo el estado del formulario de pernocta
   const [diasPrevistos, setDiasPrevistos] = useState(1);
   const [fechaLlegada, setFechaLlegada] = useState(() => new Date().toISOString().split('T')[0]);
-  const [valoracionCamper, setValoracionCamper] = useState(0);
+  const [valoracionCamper, setValoracionCamper] = useState(5);
   const [comentarioPublico, setComentarioPublico] = useState('');
   const [notasPrivadas, setNotasPrivadas] = useState('');
   const [foto, setFoto] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
 
+  // Estados para controlar si el explorador ya ha visitado este lugar previamente
+  const [esPrimeraVez, setEsPrimeraVez] = useState(true);
+  const [mostrarNuevaValoracion, setMostrarNuevaValoracion] = useState(false);
+  const [cargandoHistorial, setCargandoHistorial] = useState(true);
+
+  useEffect(() => {
+    let montado = true;
+    const verificarPernoctasPrevias = async () => {
+      if (!lugar?.id) {
+        setCargandoHistorial(false);
+        return;
+      }
+      try {
+        const checkins = await peticionApi(`/api/diario/checkins/?lugar_id=${lugar.id}&mis_checkins=true`);
+        const lista = Array.isArray(checkins) ? checkins : Array.isArray(checkins?.results) ? checkins.results : [];
+        if (montado) {
+          if (lista.length > 0) {
+            setEsPrimeraVez(false);
+            setValoracionCamper(0); // Opcional por defecto si no es primera vez
+          } else {
+            setEsPrimeraVez(true);
+            setValoracionCamper(5); // Obligatoria/por defecto si es primera vez
+          }
+        }
+      } catch (err) {
+        console.warn('Error al verificar visitas anteriores del lugar:', err);
+      } finally {
+        if (montado) setCargandoHistorial(false);
+      }
+    };
+
+    verificarPernoctasPrevias();
+    return () => { montado = false; };
+  }, [lugar?.id]);
+
   const manejarEnvio = async (e) => {
-    // Aquí proceso el registro de la pernocta y disparo la animación de celebración
     e.preventDefault();
     setEnviando(true);
     setError(null);
+
+    // 1. Restricción de distancia en Check-in: máximo 20 km de cercanía al lugar
+    if (lugar?.latitud != null && lugar?.longitud != null) {
+      try {
+        const pos = await obtenerPosicionGps();
+        const distKm = calcularDistanciaKm(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          parseFloat(lugar.latitud),
+          parseFloat(lugar.longitud)
+        );
+
+        if (distKm == null || distKm > 20) {
+          setError('Acércate más al lugar o activa el GPS');
+          setEnviando(false);
+          return;
+        }
+      } catch (errGps) {
+        console.warn('Fallo al validar GPS durante confirmación de Check-in:', errGps);
+        setError('Acércate más al lugar o activa el GPS');
+        setEnviando(false);
+        return;
+      }
+    }
 
     try {
       const formData = new FormData();
       formData.append('lugar', lugar.id);
       formData.append('dias_previstos', diasPrevistos);
       formData.append('fecha_llegada', `${fechaLlegada}T18:00:00Z`);
-      formData.append('valoracion_camper', valoracionCamper);
+
+      // La valoración se envía si es la primera vez o si el usuario decidió actualizarla
+      if (esPrimeraVez && valoracionCamper > 0) {
+        formData.append('valoracion_camper', valoracionCamper);
+      } else if (!esPrimeraVez && mostrarNuevaValoracion && valoracionCamper > 0) {
+        formData.append('valoracion_camper', valoracionCamper);
+      }
+
       if (comentarioPublico) formData.append('comentario_publico', comentarioPublico);
       if (notasPrivadas) formData.append('notas_privadas', notasPrivadas);
       if (foto) formData.append('foto', foto);
@@ -75,8 +142,21 @@ export default function ModalCheckIn({ lugar, alCerrar, alCompletar }) {
         </div>
 
         {error && (
-          <div style={{ padding: '10px 14px', background: 'rgba(217, 56, 56, 0.1)', color: '#D93838', borderRadius: 'var(--radius-sm)', marginBottom: '16px', fontSize: '0.88rem' }}>
-            ⚠️ {error}
+          <div style={{
+            padding: '12px 16px',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1.5px solid #EF4444',
+            color: '#FCA5A5',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '16px',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>📍</span>
+            <span>{error}</span>
           </div>
         )}
 
@@ -120,11 +200,54 @@ export default function ModalCheckIn({ lugar, alCerrar, alCompletar }) {
             </span>
           </div>
 
-          {/* Valoración con iconos Camper */}
-          <div className="form-group">
-            <label className="form-label">Valoración Camper del Lugar</label>
-            <CamperIconRating valor={valoracionCamper} onChange={setValoracionCamper} tamaño="grande" />
-          </div>
+          {/* VALORACIÓN CAMPER: Obligatoria en primera visita, opcional y plegable si ya visitó antes */}
+          {esPrimeraVez ? (
+            <div className="form-group">
+              <label className="form-label">Valoración Camper del Lugar</label>
+              <CamperIconRating valor={valoracionCamper} onChange={setValoracionCamper} tamaño="grande" />
+            </div>
+          ) : (
+            <div className="form-group" style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              padding: '14px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-color)',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Star size={15} color="#F59E0B" /> Valoración del lugar (Opcional)
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Ya has pernoctado aquí antes. Tu valoración anterior se mantiene activa.
+                  </div>
+                </div>
+                {!mostrarNuevaValoracion && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setMostrarNuevaValoracion(true);
+                      setValoracionCamper(5);
+                    }}
+                    style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    Dejar nueva valoración
+                  </button>
+                )}
+              </div>
+
+              {mostrarNuevaValoracion && (
+                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <label className="form-label" style={{ fontSize: '0.82rem', marginBottom: '6px' }}>
+                    Nueva Puntuación Camper:
+                  </label>
+                  <CamperIconRating valor={valoracionCamper} onChange={setValoracionCamper} tamaño="grande" />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Comentario Público */}
           <div className="form-group">

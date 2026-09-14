@@ -71,6 +71,12 @@ class PublicacionTaller(models.Model):
         blank=True,
         verbose_name='Imagen Principal'
     )
+    imagen_principal_url = models.URLField(
+        max_length=1000,
+        null=True,
+        blank=True,
+        verbose_name='URL Externa de Imagen Principal (alternativa a subir archivo)'
+    )
     video_url = models.URLField(
         max_length=500,
         null=True,
@@ -138,10 +144,12 @@ class PublicacionTaller(models.Model):
                 c += 1
             self.slug = slug
 
-        if self.imagen_principal and hasattr(self.imagen_principal, 'file'):
+        if self.imagen_principal:
             try:
-                if not str(self.imagen_principal.name).endswith('.webp'):
-                    self.imagen_principal = optimizar_imagen(self.imagen_principal)
+                # Comprobar si es un archivo subido en memoria o disco
+                if hasattr(self.imagen_principal, 'file') and self.imagen_principal.name:
+                    if not str(self.imagen_principal.name).endswith('.webp'):
+                        self.imagen_principal = optimizar_imagen(self.imagen_principal)
             except Exception as e:
                 print('Aviso compresión imagen_principal:', e)
 

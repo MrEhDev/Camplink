@@ -4,14 +4,15 @@
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
-
-# Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Carga de variables de entorno desde .env si existe localmente
-load_dotenv(BASE_DIR / '.env')
-load_dotenv(BASE_DIR.parent / '.env')
+try:
+    from dotenv import load_dotenv
+    # Carga de variables de entorno desde .env si existe localmente
+    load_dotenv(BASE_DIR / '.env')
+    load_dotenv(BASE_DIR.parent / '.env')
+except ImportError:
+    pass
 
 # Clave secreta criptográfica
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-camplink-super-secret-key-2026')
@@ -210,3 +211,7 @@ EMAIL_TIMEOUT = 5
 
 default_backend = 'django.core.mail.backends.smtp.EmailBackend' if (EMAIL_HOST_USER and EMAIL_HOST_PASSWORD) else 'django.core.mail.backends.console.EmailBackend'
 EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', default_backend)
+
+# URL base del frontend para enlaces transaccionales y notificaciones
+BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5173').rstrip('/')
+

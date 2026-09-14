@@ -79,8 +79,8 @@ class Lugar(models.Model):
     tiene_senderos_sencillos = models.BooleanField(default=False, verbose_name='Senderos Sencillos de Paseo')
     ideal_ninos_10_anos = models.BooleanField(default=False, verbose_name='Ideal para Niños de 10 Años')
 
-    # Valoración promedio mediante iconos camper (1 a 5)
-    valoracion_media = models.FloatField(default=5.0, verbose_name='Valoración Camper Media')
+    # Valoración promedio mediante iconos camper (0.0 inicial a 5.0)
+    valoracion_media = models.FloatField(default=0.0, verbose_name='Valoración Camper Media')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -95,7 +95,9 @@ class Lugar(models.Model):
         vals = self.valoraciones.all()
         if vals.exists():
             self.valoracion_media = round(sum(v.puntuacion_camper for v in vals) / vals.count(), 1)
-            self.save(update_fields=['valoracion_media'])
+        else:
+            self.valoracion_media = 0.0
+        self.save(update_fields=['valoracion_media'])
 
 
 class FotoLugar(models.Model):

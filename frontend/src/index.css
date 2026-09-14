@@ -2191,3 +2191,72 @@ button {
   background: rgba(0, 0, 0, 0.06);
   color: var(--text-primary);
 }
+
+/* ==========================================================================
+   FORMATO Y TIPOGRAFÍA MARKDOWN (TALLER & GUÍAS)
+   ========================================================================== */
+.markdown-body,
+.markdown-taller-body {
+  color: var(--text-primary);
+  line-height: 1.8;
+  font-size: 0.98rem;
+  word-break: break-word;
+}
+
+.markdown-body p,
+.markdown-taller-body p {
+  margin: 0.85em 0;
+  line-height: 1.8;
+}
+
+.markdown-body h1, .markdown-taller-body h1 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 1.3em 0 0.5em;
+  color: var(--text-primary);
+}
+
+.markdown-body h2, .markdown-taller-body h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 1.2em 0 0.5em;
+  color: var(--text-primary);
+}
+
+.markdown-body h3, .markdown-taller-body h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 1.1em 0 0.4em;
+  color: var(--accent-forest);
+}
+
+.markdown-body ul, .markdown-body ol,
+.markdown-taller-body ul, .markdown-taller-body ol {
+  margin: 0.7em 0;
+  padding-left: 24px;
+}
+
+.markdown-body li, .markdown-taller-body li {
+  margin: 4px 0;
+  line-height: 1.7;
+}
+
+.markdown-body blockquote, .markdown-taller-body blockquote {
+  margin: 16px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--accent-forest);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.markdown-body img, .markdown-taller-body img {
+  max-width: 100%;
+  max-height: 520px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  margin: 16px auto;
+  display: block;
+}

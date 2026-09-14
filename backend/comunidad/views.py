@@ -219,6 +219,44 @@ class PublicacionTallerViewSet(viewsets.ModelViewSet):
         serializer = ComentarioPublicacionSerializer(comentario)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['patch', 'put'], permission_classes=[permissions.IsAuthenticated],
+            url_path='comentarios/(?P<comentario_id>[^/.]+)')
+    def editar_comentario(self, request, pk=None, comentario_id=None):
+        pub = self.get_object()
+        try:
+            comentario = ComentarioPublicacion.objects.get(id=comentario_id, publicacion=pub)
+        except ComentarioPublicacion.DoesNotExist:
+            return Response({'error': 'Comentario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        es_admin = request.user.is_staff or request.user.is_superuser or getattr(request.user, 'rol', '') == 'administrador'
+        if comentario.autor != request.user and not es_admin:
+            return Response({'error': 'No tienes permiso para editar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
+
+        mensaje = request.data.get('mensaje', '').strip()
+        if not mensaje:
+            return Response({'error': 'El mensaje no puede estar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        comentario.mensaje = mensaje
+        comentario.save()
+        serializer = ComentarioPublicacionSerializer(comentario)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['delete'], permission_classes=[permissions.IsAuthenticated],
+            url_path='comentarios/(?P<comentario_id>[^/.]+)/eliminar')
+    def eliminar_comentario(self, request, pk=None, comentario_id=None):
+        pub = self.get_object()
+        try:
+            comentario = ComentarioPublicacion.objects.get(id=comentario_id, publicacion=pub)
+        except ComentarioPublicacion.DoesNotExist:
+            return Response({'error': 'Comentario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        es_admin = request.user.is_staff or request.user.is_superuser or getattr(request.user, 'rol', '') == 'administrador'
+        if comentario.autor != request.user and pub.autor != request.user and not es_admin:
+            return Response({'error': 'No tienes permiso para eliminar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
+
+        comentario.delete()
+        return Response({'eliminado': True, 'total': pub.comentarios.count()}, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def subir_galeria(self, request, pk=None):
         pub = self.get_object()
@@ -251,6 +289,30 @@ class PublicacionTallerViewSet(viewsets.ModelViewSet):
             return Response({'eliminada': True, 'total': pub.galeria.count()}, status=status.HTTP_200_OK)
         except ImagenGaleriaPublicacion.DoesNotExist:
             return Response({'error': 'Imagen no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ComentarioPublicacionViewSet(viewsets.ModelViewSet):
+    # Gestión directa de comentarios de publicaciones del Taller
+    serializer_class = ComentarioPublicacionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    queryset = ComentarioPublicacion.objects.all()
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        es_admin = user.is_staff or user.is_superuser or getattr(user, 'rol', '') == 'administrador'
+        if instance.autor != user and not es_admin:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('No tienes permiso para editar este comentario.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        es_admin = user.is_staff or user.is_superuser or getattr(user, 'rol', '') == 'administrador'
+        if instance.autor != user and instance.publicacion.autor != user and not es_admin:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('No tienes permiso para eliminar este comentario.')
+        instance.delete()
 
 
 class ImagenGaleriaPublicacionViewSet(viewsets.ModelViewSet):

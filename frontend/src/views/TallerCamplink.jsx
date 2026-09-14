@@ -59,6 +59,9 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
   // Comentarios
   const [mensajeComentario, setMensajeComentario] = useState('');
   const [enviandoComentario, setEnviandoComentario] = useState(false);
+  const [editandoComentarioId, setEditandoComentarioId] = useState(null);
+  const [textoComentarioEditado, setTextoComentarioEditado] = useState('');
+  const [guardandoComentarioEdit, setGuardandoComentarioEdit] = useState(false);
 
   // Moderación Admin
   const [modalRechazo, setModalRechazo] = useState(false);
@@ -213,6 +216,54 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
       alert(err.message || 'Error al enviar el comentario.');
     } finally {
       setEnviandoComentario(false);
+    }
+  };
+
+  const iniciarEdicionComentario = (c) => {
+    setEditandoComentarioId(c.id);
+    setTextoComentarioEditado(c.mensaje);
+  };
+
+  const cancelarEdicionComentario = () => {
+    setEditandoComentarioId(null);
+    setTextoComentarioEditado('');
+  };
+
+  const guardarEdicionComentario = async (comentarioId) => {
+    if (!textoComentarioEditado.trim() || !publicacionSeleccionada) return;
+    setGuardandoComentarioEdit(true);
+    try {
+      const res = await peticionApi(`/api/comunidad/publicaciones/${publicacionSeleccionada.id}/comentarios/${comentarioId}/`, {
+        method: 'PATCH',
+        body: { mensaje: textoComentarioEditado.trim() }
+      });
+      setPublicacionSeleccionada(prev => ({
+        ...prev,
+        comentarios: (prev.comentarios || []).map(c => c.id === comentarioId ? { ...c, ...res } : c)
+      }));
+      setEditandoComentarioId(null);
+      setTextoComentarioEditado('');
+    } catch (err) {
+      alert(err.message || 'Error al guardar la edición del comentario.');
+    } finally {
+      setGuardandoComentarioEdit(false);
+    }
+  };
+
+  const eliminarComentarioTaller = async (comentarioId) => {
+    if (!publicacionSeleccionada) return;
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este comentario?')) return;
+    try {
+      await peticionApi(`/api/comunidad/publicaciones/${publicacionSeleccionada.id}/comentarios/${comentarioId}/eliminar/`, {
+        method: 'DELETE'
+      });
+      setPublicacionSeleccionada(prev => ({
+        ...prev,
+        comentarios: (prev.comentarios || []).filter(c => c.id !== comentarioId),
+        comentarios_count: Math.max(0, (prev.comentarios_count || 1) - 1)
+      }));
+    } catch (err) {
+      alert(err.message || 'Error al eliminar el comentario.');
     }
   };
 
@@ -919,48 +970,171 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
           {/* Lista de comentarios */}
           {pub.comentarios && pub.comentarios.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {pub.comentarios.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    background: 'var(--bg-primary)',
-                    padding: '16px 20px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-color)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span
-                      onClick={() => {
-                        const cAutorId = c.autor_detalle?.id || (typeof c.autor === 'number' ? c.autor : null);
-                        if (cAutorId && alVerPerfilUsuario) alVerPerfilUsuario(cAutorId);
-                      }}
-                      style={{
-                        fontWeight: 700,
-                        color: 'var(--accent-forest)',
-                        fontSize: '0.88rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        cursor: (c.autor_detalle?.id || typeof c.autor === 'number') && alVerPerfilUsuario ? 'pointer' : 'default'
-                      }}
-                      title={c.autor_detalle?.username ? `Ver perfil de ${formatearUsuario(c.autor_detalle.username)}` : undefined}
-                    >
-                      <User size={13} /> {formatearUsuario(c.autor_detalle?.username || 'Explorador')}
-                      {c.autor_detalle?.es_admin && <Shield size={12} color="var(--accent-earth)" />}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {new Date(c.fecha_creacion).toLocaleDateString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
+              {pub.comentarios.map((c) => {
+                const esAutorComentario = usuario && (
+                  usuario.id === c.autor ||
+                  usuario.id === c.autor_detalle?.id ||
+                  (usuario.username && c.autor_detalle?.username && usuario.username.toLowerCase() === c.autor_detalle.username.toLowerCase())
+                );
+                const puedeGestionarComentario = esAutorComentario || esAdmin;
+                const estaEditando = editandoComentarioId === c.id;
+
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      background: 'var(--bg-primary)',
+                      padding: '16px 20px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <span
+                        onClick={() => {
+                          const cAutorId = c.autor_detalle?.id || (typeof c.autor === 'number' ? c.autor : null);
+                          if (cAutorId && alVerPerfilUsuario) alVerPerfilUsuario(cAutorId);
+                        }}
+                        style={{
+                          fontWeight: 700,
+                          color: 'var(--accent-forest)',
+                          fontSize: '0.88rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          cursor: (c.autor_detalle?.id || typeof c.autor === 'number') && alVerPerfilUsuario ? 'pointer' : 'default'
+                        }}
+                        title={c.autor_detalle?.username ? `Ver perfil de ${formatearUsuario(c.autor_detalle.username)}` : undefined}
+                      >
+                        <User size={13} /> {formatearUsuario(c.autor_detalle?.username || 'Explorador')}
+                        {c.autor_detalle?.es_admin && <Shield size={12} color="var(--accent-earth)" />}
+                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {new Date(c.fecha_creacion).toLocaleDateString('es-ES', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+
+                        {puedeGestionarComentario && !estaEditando && (
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => iniciarEdicionComentario(c)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'color 0.2s ease'
+                              }}
+                              title="Editar comentario"
+                              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-forest)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => eliminarComentarioTaller(c.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'color 0.2s ease'
+                              }}
+                              title="Eliminar comentario"
+                              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {estaEditando ? (
+                      <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <textarea
+                          value={textoComentarioEditado}
+                          onChange={(e) => setTextoComentarioEditado(e.target.value)}
+                          rows={3}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--accent-forest)',
+                            background: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.92rem',
+                            fontFamily: 'inherit',
+                            resize: 'vertical',
+                            boxSizing: 'border-box'
+                          }}
+                          placeholder="Edita tu comentario..."
+                          autoFocus
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={cancelarEdicionComentario}
+                            disabled={guardandoComentarioEdit}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--bg-secondary)',
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => guardarEdicionComentario(c.id)}
+                            disabled={guardandoComentarioEdit || !textoComentarioEditado.trim()}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'var(--accent-forest)',
+                              color: '#fff',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              opacity: (guardandoComentarioEdit || !textoComentarioEditado.trim()) ? 0.7 : 1
+                            }}
+                          >
+                            {guardandoComentarioEdit ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>
+                        {c.mensaje}
+                      </p>
+                    )}
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>
-                    {c.mensaje}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '24px' }}>

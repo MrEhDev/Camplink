@@ -1,397 +1,397 @@
 [
-{
-  "model": "comunidad.categoriapublicacion",
-  "pk": 2,
-  "fields": {
-    "nombre": "Bricolaje & Camperización",
-    "slug": "bricolaje-camperizacion",
-    "icono": "Hammer",
-    "color": "#F97316",
-    "descripcion": "",
-    "es_fija": true,
-    "fecha_creacion": "2026-09-10T20:03:59.169Z"
+  {
+    "model": "comunidad.categoriapublicacion",
+    "pk": 2,
+    "fields": {
+      "nombre": "Bricolaje & Camperización",
+      "slug": "bricolaje-camperizacion",
+      "icono": "Hammer",
+      "color": "#F97316",
+      "descripcion": "",
+      "es_fija": true,
+      "fecha_creacion": "2026-09-10T20:03:59.169Z"
+    }
+  },
+  {
+    "model": "comunidad.categoriapublicacion",
+    "pk": 4,
+    "fields": {
+      "nombre": "Electrónica y electricidad",
+      "slug": "electricidad-solar",
+      "icono": "Zap",
+      "color": "#EAB308",
+      "descripcion": "",
+      "es_fija": true,
+      "fecha_creacion": "2026-09-10T20:03:59.182Z"
+    }
+  },
+  {
+    "model": "comunidad.categoriapublicacion",
+    "pk": 5,
+    "fields": {
+      "nombre": "Mantenimiento",
+      "slug": "mantenimiento",
+      "icono": "Wrench",
+      "color": "#3B82F6",
+      "descripcion": "",
+      "es_fija": true,
+      "fecha_creacion": "2026-09-10T20:03:59.189Z"
+    }
+  },
+  {
+    "model": "comunidad.categoriapublicacion",
+    "pk": 3,
+    "fields": {
+      "nombre": "Piezas 3D (.STL)",
+      "slug": "piezas-3d-stl",
+      "icono": "Box",
+      "color": "#8B5CF6",
+      "descripcion": "",
+      "es_fija": true,
+      "fecha_creacion": "2026-09-10T20:03:59.175Z"
+    }
+  },
+  {
+    "model": "comunidad.categoriapublicacion",
+    "pk": 1,
+    "fields": {
+      "nombre": "Primeros Auxilios & Seguridad",
+      "slug": "primeros-auxilios-seguridad",
+      "icono": "Shield",
+      "color": "#EF4444",
+      "descripcion": "",
+      "es_fija": true,
+      "fecha_creacion": "2026-09-10T20:03:59.154Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 13,
+    "fields": {
+      "autor": 11,
+      "titulo": "Prueba 3",
+      "slug": "prueba-3",
+      "categoria": 2,
+      "resumen": "Prueba 3",
+      "contenido": "sg",
+      "imagen_principal": "",
+      "video_url": null,
+      "archivo_descargable": "",
+      "enlace_externo": null,
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T22:22:27.810Z",
+      "fecha_actualizacion": "2026-09-10T22:56:38.366Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 12,
+    "fields": {
+      "autor": 2,
+      "titulo": "Test Brico Pending",
+      "slug": "test-brico-pending-1",
+      "categoria": 2,
+      "resumen": "Resumen para revision",
+      "contenido": "Contenido explicativo detallado",
+      "imagen_principal": "",
+      "video_url": null,
+      "archivo_descargable": "",
+      "enlace_externo": null,
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T22:16:45.002Z",
+      "fecha_actualizacion": "2026-09-10T22:38:17.822Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 11,
+    "fields": {
+      "autor": 2,
+      "titulo": "Test Brico Pending",
+      "slug": "test-brico-pending",
+      "categoria": 2,
+      "resumen": "Resumen para revision",
+      "contenido": "Contenido explicativo detallado",
+      "imagen_principal": "",
+      "video_url": null,
+      "archivo_descargable": "",
+      "enlace_externo": null,
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "pendiente",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T22:16:23.067Z",
+      "fecha_actualizacion": "2026-09-10T22:16:23.067Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 10,
+    "fields": {
+      "autor": 1,
+      "titulo": "Prueba admin",
+      "slug": "prueba-admin",
+      "categoria": 2,
+      "resumen": "Prueba admin",
+      "contenido": "asdf",
+      "imagen_principal": "",
+      "video_url": null,
+      "archivo_descargable": "",
+      "enlace_externo": null,
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T22:04:24.599Z",
+      "fecha_actualizacion": "2026-09-10T22:04:24.599Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 6,
+    "fields": {
+      "autor": 11,
+      "titulo": "Prueba",
+      "slug": "prueba",
+      "categoria": null,
+      "resumen": "Esto es una prueba",
+      "contenido": "prueba",
+      "imagen_principal": "taller_portadas/580b57fcd9996e24bc43c316.webp",
+      "video_url": "https://www.youtube.com/watch?v=NJ_Cs458ebA",
+      "archivo_descargable": "",
+      "enlace_externo": null,
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T20:47:05.905Z",
+      "fecha_actualizacion": "2026-09-10T21:16:32.218Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 5,
+    "fields": {
+      "autor": 2,
+      "titulo": "Mesa Plegable en Portón Trasero con Cuerdas Náuticas (En Revisión)",
+      "slug": "mesa-plegable-porton-trasero-revision",
+      "categoria": 2,
+      "resumen": "Brico paso a paso para añadir una mesa abatible en el portón trasero para cocinar fuera.",
+      "contenido": "## Brico de cocina exterior\r\nUna tabla de contrachapado fenólico de abedul de 15mm cortada a 70x35cm. Sujeta con bisagras planas inox y dos cables o cordinos náuticos que aguantan hasta 30kg.sdf",
+      "imagen_principal": "",
+      "video_url": "",
+      "archivo_descargable": "",
+      "enlace_externo": "",
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "pendiente",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T20:04:29.297Z",
+      "fecha_actualizacion": "2026-09-10T21:28:30.525Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 4,
+    "fields": {
+      "autor": 1,
+      "titulo": "Instalación de Batería LiFePO4 con Regulador Solar MPPT",
+      "slug": "instalacion-bateria-lifepo4-regulador-mppt",
+      "categoria": 4,
+      "resumen": "Esquema de instalación para dar el salto de AGM a Litio LiFePO4: dimensionamiento de fusibles Mega/Midi, cálculo de cable y configuración del regulador.",
+      "contenido": "## Ventajas del Litio LiFePO4\r\nUna batería de litio entrega hasta el 90% sin degradarse prematuramente, pesando un 65% menos que una equivalente de ácido/AGM.\r\n\r\n---\r\n\r\n## Puntos criticos de seguridad eléctrica\r\n1. *Fusibles de protección:* Coloca un fusible MEGA de 150A o 200A a menos de 20cm del borne positivo.\r\n2. *Sección de cable:* Para inversores de 1500W-2000W a 12V, utiliza cable de cobre de mínimo 35mm2 o 50mm2.\r\n3. *Regulador MPPT:* Configura absorción a 14.4V y flotación a 13.5V.",
+      "imagen_principal": "",
+      "video_url": "",
+      "archivo_descargable": "",
+      "enlace_externo": "",
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T20:03:59.237Z",
+      "fecha_actualizacion": "2026-09-10T22:19:31.773Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 3,
+    "fields": {
+      "autor": 2,
+      "titulo": "Soporte y Pestillo de Cierre de Ventana Dometic / Seitz en 3D (.STL)",
+      "slug": "soporte-pestillo-ventana-dometic-stl",
+      "categoria": 3,
+      "resumen": "Pieza de recambio reforzada para cierres de ventana camper. Evita comprar el cierre completo por rotura de pestaña. Descarga el .STL listo para laminar.",
+      "contenido": "## ¤Pestaña de ventana rota?\nCon el sol de verano y el uso continuo, las patillas de plastico inyectado de ventanas Dometic suelen partirse con facilidad.\n\n---\n\n## Parámetros de impresión 3D recomendados\n- *Material:* PETG o ABS/ASA. **Nunca uses PLA** porque a más de 50 grados dentro de la furgo se deformará.\n- *Relleno (Infill):* 45% con patrón giroide para absorber vibraciones.\n- *Paredes: Mínimo 4 líneas de perímetro.\n\n¡Descarga el archivo .STL mediante el botón de abajo y pruébalo!",
+      "imagen_principal": "",
+      "video_url": null,
+      "archivo_descargable": "taller_archivos/soporte_pestillo_dometic.stl",
+      "enlace_externo": null,
+      "enlace_externo_texto": "",
+      "es_guia_oficial": false,
+      "destacado": true,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T20:03:59.227Z",
+      "fecha_actualizacion": "2026-09-10T20:03:59.227Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 2,
+    "fields": {
+      "autor": 1,
+      "titulo": "Aislamiento Térmico y Acéstico: Kaiflex vs Armaflex y Trucos de Instalación",
+      "slug": "aislamiento-kaiflex-armaflex-trucos-instalacion",
+      "categoria": 2,
+      "resumen": "Aislar correctamente una furgoneta evita la condensación y el óxido interior. Qué espesor elegir (10mm vs 20mm), preparación de chapa y rotura de puente térmico.",
+      "contenido": "## §Por qué es vital aislar bien?\r\nDurante la noche, dos adultos desprenden más de 1 litro de vapor de agua. Si la chapa metálica está fría, ese vapor se condensa formando agua líquida en los nervios internos.\r\n\r\n---\r\n\r\n## Recomendaciones de aplicación\r\n1. *Espesor de 20mm:* Para techos, paredes y puertas traseras amplias.\r\n2. *Espesor de 10mm:* Para cubrir nervios metálicos y vigas curvas.\r\n3. *Limpieza exhaustiva:* Limpia toda la chapa con alcohol isopropilico antes de pegar.",
+      "imagen_principal": "",
+      "video_url": "https://www.youtube.com/watch?v=LXb3EKWsInQ",
+      "archivo_descargable": "",
+      "enlace_externo": "https://es.wikipedia.org/wiki/Aislamiento_t%C3%A9rmico",
+      "enlace_externo_texto": "Guía de Transmitancia Térmica",
+      "es_guia_oficial": false,
+      "destacado": false,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T20:03:59.215Z",
+      "fecha_actualizacion": "2026-09-10T22:19:55.807Z"
+    }
+  },
+  {
+    "model": "comunidad.publicaciontaller",
+    "pk": 1,
+    "fields": {
+      "autor": 1,
+      "titulo": "Protocolo de Primeros Auxilios y Botiquín Esencial en Ruta Camper",
+      "slug": "protocolo-primeros-auxilios-botiquin-camper",
+      "categoria": 1,
+      "resumen": "Guía médica esencial para furgonetas y autocaravanas. Protocolo PAS (Proteger, Avisar, Socorrer), teléfonos de emergencia europeos y checklist de medicamentos indispensables para viajar seguro.",
+      "contenido": "## 1. El Protocolo P.A.S. (Proteger, Avisar, Socorrer)\n1. *Proteger:* Antes de actuar, asegúate de que el lugar no representa peligro (freno de mano, señalización V-16, chaleco).\n2. *Avisar:* Llama al 112 (número único de emergencias en toda Europa, gratuito y funciona sin sim).\n3. *Socorrer:* No muevas al accidentado a menos que exista riesgo inminente de incendio o caída.\n\n---\n\n## 2. Checklist del Botiquín Camper\n- *Material de Curas: Gasas estériles, vendas cohesivas, suero fisiol÷gico monodosis, clorhexidina y Steri-Strips.\n- *Manta Térmica:* Imprescindible para prevenir hipotermia o golpe de calor.\n- *Herramientas: Tijeras punta roma, pinzas para garrapatas y termómetro.\n- *Medicación Básica:* Analgésicos, antihistamínicos, suero oral y crema para quemaduras.\n\n---\n\n## 3. Localización GPS sin cobertura\nGuarda siempre las coordenadas GPS del lugar de pernocta. Al llamar al 112, dictarlas ahorra minutos criticos de rescate.",
+      "imagen_principal": "",
+      "video_url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "archivo_descargable": "",
+      "enlace_externo": "https://www.cruzroja.es",
+      "enlace_externo_texto": "Cruz Roja Primeros Auxilios",
+      "es_guia_oficial": true,
+      "destacado": true,
+      "estado": "aprobado",
+      "motivo_rechazo": "",
+      "fecha_creacion": "2026-09-10T20:03:59.205Z",
+      "fecha_actualizacion": "2026-09-10T20:43:42.478Z"
+    }
+  },
+  {
+    "model": "comunidad.imagengaleriapublicacion",
+    "pk": 1,
+    "fields": {
+      "publicacion": 6,
+      "imagen": "taller_galeria/PXL_20260113_0741138312.webp",
+      "pie_de_foto": "",
+      "orden": 0,
+      "fecha_subida": "2026-09-10T20:47:06.338Z"
+    }
+  },
+  {
+    "model": "comunidad.imagengaleriapublicacion",
+    "pk": 2,
+    "fields": {
+      "publicacion": 6,
+      "imagen": "taller_galeria/PXL_20260113_0741181232.webp",
+      "pie_de_foto": "",
+      "orden": 1,
+      "fecha_subida": "2026-09-10T20:47:06.730Z"
+    }
+  },
+  {
+    "model": "comunidad.comentariopublicacion",
+    "pk": 1,
+    "fields": {
+      "publicacion": 6,
+      "autor": 1,
+      "mensaje": "prueba",
+      "archivo_adjunto": "",
+      "fecha_creacion": "2026-09-10T22:05:58.363Z"
+    }
+  },
+  {
+    "model": "comunidad.comentariopublicacion",
+    "pk": 2,
+    "fields": {
+      "publicacion": 10,
+      "autor": 11,
+      "mensaje": "Prueba",
+      "archivo_adjunto": "",
+      "fecha_creacion": "2026-09-10T22:38:39.692Z"
+    }
+  },
+  {
+    "model": "comunidad.articuloguia",
+    "pk": 2,
+    "fields": {
+      "autor": 1,
+      "titulo": "Guía Completa de Baterías LiFePO4 vs Baterías AGM",
+      "slug": "baterias-lifepo4-vs-agm",
+      "categoria": "electricidad",
+      "resumen": "Todo lo que necesitas saber sobre ciclos de carga, peso, profundidad de descarga (DOD) y boosters para tu instalación eléctrica.",
+      "contenido": "La transición a litio ferrofosfato (LiFePO4) es una de las mejores inversiones para cualquier viajero que pase semanas desconectado de la red eléctrica. Analizamos curvas de voltaje y configuraciones seguras con relés y BMS.",
+      "imagen_cabecera": "",
+      "destacado": true,
+      "fecha_publicacion": "2026-09-07T10:33:30.096Z"
+    }
+  },
+  {
+    "model": "comunidad.articuloguia",
+    "pk": 1,
+    "fields": {
+      "autor": 1,
+      "titulo": "Servidores Multimedia Offline para Días de Lluvia en la Furgo",
+      "slug": "servidores-multimedia-offline-furgo",
+      "categoria": "tecnologia_offline",
+      "resumen": "Aprende a configurar una Raspberry Pi con Jellyfin o Plex y un disco SSD para ver cine y series sin consumir datos móviles.",
+      "contenido": "Cuando las tormentas azotan la costa o la montaña y estás dentro de tu camper, contar con entretenimiento sin conexión es oro puro. En esta guía paso a paso te explico cómo instalar un servidor multimedia portátil alimentado por USB de 5V y cómo conectar tus tablets o teléfonos a la red WiFi local sin gastar gigas.",
+      "imagen_cabecera": "",
+      "destacado": true,
+      "fecha_publicacion": "2026-09-07T10:33:30.079Z"
+    }
+  },
+  {
+    "model": "comunidad.temataller",
+    "pk": 2,
+    "fields": {
+      "autor": 2,
+      "categoria": "mantenimiento",
+      "titulo": "Mantenimiento preventivo de la bomba Shurflo / Fiamma",
+      "descripcion": "Guía rápida para purgar y descalcificar los filtros del vaso de expansión antes del invierno para evitar roturas por heladas.",
+      "archivo_stl": "",
+      "imagen_adjunta": "",
+      "fecha_creacion": "2026-09-07T10:33:30.110Z"
+    }
+  },
+  {
+    "model": "comunidad.temataller",
+    "pk": 1,
+    "fields": {
+      "autor": 2,
+      "categoria": "piezas_3d",
+      "titulo": "Soporte articulado 3D para grifo extensible de fregadero",
+      "descripcion": "He diseñado en Fusion 360 este soporte para que el grifo no vibre durante la conducción por pistas forestales. Incluyo recomendaciones de impresión en PETG resistente a altas temperaturas en el habitáculo.",
+      "archivo_stl": "",
+      "imagen_adjunta": "",
+      "fecha_creacion": "2026-09-07T10:33:30.103Z"
+    }
   }
-},
-{
-  "model": "comunidad.categoriapublicacion",
-  "pk": 4,
-  "fields": {
-    "nombre": "Electrónica y electricidad",
-    "slug": "electricidad-solar",
-    "icono": "Zap",
-    "color": "#EAB308",
-    "descripcion": "",
-    "es_fija": true,
-    "fecha_creacion": "2026-09-10T20:03:59.182Z"
-  }
-},
-{
-  "model": "comunidad.categoriapublicacion",
-  "pk": 5,
-  "fields": {
-    "nombre": "Mantenimiento",
-    "slug": "mantenimiento",
-    "icono": "Wrench",
-    "color": "#3B82F6",
-    "descripcion": "",
-    "es_fija": true,
-    "fecha_creacion": "2026-09-10T20:03:59.189Z"
-  }
-},
-{
-  "model": "comunidad.categoriapublicacion",
-  "pk": 3,
-  "fields": {
-    "nombre": "Piezas 3D (.STL)",
-    "slug": "piezas-3d-stl",
-    "icono": "Box",
-    "color": "#8B5CF6",
-    "descripcion": "",
-    "es_fija": true,
-    "fecha_creacion": "2026-09-10T20:03:59.175Z"
-  }
-},
-{
-  "model": "comunidad.categoriapublicacion",
-  "pk": 1,
-  "fields": {
-    "nombre": "Primeros Auxilios & Seguridad",
-    "slug": "primeros-auxilios-seguridad",
-    "icono": "Shield",
-    "color": "#EF4444",
-    "descripcion": "",
-    "es_fija": true,
-    "fecha_creacion": "2026-09-10T20:03:59.154Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 13,
-  "fields": {
-    "autor": 11,
-    "titulo": "Prueba 3",
-    "slug": "prueba-3",
-    "categoria": 2,
-    "resumen": "Prueba 3",
-    "contenido": "sg",
-    "imagen_principal": "",
-    "video_url": null,
-    "archivo_descargable": "",
-    "enlace_externo": null,
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T22:22:27.810Z",
-    "fecha_actualizacion": "2026-09-10T22:56:38.366Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 12,
-  "fields": {
-    "autor": 2,
-    "titulo": "Test Brico Pending",
-    "slug": "test-brico-pending-1",
-    "categoria": 2,
-    "resumen": "Resumen para revision",
-    "contenido": "Contenido explicativo detallado",
-    "imagen_principal": "",
-    "video_url": null,
-    "archivo_descargable": "",
-    "enlace_externo": null,
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T22:16:45.002Z",
-    "fecha_actualizacion": "2026-09-10T22:38:17.822Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 11,
-  "fields": {
-    "autor": 2,
-    "titulo": "Test Brico Pending",
-    "slug": "test-brico-pending",
-    "categoria": 2,
-    "resumen": "Resumen para revision",
-    "contenido": "Contenido explicativo detallado",
-    "imagen_principal": "",
-    "video_url": null,
-    "archivo_descargable": "",
-    "enlace_externo": null,
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "pendiente",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T22:16:23.067Z",
-    "fecha_actualizacion": "2026-09-10T22:16:23.067Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 10,
-  "fields": {
-    "autor": 1,
-    "titulo": "Prueba admin",
-    "slug": "prueba-admin",
-    "categoria": 2,
-    "resumen": "Prueba admin",
-    "contenido": "asdf",
-    "imagen_principal": "",
-    "video_url": null,
-    "archivo_descargable": "",
-    "enlace_externo": null,
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T22:04:24.599Z",
-    "fecha_actualizacion": "2026-09-10T22:04:24.599Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 6,
-  "fields": {
-    "autor": 11,
-    "titulo": "Prueba",
-    "slug": "prueba",
-    "categoria": null,
-    "resumen": "Esto es una prueba",
-    "contenido": "prueba",
-    "imagen_principal": "taller_portadas/580b57fcd9996e24bc43c316.webp",
-    "video_url": "https://www.youtube.com/watch?v=NJ_Cs458ebA",
-    "archivo_descargable": "",
-    "enlace_externo": null,
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T20:47:05.905Z",
-    "fecha_actualizacion": "2026-09-10T21:16:32.218Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 5,
-  "fields": {
-    "autor": 2,
-    "titulo": "Mesa Plegable en Portón Trasero con Cuerdas Náuticas (En Revisión)",
-    "slug": "mesa-plegable-porton-trasero-revision",
-    "categoria": 2,
-    "resumen": "Brico paso a paso para añadir una mesa abatible en el portón trasero para cocinar fuera.",
-    "contenido": "## Brico de cocina exterior\r\nUna tabla de contrachapado fenólico de abedul de 15mm cortada a 70x35cm. Sujeta con bisagras planas inox y dos cables o cordinos náuticos que aguantan hasta 30kg.sdf",
-    "imagen_principal": "",
-    "video_url": "",
-    "archivo_descargable": "",
-    "enlace_externo": "",
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "pendiente",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T20:04:29.297Z",
-    "fecha_actualizacion": "2026-09-10T21:28:30.525Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 4,
-  "fields": {
-    "autor": 1,
-    "titulo": "Instalación de Batería LiFePO4 con Regulador Solar MPPT",
-    "slug": "instalacion-bateria-lifepo4-regulador-mppt",
-    "categoria": 4,
-    "resumen": "Esquema de instalación para dar el salto de AGM a Litio LiFePO4: dimensionamiento de fusibles Mega/Midi, cálculo de cable y configuración del regulador.",
-    "contenido": "## Ventajas del Litio LiFePO4\r\nUna batería de litio entrega hasta el 90% sin degradarse prematuramente, pesando un 65% menos que una equivalente de ácido/AGM.\r\n\r\n---\r\n\r\n## Puntos criticos de seguridad eléctrica\r\n1. *Fusibles de protección:* Coloca un fusible MEGA de 150A o 200A a menos de 20cm del borne positivo.\r\n2. *Sección de cable:* Para inversores de 1500W-2000W a 12V, utiliza cable de cobre de mínimo 35mm2 o 50mm2.\r\n3. *Regulador MPPT:* Configura absorción a 14.4V y flotación a 13.5V.",
-    "imagen_principal": "",
-    "video_url": "",
-    "archivo_descargable": "",
-    "enlace_externo": "",
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T20:03:59.237Z",
-    "fecha_actualizacion": "2026-09-10T22:19:31.773Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 3,
-  "fields": {
-    "autor": 2,
-    "titulo": "Soporte y Pestillo de Cierre de Ventana Dometic / Seitz en 3D (.STL)",
-    "slug": "soporte-pestillo-ventana-dometic-stl",
-    "categoria": 3,
-    "resumen": "Pieza de recambio reforzada para cierres de ventana camper. Evita comprar el cierre completo por rotura de pestaña. Descarga el .STL listo para laminar.",
-    "contenido": "## ¤Pestaña de ventana rota?\nCon el sol de verano y el uso continuo, las patillas de plastico inyectado de ventanas Dometic suelen partirse con facilidad.\n\n---\n\n## Parámetros de impresión 3D recomendados\n- *Material:* PETG o ABS/ASA. **Nunca uses PLA** porque a más de 50 grados dentro de la furgo se deformará.\n- *Relleno (Infill):* 45% con patrón giroide para absorber vibraciones.\n- *Paredes: Mínimo 4 líneas de perímetro.\n\n¡Descarga el archivo .STL mediante el botón de abajo y pruébalo!",
-    "imagen_principal": "",
-    "video_url": null,
-    "archivo_descargable": "taller_archivos/soporte_pestillo_dometic.stl",
-    "enlace_externo": null,
-    "enlace_externo_texto": "",
-    "es_guia_oficial": false,
-    "destacado": true,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T20:03:59.227Z",
-    "fecha_actualizacion": "2026-09-10T20:03:59.227Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 2,
-  "fields": {
-    "autor": 1,
-    "titulo": "Aislamiento Térmico y Acéstico: Kaiflex vs Armaflex y Trucos de Instalación",
-    "slug": "aislamiento-kaiflex-armaflex-trucos-instalacion",
-    "categoria": 2,
-    "resumen": "Aislar correctamente una furgoneta evita la condensación y el óxido interior. Qué espesor elegir (10mm vs 20mm), preparación de chapa y rotura de puente térmico.",
-    "contenido": "## §Por qué es vital aislar bien?\r\nDurante la noche, dos adultos desprenden más de 1 litro de vapor de agua. Si la chapa metálica está fría, ese vapor se condensa formando agua líquida en los nervios internos.\r\n\r\n---\r\n\r\n## Recomendaciones de aplicación\r\n1. *Espesor de 20mm:* Para techos, paredes y puertas traseras amplias.\r\n2. *Espesor de 10mm:* Para cubrir nervios metálicos y vigas curvas.\r\n3. *Limpieza exhaustiva:* Limpia toda la chapa con alcohol isopropilico antes de pegar.",
-    "imagen_principal": "",
-    "video_url": "https://www.youtube.com/watch?v=LXb3EKWsInQ",
-    "archivo_descargable": "",
-    "enlace_externo": "https://es.wikipedia.org/wiki/Aislamiento_t%C3%A9rmico",
-    "enlace_externo_texto": "Guía de Transmitancia Térmica",
-    "es_guia_oficial": false,
-    "destacado": false,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T20:03:59.215Z",
-    "fecha_actualizacion": "2026-09-10T22:19:55.807Z"
-  }
-},
-{
-  "model": "comunidad.publicaciontaller",
-  "pk": 1,
-  "fields": {
-    "autor": 1,
-    "titulo": "Protocolo de Primeros Auxilios y Botiquín Esencial en Ruta Camper",
-    "slug": "protocolo-primeros-auxilios-botiquin-camper",
-    "categoria": 1,
-    "resumen": "Guía médica esencial para furgonetas y autocaravanas. Protocolo PAS (Proteger, Avisar, Socorrer), teléfonos de emergencia europeos y checklist de medicamentos indispensables para viajar seguro.",
-    "contenido": "## 1. El Protocolo P.A.S. (Proteger, Avisar, Socorrer)\n1. *Proteger:* Antes de actuar, asegúate de que el lugar no representa peligro (freno de mano, señalización V-16, chaleco).\n2. *Avisar:* Llama al 112 (número único de emergencias en toda Europa, gratuito y funciona sin sim).\n3. *Socorrer:* No muevas al accidentado a menos que exista riesgo inminente de incendio o caída.\n\n---\n\n## 2. Checklist del Botiquín Camper\n- *Material de Curas: Gasas estériles, vendas cohesivas, suero fisiol÷gico monodosis, clorhexidina y Steri-Strips.\n- *Manta Térmica:* Imprescindible para prevenir hipotermia o golpe de calor.\n- *Herramientas: Tijeras punta roma, pinzas para garrapatas y termómetro.\n- *Medicación Básica:* Analgésicos, antihistamínicos, suero oral y crema para quemaduras.\n\n---\n\n## 3. Localización GPS sin cobertura\nGuarda siempre las coordenadas GPS del lugar de pernocta. Al llamar al 112, dictarlas ahorra minutos criticos de rescate.",
-    "imagen_principal": "",
-    "video_url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
-    "archivo_descargable": "",
-    "enlace_externo": "https://www.cruzroja.es",
-    "enlace_externo_texto": "Cruz Roja Primeros Auxilios",
-    "es_guia_oficial": true,
-    "destacado": true,
-    "estado": "aprobado",
-    "motivo_rechazo": "",
-    "fecha_creacion": "2026-09-10T20:03:59.205Z",
-    "fecha_actualizacion": "2026-09-10T20:43:42.478Z"
-  }
-},
-{
-  "model": "comunidad.imagengaleriapublicacion",
-  "pk": 1,
-  "fields": {
-    "publicacion": 6,
-    "imagen": "taller_galeria/PXL_20260113_0741138312.webp",
-    "pie_de_foto": "",
-    "orden": 0,
-    "fecha_subida": "2026-09-10T20:47:06.338Z"
-  }
-},
-{
-  "model": "comunidad.imagengaleriapublicacion",
-  "pk": 2,
-  "fields": {
-    "publicacion": 6,
-    "imagen": "taller_galeria/PXL_20260113_0741181232.webp",
-    "pie_de_foto": "",
-    "orden": 1,
-    "fecha_subida": "2026-09-10T20:47:06.730Z"
-  }
-},
-{
-  "model": "comunidad.comentariopublicacion",
-  "pk": 1,
-  "fields": {
-    "publicacion": 6,
-    "autor": 1,
-    "mensaje": "prueba",
-    "archivo_adjunto": "",
-    "fecha_creacion": "2026-09-10T22:05:58.363Z"
-  }
-},
-{
-  "model": "comunidad.comentariopublicacion",
-  "pk": 2,
-  "fields": {
-    "publicacion": 10,
-    "autor": 11,
-    "mensaje": "Prueba",
-    "archivo_adjunto": "",
-    "fecha_creacion": "2026-09-10T22:38:39.692Z"
-  }
-},
-{
-  "model": "comunidad.articuloguia",
-  "pk": 2,
-  "fields": {
-    "autor": 1,
-    "titulo": "Guía Completa de Baterías LiFePO4 vs Baterías AGM",
-    "slug": "baterias-lifepo4-vs-agm",
-    "categoria": "electricidad",
-    "resumen": "Todo lo que necesitas saber sobre ciclos de carga, peso, profundidad de descarga (DOD) y boosters para tu instalación eléctrica.",
-    "contenido": "La transición a litio ferrofosfato (LiFePO4) es una de las mejores inversiones para cualquier viajero que pase semanas desconectado de la red eléctrica. Analizamos curvas de voltaje y configuraciones seguras con relés y BMS.",
-    "imagen_cabecera": "",
-    "destacado": true,
-    "fecha_publicacion": "2026-09-07T10:33:30.096Z"
-  }
-},
-{
-  "model": "comunidad.articuloguia",
-  "pk": 1,
-  "fields": {
-    "autor": 1,
-    "titulo": "Servidores Multimedia Offline para Días de Lluvia en la Furgo",
-    "slug": "servidores-multimedia-offline-furgo",
-    "categoria": "tecnologia_offline",
-    "resumen": "Aprende a configurar una Raspberry Pi con Jellyfin o Plex y un disco SSD para ver cine y series sin consumir datos móviles.",
-    "contenido": "Cuando las tormentas azotan la costa o la montaña y estás dentro de tu camper, contar con entretenimiento sin conexión es oro puro. En esta guía paso a paso te explico cómo instalar un servidor multimedia portátil alimentado por USB de 5V y cómo conectar tus tablets o teléfonos a la red WiFi local sin gastar gigas.",
-    "imagen_cabecera": "",
-    "destacado": true,
-    "fecha_publicacion": "2026-09-07T10:33:30.079Z"
-  }
-},
-{
-  "model": "comunidad.temataller",
-  "pk": 2,
-  "fields": {
-    "autor": 2,
-    "categoria": "mantenimiento",
-    "titulo": "Mantenimiento preventivo de la bomba Shurflo / Fiamma",
-    "descripcion": "Guía rápida para purgar y descalcificar los filtros del vaso de expansión antes del invierno para evitar roturas por heladas.",
-    "archivo_stl": "",
-    "imagen_adjunta": "",
-    "fecha_creacion": "2026-09-07T10:33:30.110Z"
-  }
-},
-{
-  "model": "comunidad.temataller",
-  "pk": 1,
-  "fields": {
-    "autor": 2,
-    "categoria": "piezas_3d",
-    "titulo": "Soporte articulado 3D para grifo extensible de fregadero",
-    "descripcion": "He diseñado en Fusion 360 este soporte para que el grifo no vibre durante la conducción por pistas forestales. Incluyo recomendaciones de impresión en PETG resistente a altas temperaturas en el habitáculo.",
-    "archivo_stl": "",
-    "imagen_adjunta": "",
-    "fecha_creacion": "2026-09-07T10:33:30.103Z"
-  }
-}
 ]

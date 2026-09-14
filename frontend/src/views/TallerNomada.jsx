@@ -245,7 +245,7 @@ export default function TallerNomada() {
           className={`btn btn-sm ${categoriaActiva === 'piezas_3d' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setCategoriaActiva('piezas_3d')}
         >
-          <Box size={14} /> Piezas 3D (.STL)
+          <Box size={14} /> Piezas 3D
         </button>
       </div>
 

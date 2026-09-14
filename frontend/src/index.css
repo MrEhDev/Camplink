@@ -348,6 +348,10 @@ button {
     display: flex !important;
   }
 
+  .navbar-actions {
+    gap: 22px !important;
+  }
+
   .navbar-inner {
     height: 64px;
   }

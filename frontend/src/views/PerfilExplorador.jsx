@@ -613,6 +613,53 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
     }
   };
 
+  const eliminarViaje = async (viajeId) => {
+    if (!window.confirm('¿Seguro que deseas eliminar este viaje? Esta acción no se puede deshacer.')) return;
+    try {
+      await peticionApi(`/api/viajes/viajes/${viajeId}/`, {
+        method: 'DELETE'
+      });
+      setViajes(prev => prev.filter(v => v.id !== viajeId));
+      setViajesExpandidos(prev => {
+        const c = { ...prev };
+        delete c[viajeId];
+        return c;
+      });
+    } catch (err) {
+      console.error('Error al eliminar viaje:', err);
+      alert('No se pudo eliminar el viaje.');
+    }
+  };
+
+  const eliminarParadaEnViaje = async (viajeId, paradaIdx, parada) => {
+    const nombreParada = parada?.nombre ? parada.nombre.replace(/^(Salida|Vuelta):\s*/i, '') : `Parada #${paradaIdx + 1}`;
+    if (!window.confirm(`¿Seguro que deseas eliminar la parada "${nombreParada}" de este viaje?`)) return;
+    try {
+      const res = await peticionApi(`/api/viajes/viajes/${viajeId}/eliminar-parada/`, {
+        method: 'POST',
+        body: { indice: paradaIdx }
+      });
+      if (res?.viaje) {
+        setViajes(prev => prev.map(v => v.id === viajeId ? res.viaje : v));
+      } else {
+        setViajes(prev => prev.map(v => {
+          if (v.id !== viajeId) return v;
+          const paradasAct = [...(v.resumen_ruta || [])];
+          paradasAct.splice(paradaIdx, 1);
+          return { ...v, resumen_ruta: paradasAct };
+        }));
+      }
+      setGeometriasRutasViajes(prev => {
+        const copia = { ...prev };
+        delete copia[viajeId];
+        return copia;
+      });
+    } catch (err) {
+      console.error('Error al eliminar parada:', err);
+      alert('No se pudo eliminar la parada del viaje.');
+    }
+  };
+
   // Gestión de grupos
   const crearGrupo = async (e) => {
     e.preventDefault();
@@ -1288,7 +1335,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => setViajeSeleccionadoParaPdf(viaje)}
@@ -1304,6 +1351,17 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                         >
                           <span>{expandido ? 'Ocultar Detalle' : 'Ver Detalle'}</span>
                           {expandido ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => eliminarViaje(viaje.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.35)' }}
+                          title="Eliminar este viaje"
+                        >
+                          <Trash2 size={15} />
+                          <span>Eliminar</span>
                         </button>
                       </div>
                     </div>
@@ -1533,16 +1591,30 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                                       </div>
                                     </div>
 
-                                    {permiteVerFicha && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {permiteVerFicha && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                          onClick={() => alSeleccionarLugar(lugarId)}
+                                        >
+                                          Ver Ficha ↗
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
                                         className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '0.76rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                        onClick={() => alSeleccionarLugar(lugarId)}
+                                        style={{ fontSize: '0.76rem', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', color: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          eliminarParadaEnViaje(viaje.id, idx, p);
+                                        }}
+                                        title={`Eliminar parada ${p.nombre || ''}`}
                                       >
-                                        Ver Ficha ↗
+                                        <Trash2 size={14} />
                                       </button>
-                                    )}
+                                    </div>
                                   </div>
                                 );
                               });

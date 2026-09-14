@@ -485,8 +485,31 @@ export default function Navbar({
         <div className="camplink-container">
           <div className="navbar-inner" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box' }}>
             
-            {/* LADO IZQUIERDO: ISOTIPO LOGO DE LA WEB */}
+            {/* LADO IZQUIERDO: BOTÓN HAMBURGUESA TABLET + LOGO */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* BOTÓN HAMBURGUESA TABLET */}
+              <button 
+                type="button"
+                className="btn-hamburger mobile-nav-toggle"
+                onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}
+                style={{
+                  height: '38px',
+                  width: '38px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: menuMovilAbierto ? 'var(--accent-forest)' : 'var(--bg-glass)',
+                  color: menuMovilAbierto ? '#FFFFFF' : 'var(--text-primary)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+                title="Abrir menú de navegación"
+              >
+                {menuMovilAbierto ? <X size={19} /> : <Menu size={19} />}
+              </button>
+
               <div 
                 className="navbar-brand" 
                 onClick={() => navegar(usuario ? 'home' : 'landing')} 
@@ -563,7 +586,7 @@ export default function Navbar({
             )}
 
             {/* LADO DERECHO: ACCIONES RÁPIDAS + TEMA + IDIOMA + PERFIL */}
-            <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+            <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
               {renderBotonTema()}
               {renderBotonIdioma()}
               {renderCampanaNotificaciones()}
@@ -670,6 +693,115 @@ export default function Navbar({
             </div>
           </div>
         </div>
+
+        {/* MENÚ DESPLEGABLE EN VISTA TABLET */}
+        {menuMovilAbierto && (
+          <div className="mobile-nav-dropdown" style={{
+            position: 'absolute',
+            top: '64px',
+            left: 0,
+            right: 0,
+            width: '100%',
+            background: 'var(--bg-surface-elevated)',
+            backdropFilter: 'blur(25px)',
+            WebkitBackdropFilter: 'blur(25px)',
+            borderBottom: '2px solid var(--border-color)',
+            boxShadow: '0 16px 36px rgba(0, 0, 0, 0.45)',
+            zIndex: 1005,
+            padding: '16px 20px 24px',
+            boxSizing: 'border-box'
+          }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {usuario ? (
+                <>
+                  <li>
+                    <button
+                      className={`nav-link ${vistaActiva === 'diario' ? 'active' : ''}`}
+                      onClick={() => navegar('diario')}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem' }}
+                    >
+                      <Compass size={18} color="var(--accent-forest)" />
+                      <span>{t('nav_diario')}</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`nav-link ${vistaActiva === 'descubre_lista' ? 'active' : ''}`}
+                      onClick={() => navegar('descubre_lista')}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem' }}
+                    >
+                      <Navigation size={18} color="#38BDF8" />
+                      <span>{t('nav_lugares', 'Lugares')}</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`nav-link ${vistaActiva === 'descubre' ? 'active' : ''}`}
+                      onClick={() => navegar('descubre')}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem' }}
+                    >
+                      <Map size={18} color="var(--accent-earth)" />
+                      <span>{t('nav_descubre', 'Mapa')}</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`nav-link ${vistaActiva === 'organizar' ? 'active' : ''}`}
+                      onClick={() => navegar('organizar')}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem' }}
+                    >
+                      <Route size={18} color="#8B5CF6" />
+                      <span>Organizar Viaje</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`nav-link ${vistaActiva === 'taller' || vistaActiva === 'taller_crear' || vistaActiva === 'guia' ? 'active' : ''}`}
+                      onClick={() => navegar('taller')}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem' }}
+                    >
+                      <Wrench size={18} color="var(--accent-forest)" />
+                      <span>{t('nav_taller')}</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={`nav-link ${vistaActiva === 'perfil' ? 'active' : ''}`}
+                      onClick={() => navegar('perfil')}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem' }}
+                    >
+                      <User size={18} color="#EAB308" />
+                      <span>Mi Perfil (@{usuario.username})</span>
+                    </button>
+                  </li>
+                  <li style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
+                    <button
+                      className="nav-link"
+                      onClick={manejarLogout}
+                      style={{ width: '100%', height: '44px', justifyContent: 'flex-start', padding: '0 16px', gap: '10px', fontSize: '0.95rem', color: '#EF4444' }}
+                    >
+                      <LogOut size={18} />
+                      <span>{t('nav_logout')}</span>
+                    </button>
+                  </li>
+                </>
+              ) : (
+                <li>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      abrirLoginModal();
+                      setMenuMovilAbierto(false);
+                    }}
+                    style={{ width: '100%', height: '44px', justifyContent: 'center' }}
+                  >
+                    <LogIn size={18} /> <span>{t('nav_login')}</span>
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
       </header>
 
       {/* 2. CONTROLES FLOTANTES SUPERIORES EN MÓVIL (TEMA + IDIOMA A LA IZQUIERDA, NOTIFICACIONES A LA DERECHA) */}

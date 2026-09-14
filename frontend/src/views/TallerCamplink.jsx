@@ -337,9 +337,9 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
   const renderizarContenido = (texto) => {
     if (!texto) return null;
     return (
-      <div 
+      <div
         className="markdown-taller-body"
-        dangerouslySetInnerHTML={{ __html: renderizarMarkdownHtml(texto) }} 
+        dangerouslySetInnerHTML={{ __html: renderizarMarkdownHtml(texto) }}
       />
     );
   };
@@ -1025,7 +1025,7 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
           style={{ borderRadius: '50px', fontSize: '0.84rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           <span>✨</span>
-          <span>Todas las Categorías</span>
+          <span>Todas</span>
         </button>
 
         {(Array.isArray(categorias) ? categorias : []).map((cat) => (
@@ -1072,7 +1072,7 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
             }}
           >
             <Shield size={14} />
-            <span>Pendientes de Revisión</span>
+            <span>Revisión</span>
             {conteoPendientes > 0 && (
               <span style={{
                 background: '#EF4444',
@@ -1139,29 +1139,6 @@ export default function TallerCamplink({ alCrearPublicacion, alEditarPublicacion
             </button>
           )}
         </div>
-
-        {/* Filtro Rápido 3D (.STL / .3MF) */}
-        <button
-          className={`btn btn-sm ${filtro3D ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setFiltro3D(!filtro3D)}
-          style={{
-            height: '42px',
-            borderRadius: 'var(--radius-full)',
-            padding: '0 16px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '7px',
-            fontWeight: 700,
-            fontSize: '0.84rem',
-            background: filtro3D ? 'var(--accent-earth)' : undefined,
-            borderColor: filtro3D ? 'var(--accent-earth)' : undefined,
-            color: filtro3D ? '#FFFFFF' : undefined
-          }}
-          title="Ver solo proyectos con piezas y archivos 3D (.STL / .3MF / STEP)"
-        >
-          <Box size={16} />
-          <span>Piezas 3D (.STL / .3MF)</span>
-        </button>
       </div>
 
       {/* AVISO EN PESTAÑA DE REVISIÓN ADMIN */}

@@ -200,9 +200,10 @@ export default function App() {
   useEffect(() => {
     if (authCargando) return; // Esperar a que la autenticación inicial finalice
 
+    const vistasPublicas = ['landing', 'descubre', 'descubre_lista', 'guia', 'taller', 'lugar_detalle', 'perfil_publico'];
     if (usuario && vistaActiva === 'landing' && (window.location.pathname === '/' || window.location.pathname === '')) {
       setVistaActiva('home');
-    } else if (!usuario && vistaActiva !== 'landing' && vistaActiva !== 'descubre' && vistaActiva !== 'descubre_lista' && vistaActiva !== 'guia' && vistaActiva !== 'taller') {
+    } else if (!usuario && !vistasPublicas.includes(vistaActiva)) {
       setVistaActiva('landing');
     }
   }, [usuario, authCargando, vistaActiva]);
@@ -460,17 +461,24 @@ export default function App() {
 
             {/* Crear o Editar Publicación en el Taller */}
             {vistaActiva === 'taller_crear' && (
-              <CrearPublicacionTaller
-                publicacionAEditar={publicacionAEditar}
-                alVolver={() => {
-                  setPublicacionAEditar(null);
-                  setVistaActiva('taller');
-                }}
-                alPublicarExitoso={() => {
-                  setPublicacionAEditar(null);
-                  setVistaActiva('taller');
-                }}
-              />
+              usuario ? (
+                <CrearPublicacionTaller
+                  publicacionAEditar={publicacionAEditar}
+                  alVolver={() => {
+                    setPublicacionAEditar(null);
+                    setVistaActiva('taller');
+                  }}
+                  alPublicarExitoso={() => {
+                    setPublicacionAEditar(null);
+                    setVistaActiva('taller');
+                  }}
+                />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
             {/* Detalle de Lugar de Pernocta */}
@@ -504,16 +512,30 @@ export default function App() {
 
             {/* Organizar Viaje */}
             {vistaActiva === 'organizar' && (
-              <OrganizarViaje
-                alSeleccionarLugar={abrirDetalleLugar}
-                alExplorarMapa={() => setVistaActiva('descubre')}
-                abrirRadar={abrirRadarConUbicacion}
-              />
+              usuario ? (
+                <OrganizarViaje
+                  alSeleccionarLugar={abrirDetalleLugar}
+                  alExplorarMapa={() => setVistaActiva('descubre')}
+                  abrirRadar={abrirRadarConUbicacion}
+                />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
             {/* Vitrina de Trofeos */}
             {vistaActiva === 'trofeos' && (
-              <VitrinaTrofeos />
+              usuario ? (
+                <VitrinaTrofeos />
+              ) : (
+                <LandingPage
+                  setVistaActiva={setVistaActiva}
+                  abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
+                />
+              )
             )}
 
             {/* Perfil Público Nómada */}

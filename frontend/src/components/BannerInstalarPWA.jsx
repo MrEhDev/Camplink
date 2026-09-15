@@ -42,6 +42,7 @@ export default function BannerInstalarPWA() {
     const handleAppInstalled = () => {
       localStorage.setItem('camplink_pwa_instalada', 'true');
       setMostrar(false);
+      window.dispatchEvent(new Event('camplink:pwa_instalada'));
     };
 
     window.addEventListener('beforeinstallprompt', handler);
@@ -61,6 +62,7 @@ export default function BannerInstalarPWA() {
     if (outcome === 'accepted') {
       localStorage.setItem('camplink_pwa_instalada', 'true');
       setMostrar(false);
+      window.dispatchEvent(new Event('camplink:pwa_instalada'));
     }
     setDeferredPrompt(null);
     window.__camplink_pwa_prompt = null;

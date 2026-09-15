@@ -9,7 +9,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { 
   Compass, Map, Wrench, BookOpen, Route, Calendar, 
   Sun, Moon, Sunset, PlusCircle, LogIn, LogOut, 
-  User, Radar, Menu, X, Sparkles, Navigation, Bell, Check, Heart, MessageSquare, UserPlus, Trophy, Info, Shield 
+  User, Radar, Menu, X, Sparkles, Navigation, Bell, Check, Heart, MessageSquare, MessageCircle, UserPlus, Trophy, Award, Info, Shield 
 } from 'lucide-react';
 import { peticionApi } from '../services/api';
 
@@ -47,17 +47,21 @@ export default function Navbar({
     return () => window.removeEventListener('scroll', manejarScroll);
   }, []);
 
-  // Cerrar panel de notificaciones al hacer clic fuera
+  // Cerrar panel de notificaciones al hacer clic fuera de forma segura en escritorio y móvil
   React.useEffect(() => {
     const handleClickFuera = (e) => {
-      if (notifWrapperRef.current && !notifWrapperRef.current.contains(e.target)) {
+      if (!e.target.closest('.notif-wrapper') && !e.target.closest('.notif-dropdown-panel')) {
         setPanelNotifsAbierto(false);
       }
     };
     if (panelNotifsAbierto) {
       document.addEventListener('mousedown', handleClickFuera);
+      document.addEventListener('touchstart', handleClickFuera);
     }
-    return () => document.removeEventListener('mousedown', handleClickFuera);
+    return () => {
+      document.removeEventListener('mousedown', handleClickFuera);
+      document.removeEventListener('touchstart', handleClickFuera);
+    };
   }, [panelNotifsAbierto]);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const { usuario, logout } = useAuth();
@@ -131,74 +135,122 @@ export default function Navbar({
   };
 
   const marcarNotificacionesLeidas = async (notifId = null) => {
+    // Actualización optimista e inmediata para que desaparezca al instante de la lista
+    if (notifId) {
+      setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+      setNoLeidas(prev => Math.max(0, prev - 1));
+    } else {
+      setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+      setNoLeidas(0);
+    }
     try {
       await peticionApi('/api/exploradores/notificaciones/', {
         method: 'POST',
         data: notifId ? { notificacion_id: notifId } : {}
       });
-      if (notifId) {
-        setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
-        setNoLeidas(prev => Math.max(0, prev - 1));
-      } else {
-        setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
-        setNoLeidas(0);
-      }
     } catch (e) {
       console.warn('Error al marcar notificaciones:', e);
     }
   };
 
   const manejarClickNotificacion = (notif) => {
+    // 1. Descartar de la lista y cerrar el panel de forma inmediata
     marcarNotificacionesLeidas(notif.id);
     setPanelNotifsAbierto(false);
-    if (notif.enlace?.startsWith('/explorador/')) {
-      const userId = parseInt(notif.enlace.replace('/explorador/', ''));
+
+    const enlace = notif.enlace || '';
+    const tipo = notif.tipo || '';
+    const tituloLower = (notif.titulo || '').toLowerCase();
+    const mensajeLower = (notif.mensaje || '').toLowerCase();
+
+    // 1. Enlace a perfil de explorador: /explorador/123 o tipo 'seguimiento'
+    if (enlace.startsWith('/explorador/') || tipo === 'seguimiento') {
+      const matchUserId = enlace.match(/\/explorador\/(\d+)/);
+      const userId = matchUserId ? parseInt(matchUserId[1]) : (notif.usuario_origen_id || null);
       if (alVerPerfilUsuario && userId) {
         alVerPerfilUsuario(userId);
         return;
       }
     }
-    // 1. Taller Camplink (por enlace, tipo o palabras clave brico/taller)
-    const tituloLower = (notif.titulo || '').toLowerCase();
-    const mensajeLower = (notif.mensaje || '').toLowerCase();
-    const esDeTaller = notif.enlace?.includes('/taller') ||
-                       notif.tipo === 'taller' ||
-                       notif.tipo === 'moderacion_taller' ||
+
+    // 2. Enlace a detalle de lugar de pernocta: /lugar/123 o /?lugar=123
+    const matchLugar = enlace.match(/\/lugar\/(\d+)/) || enlace.match(/[?&]lugar=(\d+)/);
+    if (matchLugar) {
+      const lugarId = parseInt(matchLugar[1]);
+      if (alSeleccionarLugar && lugarId) {
+        alSeleccionarLugar(lugarId);
+        return;
+      }
+    }
+
+    // 3. Enlace a Taller Camplink: /taller, /taller?id=..., /taller?publicacion=..., /taller?revision=...
+    const esDeTaller = enlace.includes('/taller') ||
+                       tipo === 'taller' ||
+                       tipo === 'moderacion_taller' ||
                        tituloLower.includes('brico') ||
                        tituloLower.includes('taller') ||
                        mensajeLower.includes('taller');
 
     if (esDeTaller) {
-      let targetUrl = notif.enlace;
-      if (!targetUrl || !targetUrl.includes('/taller')) {
-        targetUrl = '/taller';
-      }
+      let targetUrl = enlace.includes('/taller') ? enlace : '/taller';
       window.history.pushState({}, '', targetUrl);
       setVistaActiva('taller');
       window.dispatchEvent(new Event('popstate'));
       return;
     }
 
-    // 2. Diario de Ruta (enlace a /diario o comentario/reacción general)
-    if (notif.enlace?.includes('/diario') || notif.tipo === 'comentario' || notif.tipo === 'reaccion' || tituloLower.includes('vivencia') || tituloLower.includes('diario')) {
-      const targetUrl = notif.enlace || '/diario';
-      window.history.pushState({}, '', targetUrl);
-      setVistaActiva('diario');
+    // 4. Enlace a Trofeos
+    if (tipo === 'trofeo' || enlace.includes('/trofeos') || tituloLower.includes('trofeo') || tituloLower.includes('vitrina')) {
+      window.history.pushState({}, '', '/trofeos');
+      setVistaActiva('trofeos');
       window.dispatchEvent(new Event('popstate'));
       return;
     }
 
-    // 3. Perfil / Trofeo
-    if (notif.tipo === 'trofeo' || notif.enlace?.includes('/perfil')) {
+    // 5. Enlace a Organizar Viaje / Invitación compartida
+    if (enlace.includes('/organizar') || tipo === 'grupo' || tituloLower.includes('viaje') || mensajeLower.includes('viaje')) {
+      window.history.pushState({}, '', '/organizar');
+      setVistaActiva('organizar');
+      window.dispatchEvent(new Event('popstate'));
+      return;
+    }
+
+    // 6. Enlace a Perfil
+    if (enlace.includes('/perfil')) {
       window.history.pushState({}, '', '/perfil');
       setVistaActiva('perfil');
       window.dispatchEvent(new Event('popstate'));
       return;
     }
 
-    // 4. Enlace genérico
-    if (notif.enlace) {
-      window.history.pushState({}, '', notif.enlace);
+    // 7. Enlace a Diario de Ruta: /diario, /diario?post=...
+    if (enlace.includes('/diario') || tipo === 'comentario' || tipo === 'reaccion' || tituloLower.includes('vivencia') || tituloLower.includes('diario') || tituloLower.includes('coment')) {
+      const targetUrl = enlace.includes('/diario') ? enlace : '/diario';
+      window.history.pushState({}, '', targetUrl);
+      setVistaActiva('diario');
+      window.dispatchEvent(new Event('popstate'));
+      return;
+    }
+
+    // 8. Enlace a Mapa / Descubre
+    if (enlace.includes('/mapa') || enlace.includes('/descubre') || enlace.includes('/lugares')) {
+      window.history.pushState({}, '', '/mapa');
+      setVistaActiva('descubre');
+      window.dispatchEvent(new Event('popstate'));
+      return;
+    }
+
+    // 9. Fallback si tiene cualquier enlace relativo
+    if (enlace && enlace.startsWith('/')) {
+      window.history.pushState({}, '', enlace);
+      const clean = enlace.split('?')[0].replace('/', '');
+      if (clean) setVistaActiva(clean);
+      window.dispatchEvent(new Event('popstate'));
+    }
+
+    // Enlace genérico
+    if (enlace) {
+      window.history.pushState({}, '', enlace);
       window.dispatchEvent(new Event('popstate'));
     }
   };
@@ -362,7 +414,10 @@ export default function Navbar({
                 {noLeidas > 0 && (
                   <button
                     type="button"
-                    onClick={() => marcarNotificacionesLeidas()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      marcarNotificacionesLeidas();
+                    }}
                     style={{ background: 'none', border: 'none', color: 'var(--accent-forest)', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
                     Marcar leídas

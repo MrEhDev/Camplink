@@ -25,7 +25,7 @@ export async function registrarServiceWorker() {
   return null;
 }
 
-export async function suscribirNotificacionesPush() {
+export async function suscribirNotificacionesPush(forzarRenovacion = false) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return { exito: false, motivo: 'unsupported' };
   }
@@ -36,7 +36,12 @@ export async function suscribirNotificacionesPush() {
       return { exito: false, motivo: 'denied' };
     }
 
-    const reg = await navigator.serviceWorker.ready;
+    // Asegurar registro de SW
+    let reg = await navigator.serviceWorker.ready;
+    if (!reg) {
+      reg = await registrarServiceWorker();
+      reg = await navigator.serviceWorker.ready;
+    }
     
     // Obtener la clave pública VAPID del backend
     let vapidPublicKey = '';
@@ -54,6 +59,16 @@ export async function suscribirNotificacionesPush() {
     const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
     let suscripcion = await reg.pushManager.getSubscription();
 
+    // Si forzamos renovación o si no existía, crear suscripción con la clave VAPID actual
+    if (suscripcion && forzarRenovacion) {
+      try {
+        await suscripcion.unsubscribe();
+        suscripcion = null;
+      } catch (e) {
+        console.warn('Error al renovar suscripción anterior:', e);
+      }
+    }
+
     if (!suscripcion) {
       suscripcion = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -61,15 +76,35 @@ export async function suscribirNotificacionesPush() {
       });
     }
 
-    // Enviar suscripción al backend
-    await peticionApi('/api/exploradores/webpush-subscribir/', {
+    // Enviar suscripción al backend vinculando al usuario actual
+    const resBackend = await peticionApi('/api/exploradores/webpush-subscribir/', {
       method: 'POST',
       data: suscripcion.toJSON()
     });
 
-    return { exito: true, suscripcion };
+    return { exito: true, suscripcion, backend: resBackend };
   } catch (error) {
     console.error('Error suscribiendo a push:', error);
     return { exito: false, error };
   }
+}
+
+export async function sincronizarPushSiPermitido() {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return;
+  }
+  try {
+    // Si ya está permitido, aseguramos que la suscripción coincida con la VAPID del backend
+    await suscribirNotificacionesPush(false);
+  } catch (e) {
+    console.debug('Sincronización silenciosa de Push:', e);
+  }
+}
+
+export async function enviarPushDePrueba() {
+  // Renovamos la suscripción asegurando par de claves VAPID frescas
+  await suscribirNotificacionesPush(true);
+  return await peticionApi('/api/exploradores/webpush-probar/', {
+    method: 'POST'
+  });
 }

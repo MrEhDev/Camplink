@@ -25,10 +25,13 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/camplink-logo.png',
     badge: data.badge || '/camplink-logo.png',
     data: {
-      url: data.url || data.enlace || '/',
+      url: data.enlace || data.url || '/',
       id: data.id || null
     },
-    vibrate: [100, 50, 100],
+    vibrate: [200, 100, 200, 100, 200],
+    tag: 'camplink-push-' + Date.now(),
+    renotify: true,
+    requireInteraction: false,
     actions: data.actions || []
   };
 

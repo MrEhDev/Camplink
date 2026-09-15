@@ -156,6 +156,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
+        'exploradores.authentication.CsrfExemptSessionAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
 }
@@ -218,11 +219,11 @@ BASE_URL = os.environ.get('BASE_URL', 'https://camplinkapp.com').rstrip('/')
 # Configuración Web Push (VAPID)
 VAPID_PUBLIC_KEY = os.environ.get(
     'VAPID_PUBLIC_KEY',
-    'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+    'BPNpJ6PYYGTy-oquTJnqXDkFOVaqxHnW2xWp9u5mozQPJfaBRgZ8FhUtEb21VCu-XJI1pPy7u6-6MS-_rCaTtds'
 )
 VAPID_PRIVATE_KEY = os.environ.get(
     'VAPID_PRIVATE_KEY',
-    'UUxI6mZzU60eD499W7g1s3yYJ5y3U2K7b92R9G10g_Y'
+    'iW7SUniMs705gunEQ6dGyqzTjZpVV8F3xH3pSA1DNFo'
 )
 VAPID_CLAIMS_EMAIL = os.environ.get('VAPID_CLAIMS_EMAIL', 'mailto:admin@camplinkapp.com')
 

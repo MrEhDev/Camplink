@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { peticionApi, asegurarCsrfToken, actualizarCsrfToken } from '../services/api';
+import { sincronizarPushSiPermitido } from '../utils/webPush';
 
 const AuthContext = createContext();
 
@@ -28,6 +29,12 @@ export const AuthProvider = ({ children }) => {
     // Al montar la aplicación verifico la sesión
     cargarPerfil();
   }, []);
+
+  useEffect(() => {
+    if (usuario) {
+      sincronizarPushSiPermitido();
+    }
+  }, [usuario]);
 
   const login = async (username, password) => {
     // Conversión obligatoria de usuario a minúsculas y eliminación total de espacios en blanco

@@ -9,6 +9,7 @@ import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
 import { obtenerPosicionGps, calcularDistanciaKm } from './utils/geolocation';
 import BannerInstalarPWA from './components/BannerInstalarPWA';
+import BannerActivarPush from './components/BannerActivarPush';
 import { X } from 'lucide-react';
 
 // Vistas con Lazy Loading (Code Splitting dinámico para optimización de rendimiento y bundle inicial ligero)
@@ -298,6 +299,7 @@ export default function App() {
         abrirRadar={() => abrirRadarConUbicacion(null)}
         abrirNuevoLugar={() => setModalNuevoLugarAbierto(true)}
         alVerPerfilUsuario={abrirPerfilUsuario}
+        alSeleccionarLugar={abrirDetalleLugar}
         abrirTutorial={abrirTutorial}
         tieneAvisoCheckin={!!(usuario && lugarProgramadoHoy && !descartadoLugarHoy)}
         abrirLoginModal={() => {
@@ -724,6 +726,9 @@ export default function App() {
 
       {/* Banner de instalación PWA en móviles y escritorio */}
       <BannerInstalarPWA />
+
+      {/* Banner para activar notificaciones Push al inicio */}
+      <BannerActivarPush />
     </div>
   );
 }

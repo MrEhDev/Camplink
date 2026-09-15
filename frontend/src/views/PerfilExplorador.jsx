@@ -159,6 +159,7 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
 
   // Estados para cambio de contraseña
   const [seccionPasswordAbierta, setSeccionPasswordAbierta] = useState(false);
+  const [seccionNotificacionesAbierta, setSeccionNotificacionesAbierta] = useState(false);
   const [passActual, setPassActual] = useState('');
   const [passNueva, setPassNueva] = useState('');
   const [passConfirmar, setPassConfirmar] = useState('');
@@ -233,6 +234,13 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
   const [notifEmailComentarios, setNotifEmailComentarios] = useState(true);
   const [notifEmailReacciones, setNotifEmailReacciones] = useState(true);
   const [notifEmailTaller, setNotifEmailTaller] = useState(true);
+  const [notifEmailSeguidos, setNotifEmailSeguidos] = useState(true);
+
+  const [notifPushComentarios, setNotifPushComentarios] = useState(true);
+  const [notifPushReacciones, setNotifPushReacciones] = useState(true);
+  const [notifPushTaller, setNotifPushTaller] = useState(true);
+  const [notifPushSeguidos, setNotifPushSeguidos] = useState(true);
+
   const [estadoPush, setEstadoPush] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const [activandoPush, setActivandoPush] = useState(false);
 
@@ -242,11 +250,11 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
       const res = await suscribirNotificacionesPush();
       if (res?.exito) {
         setEstadoPush('granted');
-        setMensajeExito('¡Notificaciones Push activadas en este dispositivo!');
+        setMensajeExito('¡Notificaciones Push sincronizadas en este dispositivo!');
         setTimeout(() => setMensajeExito(''), 4000);
       } else if (res?.motivo === 'denied') {
         setEstadoPush('denied');
-        setMensajeError('Permiso de notificaciones denegado en el navegador.');
+        setMensajeError('Permiso de notificaciones denegado en los ajustes del navegador.');
         setTimeout(() => setMensajeError(''), 4000);
       }
     } catch (e) {
@@ -255,6 +263,8 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
       setActivandoPush(false);
     }
   };
+
+
 
   // Estados de autocompletado de dirección
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
@@ -388,6 +398,12 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         setNotifEmailComentarios(usuario.notif_email_comentarios !== undefined ? usuario.notif_email_comentarios : true);
         setNotifEmailReacciones(usuario.notif_email_reacciones !== undefined ? usuario.notif_email_reacciones : true);
         setNotifEmailTaller(usuario.notif_email_taller !== undefined ? usuario.notif_email_taller : true);
+        setNotifEmailSeguidos(usuario.notif_email_seguidos !== undefined ? usuario.notif_email_seguidos : true);
+
+        setNotifPushComentarios(usuario.notif_push_comentarios !== undefined ? usuario.notif_push_comentarios : true);
+        setNotifPushReacciones(usuario.notif_push_reacciones !== undefined ? usuario.notif_push_reacciones : true);
+        setNotifPushTaller(usuario.notif_push_taller !== undefined ? usuario.notif_push_taller : true);
+        setNotifPushSeguidos(usuario.notif_push_seguidos !== undefined ? usuario.notif_push_seguidos : true);
       }
     } catch (err) {
       console.error('Error al inicializar perfil:', err);
@@ -536,6 +552,11 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
         body.append('notif_email_comentarios', notifEmailComentarios);
         body.append('notif_email_reacciones', notifEmailReacciones);
         body.append('notif_email_taller', notifEmailTaller);
+        body.append('notif_email_seguidos', notifEmailSeguidos);
+        body.append('notif_push_comentarios', notifPushComentarios);
+        body.append('notif_push_reacciones', notifPushReacciones);
+        body.append('notif_push_taller', notifPushTaller);
+        body.append('notif_push_seguidos', notifPushSeguidos);
         body.append('avatar', archivoAvatar);
       } else {
         body = {
@@ -552,6 +573,11 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
           notif_email_comentarios: notifEmailComentarios,
           notif_email_reacciones: notifEmailReacciones,
           notif_email_taller: notifEmailTaller,
+          notif_email_seguidos: notifEmailSeguidos,
+          notif_push_comentarios: notifPushComentarios,
+          notif_push_reacciones: notifPushReacciones,
+          notif_push_taller: notifPushTaller,
+          notif_push_seguidos: notifPushSeguidos,
         };
       }
 
@@ -3272,99 +3298,197 @@ export default function PerfilExplorador({ alSeleccionarLugar, alVerPerfilUsuari
                 )}
               </div>
 
-              {/* SECCIÓN NOTIFICACIONES POR CORREO */}
+              {/* SECCIÓN PREFERENCIAS DE NOTIFICACIONES (COLAPSABLE) */}
               <div style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border-color)',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1.5px solid var(--border-color)',
                 borderRadius: 'var(--radius-sm)',
-                padding: '16px',
+                padding: '14px 16px',
                 marginBottom: '20px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Mail size={18} color="var(--accent-forest)" />
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Notificaciones por Correo Electrónico</span>
-                </div>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
-                  Elige qué avisos deseas recibir en tu dirección de correo electrónico ({usuario?.email || 'registrado'}).
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                    <div>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Comentarios y respuestas</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cuando otros exploradores comenten tus publicaciones o te respondan</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notifEmailComentarios}
-                      onChange={e => setNotifEmailComentarios(e.target.checked)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
-                    />
-                  </label>
-
-                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Reacciones y valoraciones</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cuando otros exploradores reaccionen a tus bricos, fotos o rutas</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notifEmailReacciones}
-                      onChange={e => setNotifEmailReacciones(e.target.checked)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
-                    />
-                  </label>
-
-                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Taller: Aprobación de publicaciones</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cuando un administrador revise y apruebe tu publicación para toda la comunidad</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notifEmailTaller}
-                      onChange={e => setNotifEmailTaller(e.target.checked)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
-                    />
-                  </label>
-                </div>
-
-                {/* NOTIFICACIONES PUSH DEL NAVEGADOR / DISPOSITIVO */}
-                <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        📲 Notificaciones Push en este dispositivo
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        {estadoPush === 'granted'
-                          ? '✅ Notificaciones activas en este navegador/móvil.'
-                          : estadoPush === 'denied'
-                          ? '❌ Notificaciones bloqueadas en los ajustes del navegador.'
-                          : 'Recibe alertas instantáneas de comentarios, viajes y taller en tu móvil o PC.'}
-                      </div>
-                    </div>
-                    {estadoPush !== 'granted' && estadoPush !== 'unsupported' && (
-                      <button
-                        type="button"
-                        onClick={handleActivarPush}
-                        disabled={activandoPush}
-                        className="btn btn-sm"
-                        style={{
-                          background: 'var(--accent-forest)',
-                          color: '#fff',
-                          fontSize: '0.78rem',
-                          padding: '6px 14px',
-                          borderRadius: '8px',
-                          whiteSpace: 'nowrap',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {activandoPush ? 'Activando...' : 'Activar Push'}
-                      </button>
-                    )}
+                <div 
+                  onClick={() => setSeccionNotificacionesAbierta(!seccionNotificacionesAbierta)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                    <Bell size={17} color="var(--accent-forest)" />
+                    <span>Preferencias de Notificaciones</span>
                   </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--accent-forest)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                    {seccionNotificacionesAbierta ? 'Ocultar' : 'Configurar Avisos'}
+                    {seccionNotificacionesAbierta ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </span>
                 </div>
+
+                {seccionNotificacionesAbierta && (
+                  <div style={{ marginTop: '16px' }}>
+                    {/* 1. NOTIFICACIONES POR CORREO ELECTRÓNICO */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <Mail size={16} color="var(--accent-forest)" />
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                          Notificaciones por Correo Electrónico
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px', marginTop: '2px' }}>
+                        Avisos enviados a tu email registrado ({usuario?.email || 'email de cuenta'}).
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Comentarios y respuestas</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Cuando otros exploradores comenten tus publicaciones o te respondan</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifEmailComentarios}
+                            onChange={e => setNotifEmailComentarios(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Reacciones y valoraciones</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Cuando otros exploradores reaccionen a tus bricos, fotos o rutas</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifEmailReacciones}
+                            onChange={e => setNotifEmailReacciones(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Aprobación de publicaciones</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Cuando un administrador revise y apruebe tu publicación para el taller</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifEmailTaller}
+                            onChange={e => setNotifEmailTaller(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Publicaciones de gente a la que sigues</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Nuevos relatos de ruta, pernoctas o bricos de tus compañeros de ruta</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifEmailSeguidos}
+                            onChange={e => setNotifEmailSeguidos(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 2. NOTIFICACIONES PUSH (MÓVIL / PANTALLA) */}
+                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.1rem' }}>📲</span>
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                            Notificaciones Push (Móvil y Escritorio)
+                          </span>
+                        </div>
+                        {estadoPush !== 'granted' && estadoPush !== 'unsupported' && (
+                          <button
+                            type="button"
+                            onClick={handleActivarPush}
+                            disabled={activandoPush}
+                            className="btn btn-sm"
+                            style={{
+                              background: 'var(--accent-forest)',
+                              color: '#fff',
+                              fontSize: '0.76rem',
+                              padding: '4px 12px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                          >
+                            {activandoPush ? 'Activando...' : 'Activar en este dispositivo'}
+                          </button>
+                        )}
+                      </div>
+
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px', marginTop: '2px' }}>
+                        {estadoPush === 'granted'
+                          ? '✅ Dispositivo autorizado. Elige qué alertas instantáneas quieres recibir en la barra de tu móvil o PC:'
+                          : estadoPush === 'denied'
+                          ? '❌ Notificaciones bloqueadas en tu navegador. Puedes habilitarlas en los ajustes de permisos del sitio.'
+                          : 'Alertas en tiempo real en la barra de estado de tu smartphone o navegador:'}
+                      </p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Comentarios y respuestas</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Avisos instantáneos cuando comenten tus viajes, lugares o bricos</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifPushComentarios}
+                            onChange={e => setNotifPushComentarios(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Reacciones y valoraciones</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Alertas push cuando otros exploradores reaccionen a tus fotos o rutas</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifPushReacciones}
+                            onChange={e => setNotifPushReacciones(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Aprobación de publicaciones</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Notificación inmediata cuando tu brico o tutorial sea validado</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifPushTaller}
+                            onChange={e => setNotifPushTaller(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px' }}>
+                          <div>
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>Publicaciones de gente a la que sigues</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Alertas cuando un compañero de ruta comparta una nueva vivencia o lugar</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={notifPushSeguidos}
+                            onChange={e => setNotifPushSeguidos(e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-forest)' }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
 

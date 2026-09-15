@@ -22,7 +22,8 @@ from .views import (
     forzar_notificacion_prueba_vista,
     cambiar_password_vista,
     webpush_vapid_key_vista,
-    webpush_subscribir_vista
+    webpush_subscribir_vista,
+    webpush_probar_vista
 )
 
 # Enrutador REST para exploradores y grupos
@@ -47,6 +48,7 @@ urlpatterns = [
     path('notificaciones/probar/', forzar_notificacion_prueba_vista, name='explorador-notificaciones-probar'),
     path('webpush-vapid-key/', webpush_vapid_key_vista, name='webpush-vapid-key'),
     path('webpush-subscribir/', webpush_subscribir_vista, name='webpush-subscribir'),
+    path('webpush-probar/', webpush_probar_vista, name='webpush-probar'),
 
     # Seguimiento y amistades entre exploradores
     path('seguir/<int:usuario_id>/', solicitar_seguimiento_vista, name='solicitar-seguimiento'),

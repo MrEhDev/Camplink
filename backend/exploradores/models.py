@@ -55,6 +55,13 @@ class Explorador(AbstractUser):
     notif_email_comentarios = models.BooleanField(default=True, verbose_name='Recibir email en comentarios')
     notif_email_reacciones = models.BooleanField(default=True, verbose_name='Recibir email en reacciones')
     notif_email_taller = models.BooleanField(default=True, verbose_name='Recibir email en aprobaciones/rechazos del taller')
+    notif_email_seguidos = models.BooleanField(default=True, verbose_name='Recibir email en publicaciones de seguidos')
+
+    # Preferencias de Notificaciones Push (Móvil / Escritorio)
+    notif_push_comentarios = models.BooleanField(default=True, verbose_name='Recibir push en comentarios')
+    notif_push_reacciones = models.BooleanField(default=True, verbose_name='Recibir push en reacciones')
+    notif_push_taller = models.BooleanField(default=True, verbose_name='Recibir push en aprobaciones del taller')
+    notif_push_seguidos = models.BooleanField(default=True, verbose_name='Recibir push en publicaciones de seguidos')
 
     capacidad_deposito_l = models.FloatField(default=60.0, verbose_name='Capacidad del Depósito (Litros)')
     consumo_medio_l_100km = models.FloatField(default=8.5, verbose_name='Consumo Medio (L/100km)')
@@ -174,6 +181,8 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
         enviar = True
     elif instance.tipo in ['sistema', 'taller'] and getattr(destinatario, 'notif_email_taller', True):
         enviar = True
+    elif instance.tipo in ['seguimiento', 'publicacion_seguido', 'grupo'] and getattr(destinatario, 'notif_email_seguidos', True):
+        enviar = True
 
     if enviar:
         try:
@@ -282,16 +291,16 @@ def enviar_notificacion_email(sender, instance, created, **kwargs):
         except Exception as e:
             logger.warning(f"No se pudo enviar email de notificación a {destinatario.email}: {e}")
 
-        # Disparar notificación Web Push en hilo en segundo plano
-        try:
-            import threading
-            threading.Thread(
-                target=enviar_notificacion_push_async,
-                args=(destinatario, instance.titulo or "Camplink", instance.mensaje, instance.enlace or "/"),
-                daemon=True
-            ).start()
-        except Exception as e:
-            logger.debug(f"No se pudo iniciar hilo de push: {e}")
+    # Disparar notificación Web Push en hilo en segundo plano SIEMPRE que se cree una notificación
+    try:
+        import threading
+        threading.Thread(
+            target=enviar_notificacion_push_async,
+            args=(destinatario, instance.titulo or "Camplink", instance.mensaje, instance.enlace or "/", instance.tipo),
+            daemon=True
+        ).start()
+    except Exception as e:
+        logger.warning(f"No se pudo iniciar hilo de push: {e}")
 
 
 class SuscripcionWebPush(models.Model):
@@ -311,28 +320,45 @@ class SuscripcionWebPush(models.Model):
         return f"Push de {self.usuario.username if self.usuario else 'Anónimo'} ({self.endpoint[:30]}...)"
 
 
-def enviar_notificacion_push_async(usuario, titulo, mensaje, enlace='/'):
-    """Envía notificaciones Web Push a todos los dispositivos registrados del usuario usando pywebpush."""
+def enviar_notificacion_push_async(usuario, titulo, mensaje, enlace='/', tipo='sistema'):
+    """Envía notificaciones Web Push a todos los dispositivos registrados del usuario respetando sus preferencias."""
     import json
+    if not usuario:
+        return
+
+    # Verificar preferencias granulares del usuario para push
+    if tipo == 'comentario' and not getattr(usuario, 'notif_push_comentarios', True):
+        return
+    elif tipo == 'reaccion' and not getattr(usuario, 'notif_push_reacciones', True):
+        return
+    elif tipo in ['sistema', 'taller'] and not getattr(usuario, 'notif_push_taller', True):
+        return
+    elif tipo in ['seguimiento', 'publicacion_seguido', 'grupo'] and not getattr(usuario, 'notif_push_seguidos', True):
+        return
+
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
+        logger.warning("pywebpush no está instalado. Omitiendo envío push.")
         return
 
     vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
     vapid_claims_email = getattr(settings, 'VAPID_CLAIMS_EMAIL', 'mailto:admin@camplinkapp.com')
     if not vapid_private_key:
+        logger.warning("VAPID_PRIVATE_KEY no configurada en settings.")
         return
 
     suscripciones = SuscripcionWebPush.objects.filter(usuario=usuario)
     if not suscripciones.exists():
+        logger.info(f"No hay suscripciones Web Push registradas para {usuario.username}")
         return
 
     payload = json.dumps({
-        'titulo': titulo,
-        'mensaje': mensaje,
-        'enlace': enlace,
-        'icon': '/camplink-logo.png'
+        'titulo': titulo or 'Camplink',
+        'mensaje': mensaje or '',
+        'enlace': enlace or '/',
+        'icon': '/camplink-logo.png',
+        'badge': '/camplink-logo.png'
     })
 
     for sub in suscripciones:
@@ -348,11 +374,14 @@ def enviar_notificacion_push_async(usuario, titulo, mensaje, enlace='/'):
                 data=payload,
                 vapid_private_key=vapid_private_key,
                 vapid_claims={"sub": vapid_claims_email},
-                timeout=5
+                timeout=10
             )
+            logger.info(f"Push enviado con éxito a {usuario.username} ({sub.endpoint[:40]}...)")
         except WebPushException as ex:
+            logger.warning(f"WebPushException al enviar a {usuario.username}: {ex}")
             if ex.response is not None and ex.response.status_code in [404, 410]:
+                logger.info(f"Eliminando suscripción caducada {sub.id}")
                 sub.delete()
         except Exception as e:
-            logger.debug(f"Error enviando webpush: {e}")
+            logger.error(f"Error general enviando webpush a {usuario.username}: {e}")
 

@@ -99,7 +99,7 @@ class ExploradorPerfilSerializer(serializers.ModelSerializer):
             'fecha_nacimiento', 'pais', 'poblacion', 'provincia', 'codigo_postal', 'direccion_base',
             'lat_base', 'lng_base', 'tipo_viajero', 'tipo_viajero_display', 'capacidad_deposito_l', 'consumo_medio_l_100km', 'tipo_combustible', 'autonomia_estimada_km',
             'foto_vehiculo', 'avatar', 'biografia', 'rol', 'es_admin', 'is_staff', 'is_superuser',
-            'notif_email_comentarios', 'notif_email_reacciones', 'notif_email_taller',
+            'notif_email_comentarios', 'notif_email_reacciones', 'notif_email_taller', 'notif_email_seguidos', 'notif_push_comentarios', 'notif_push_reacciones', 'notif_push_taller', 'notif_push_seguidos',
             'trofeos_destacados', 'companeros_de_ruta', 'estado_seguimiento', 'total_seguidores',
             'total_siguiendo', 'date_joined'
         ]

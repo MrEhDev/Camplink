@@ -670,6 +670,7 @@ def seguidores_y_siguiendo_vista(request):
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([permissions.IsAuthenticated])
+@csrf_exempt
 def notificaciones_vista(request):
     usuario = request.user
     if request.method == 'GET':
@@ -724,6 +725,7 @@ def notificaciones_vista(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+@csrf_exempt
 def forzar_notificacion_prueba_vista(request):
     usuario = request.user
     tipo = request.data.get('tipo', 'reaccion')
@@ -826,3 +828,28 @@ def webpush_subscribir_vista(request):
         'id': sub.id
     }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+@csrf_exempt
+def webpush_probar_vista(request):
+    """Crea una notificación de prueba para el usuario actual y dispara el envío Web Push a sus dispositivos."""
+    from .models import Notificacion, SuscripcionWebPush
+    
+    usuario = request.user
+    subs = SuscripcionWebPush.objects.filter(usuario=usuario)
+    subs_count = subs.count()
+
+    notif = Notificacion.objects.create(
+        usuario_destino=usuario,
+        tipo='sistema',
+        titulo='🚐 ¡Prueba Push Camplink!',
+        mensaje='¡Tu móvil está perfectamente conectado y listo para recibir alertas en tiempo real!',
+        enlace='/perfil'
+    )
+
+    return Response({
+        'mensaje': 'Notificación de prueba enviada.',
+        'dispositivos_registrados': subs_count,
+        'notificacion_id': notif.id
+    }, status=status.HTTP_200_OK)

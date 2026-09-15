@@ -11,6 +11,12 @@ import { LanguageProvider } from './i18n/LanguageContext';
 import { registrarServiceWorker } from './utils/webPush';
 import './index.css';
 
+// Capturar el evento nativo de instalación PWA desde el primer instante
+window.addEventListener('beforeinstallprompt', (e) => {
+  window.__camplink_pwa_prompt = e;
+  window.dispatchEvent(new CustomEvent('camplink:pwa_prompt_available', { detail: e }));
+});
+
 // Registrar Service Worker para PWA y Web Push
 registrarServiceWorker();
 

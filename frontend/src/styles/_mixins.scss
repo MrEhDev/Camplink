@@ -1,0 +1,60 @@
+// ==========================================================================
+// MIXINS SASS REUTILIZABLES PARA CAMPLINK
+// ==========================================================================
+
+@mixin glassmorphism($bg: var(--bg-surface), $blur: 24px, $border: var(--border-color)) {
+  background: $bg;
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid $border;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin mobile {
+  @media (max-width: 768px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: 769px) and (max-width: 1024px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1025px) {
+    @content;
+  }
+}
+
+@mixin text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin custom-scrollbar($width: 6px, $thumb: rgba(35, 83, 52, 0.4), $track: transparent) {
+  &::-webkit-scrollbar {
+    width: $width;
+    height: $width;
+  }
+  &::-webkit-scrollbar-track {
+    background: $track;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $thumb;
+    border-radius: 999px;
+  }
+}

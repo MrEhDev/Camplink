@@ -1,0 +1,30 @@
+/* ==========================================================================
+   BANNER DE INSTALACIÓN PWA (SOLO MÓVIL / TABLET, FLOTANDO SOBRE EL RADAR)
+   ========================================================================== */
+
+@media (min-width: 769px) {
+  .pwa-banner-overlay {
+    display: none !important;
+  }
+}
+
+.pwa-banner-overlay {
+  position: fixed;
+  bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 420px;
+  background: var(--bg-surface-elevated);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid var(--border-color);
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  z-index: 10050;
+  animation: slideUpBanner 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

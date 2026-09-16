@@ -1,0 +1,114 @@
+/* Aquí configuro el sistema de diseño visual de Camplink con estética Glassmorphism avanzada:
+   efecto de cristal esmerilado translúcido, reflejos sutiles, sombras suaves, tres temas de pantalla y micro-animaciones. */
+
+:root {
+  /* Paleta Base - Modo Claro Camper con Glassmorphism */
+  --bg-primary: #EDECE6;
+  --bg-gradient: radial-gradient(at 10% 20%, rgba(54, 121, 77, 0.12) 0px, transparent 50%),
+    radial-gradient(at 90% 10%, rgba(217, 119, 54, 0.12) 0px, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(242, 169, 0, 0.08) 0px, transparent 60%),
+    #EDECE6;
+
+  --bg-surface: rgba(255, 255, 255, 0.72);
+  --bg-surface-elevated: rgba(255, 255, 255, 0.85);
+  --bg-glass: rgba(255, 255, 255, 0.65);
+  --bg-glass-heavy: rgba(255, 255, 255, 0.88);
+
+  --text-primary: #17241A;
+  --text-secondary: #4A5B4F;
+  --text-muted: #7E9183;
+
+  --accent-forest: #235334;
+  --accent-forest-light: #36794D;
+  --accent-earth: #D97736;
+  --accent-sand: #EADBCE;
+  --accent-gold: #F2A900;
+  --accent-danger: #D93838;
+  --accent-success: #2E8B57;
+
+  --border-color: rgba(255, 255, 255, 0.45);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-focus: #235334;
+
+  --shadow-sm: 0 4px 14px rgba(28, 36, 30, 0.04);
+  --shadow-md: 0 10px 30px rgba(28, 36, 30, 0.07);
+  --shadow-lg: 0 20px 50px rgba(28, 36, 30, 0.11);
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Modo Oscuro - Cristal Nórdico Bajo las Estrellas */
+[data-theme="oscuro"] {
+  --bg-primary: #0A110C;
+  --bg-gradient: radial-gradient(at 15% 15%, rgba(46, 139, 87, 0.18) 0px, transparent 55%),
+    radial-gradient(at 85% 20%, rgba(229, 134, 69, 0.12) 0px, transparent 50%),
+    radial-gradient(at 50% 90%, rgba(35, 83, 52, 0.25) 0px, transparent 65%),
+    #0A110C;
+
+  --bg-surface: rgba(20, 32, 23, 0.68);
+  --bg-surface-elevated: rgba(28, 44, 32, 0.82);
+  --bg-glass: rgba(16, 26, 19, 0.72);
+  --bg-glass-heavy: rgba(20, 32, 23, 0.92);
+
+  --text-primary: #E9F2EB;
+  --text-secondary: #A3B8AA;
+  --text-muted: #6C8272;
+
+  --accent-forest: #489A65;
+  --accent-forest-light: #5CB87E;
+  --accent-earth: #E58645;
+  --accent-sand: #314436;
+  --accent-gold: #F5B935;
+
+  --border-color: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-focus: #5CB87E;
+
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.65);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Modo Puesta de Sol - Cristal Crepuscular Sunset */
+[data-theme="puesta_de_sol"] {
+  --bg-primary: #170E1A;
+  --bg-gradient: radial-gradient(at 20% 20%, rgba(255, 126, 71, 0.22) 0px, transparent 50%),
+    radial-gradient(at 80% 30%, rgba(214, 90, 74, 0.2) 0px, transparent 55%),
+    radial-gradient(at 50% 85%, rgba(94, 27, 85, 0.25) 0px, transparent 65%),
+    #170E1A;
+
+  --bg-surface: rgba(38, 22, 44, 0.68);
+  --bg-surface-elevated: rgba(50, 28, 58, 0.82);
+  --bg-glass: rgba(30, 16, 35, 0.72);
+  --bg-glass-heavy: rgba(38, 22, 44, 0.92);
+
+  --text-primary: #FDEBF3;
+  --text-secondary: #D7B3C6;
+  --text-muted: #9E7D91;
+
+  --accent-forest: #D65A4A;
+  --accent-forest-light: #FF7B68;
+  --accent-earth: #FF8F3D;
+  --accent-sand: #4A2846;
+  --accent-gold: #FFAE42;
+
+  --border-color: rgba(255, 143, 61, 0.2);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-focus: #FF8F3D;
+
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px rgba(35, 8, 30, 0.55);
+  --shadow-lg: 0 20px 50px rgba(20, 5, 18, 0.7);
+  --shadow-glass: 0 8px 32px 0 rgba(45, 12, 40, 0.45);
+}

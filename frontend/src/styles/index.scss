@@ -1,0 +1,24 @@
+// ==========================================================================
+// CAMPLINK - SISTEMA DE DISEÑO MODULAR SASS (SCSS)
+// ==========================================================================
+
+// 1. Fundaciones & Utilidades
+@use './variables';
+@use './mixins';
+@use './base';
+
+// 2. Componentes Básicos
+@use './buttons';
+@use './forms';
+@use './cards';
+
+// 3. Navegación, Modales y Diálogos
+@use './navbar';
+@use './modals';
+
+// 4. Módulos Específicos de Dominio
+@use './map';
+@use './itinerario';
+
+// 5. PWA, Push Notifications y Móvil
+@use './pwa';

@@ -9,7 +9,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { registrarServiceWorker } from './utils/webPush';
-import './index.css';
+import './index.scss';
 
 // Capturar el evento nativo de instalación PWA desde el primer instante
 window.addEventListener('beforeinstallprompt', (e) => {

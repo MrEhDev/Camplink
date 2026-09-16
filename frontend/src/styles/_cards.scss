@@ -1,0 +1,296 @@
+/* Tarjetas Camper con Estilo Glassmorphism Puro */
+.camper-card {
+  background: var(--bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  padding: 26px;
+  box-shadow: var(--shadow-glass);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.camper-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  pointer-events: none;
+}
+
+.camper-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Pestañas (Tabs) Estilo Glassmorphism */
+.camper-tabs {
+  display: flex;
+  gap: 8px;
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  padding: 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.camper-tab-btn {
+  flex: 1;
+  min-width: 130px;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--transition-fast);
+}
+
+.camper-tab-btn.active {
+  background: var(--accent-forest);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(35, 83, 52, 0.28);
+}
+
+/* Insignias Camper Glassmorphism */
+.badge-camper {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(8px);
+}
+
+/* Badges con Contraste Óptimo (WCAG AAA) tanto en Modo Claro como Oscuro */
+.badge-forest {
+  background: #E8F5E9;
+  color: #1B5E20;
+  border: 1.5px solid #2E7D32;
+  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(27, 94, 32, 0.14);
+}
+
+[data-theme="oscuro"] .badge-forest {
+  background: rgba(35, 83, 52, 0.38);
+  color: #4ADE80;
+  border: 1.5px solid rgba(74, 222, 128, 0.5);
+  box-shadow: none;
+}
+
+.badge-autocaravana {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1.5px solid #0284C7;
+  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.14);
+}
+
+[data-theme="oscuro"] .badge-autocaravana {
+  background: rgba(14, 116, 144, 0.35);
+  color: #67E8F9;
+  border: 1.5px solid rgba(103, 232, 249, 0.5);
+  box-shadow: none;
+}
+
+.badge-earth {
+  background: #FFF7ED;
+  color: #C2410C;
+  border: 1.5px solid #EA580C;
+  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(194, 65, 12, 0.14);
+}
+
+[data-theme="oscuro"] .badge-earth {
+  background: rgba(217, 119, 54, 0.32);
+  color: #FDBA74;
+  border: 1.5px solid rgba(253, 186, 116, 0.5);
+  box-shadow: none;
+}
+
+.badge-gold {
+  background: #FEF9C3;
+  color: #A16207;
+  border: 1.5px solid #CA8A04;
+  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(161, 98, 7, 0.14);
+}
+
+[data-theme="oscuro"] .badge-gold {
+  background: rgba(242, 169, 0, 0.32);
+  color: #FDE047;
+  border: 1.5px solid rgba(253, 224, 71, 0.5);
+  box-shadow: none;
+}
+
+/* Tarjeta Hero del Perfil con soporte pleno para Modo Claro y Oscuro */
+.profile-hero-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 248, 244, 0.95) 100%);
+  border: 1.5px solid rgba(35, 83, 52, 0.22);
+  box-shadow: 0 8px 24px rgba(35, 83, 52, 0.08);
+}
+
+[data-theme="oscuro"] .profile-hero-card {
+  background: linear-gradient(135deg, rgba(24, 61, 38, 0.45) 0%, rgba(13, 26, 18, 0.85) 100%);
+  border: 1.5px solid rgba(54, 121, 77, 0.35);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Flechas de navegación para scroll de chips en PC */
+.chips-nav-arrow-btn:hover {
+  transform: scale(1.1);
+  background: var(--accent-forest) !important;
+  border-color: #FFFFFF !important;
+}
+
+.chips-scroll-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.chips-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chips-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.chips-scroll-container:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Iconos de Valoración Camper */
+.camper-rating-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.camper-van-icon {
+  font-size: 1.6rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  user-select: none;
+}
+
+.camper-van-icon:hover {
+  transform: scale(1.25);
+}
+
+.camper-van-icon.active {
+  filter: drop-shadow(0 0 4px rgba(242, 169, 0, 0.6));
+}
+
+.camper-van-icon.inactive {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+/* ==========================================================================
+   CAMPLINK LOGO & CAMPER-CARD PROPORTIONS
+   ========================================================================== */
+.navbar-brand-logo {
+  height: 52px;
+  width: 52px;
+  object-fit: contain;
+  border-radius: 50%;
+  display: block;
+  transition: transform var(--transition-fast);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+}
+
+.camper-card {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.camper-card img:not(.avatar-img):not(.profile-avatar-img):not(.navbar-brand-logo) {
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.camper-avatar-img,
+.avatar-img,
+.profile-avatar-img {
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+
+/* Resaltado visual para enlaces compartidos de Diario (Post y Comentarios) */
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+    outline: 2.5px solid #22c55e;
+  }
+
+  50% {
+    box-shadow: 0 0 25px 6px rgba(74, 222, 128, 0.45);
+    outline: 2.5px solid #22c55e;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+    outline: 2.5px solid transparent;
+  }
+}
+
+.comentario-resaltado,
+.post-resaltado {
+  animation: highlightPulse 1.8s ease-in-out 3;
+  transition: all 0.3s ease;
+}
+
+/* ==========================================================================
+   LANDING HERO LOGO: 500px x 500px EN PC Y ESCALADO FLUIDO EN MÓVIL
+   ========================================================================== */
+.landing-hero-logo {
+  width: 500px !important;
+  height: 500px !important;
+  max-width: 90vw !important;
+  max-height: 90vw !important;
+  object-fit: contain;
+  border-radius: 50%;
+  box-shadow: 0 20px 50px rgba(35, 83, 52, 0.45);
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+  display: block;
+  margin: 0 auto;
+}
+
+.landing-hero-logo:hover {
+  transform: scale(1.03) rotate(2deg);
+  box-shadow: 0 25px 60px rgba(35, 83, 52, 0.6);
+}
+
+@media (max-width: 768px) {
+  .landing-hero-logo {
+    width: 280px !important;
+    height: 280px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-hero-logo {
+    width: 220px !important;
+    height: 220px !important;
+  }
+}

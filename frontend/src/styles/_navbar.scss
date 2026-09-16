@@ -1,0 +1,935 @@
+/* Barra de Navegación Glassmorphism */
+.camplink-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 2500 !important;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+  gap: 16px;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: var(--accent-forest);
+  letter-spacing: -0.5px;
+}
+
+.navbar-brand-icon {
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: floatVan 4s ease-in-out infinite;
+}
+
+@keyframes floatVan {
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-3px) rotate(-1deg);
+  }
+}
+
+.navbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  height: 38px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.nav-link span,
+.navbar-actions button span,
+.mobile-nav a span,
+.mobile-nav button span {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--accent-forest);
+  background: rgba(35, 83, 52, 0.1);
+  border-color: rgba(35, 83, 52, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Botón Hamburguesa: estrictamente oculto en escritorio y visible en móvil */
+.btn-hamburger {
+  display: none;
+}
+
+@media (min-width: 1181px) {
+  .desktop-nav {
+    display: block !important;
+  }
+
+  .navbar-nav {
+    display: flex !important;
+  }
+
+  .btn-hamburger,
+  .mobile-nav-toggle {
+    display: none !important;
+  }
+
+  .mobile-menu-drawer,
+  .mobile-nav {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1180px) {
+
+  .desktop-nav,
+  .navbar-nav {
+    display: none !important;
+  }
+
+  .btn-hamburger,
+  .mobile-nav-toggle {
+    display: flex !important;
+  }
+
+  .navbar-actions {
+    gap: 22px !important;
+  }
+
+  .navbar-inner {
+    height: 64px;
+  }
+
+  .camper-card {
+    padding: 18px;
+  }
+
+  .camplink-container {
+    padding: 0 14px;
+  }
+}
+
+/* Estilos de Menú Móvil y Utilidades Responsive */
+.mobile-menu-drawer {
+  padding: 16px 0;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeInDown 0.2s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.clickable-user {
+  cursor: pointer;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.clickable-user:hover {
+  color: var(--accent-earth) !important;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.nav-tabs-camper {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tab-camper-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab-camper-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-camper-btn.active {
+  color: var(--accent-forest);
+  border-bottom-color: var(--accent-forest);
+}
+
+/* ==========================================================================
+   OPTIMIZACIONES MÓVIL FIRST & IPHONE 12 PRO (<= 480px)
+   ========================================================================== */
+@media (max-width: 480px) {
+
+  html,
+  body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .camplink-container {
+    padding: 14px 10px 24px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .camper-card {
+    padding: 14px 12px !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* Navbar móvil optimizado */
+  .navbar-inner {
+    padding: 0 4px !important;
+    gap: 4px !important;
+    min-height: 56px !important;
+  }
+
+  .navbar-brand {
+    gap: 4px !important;
+  }
+
+  .navbar-brand span:last-child {
+    font-size: 1.1rem !important;
+  }
+
+  .navbar-brand-icon {
+    font-size: 1.3rem !important;
+  }
+
+  .navbar-actions {
+    gap: 4px !important;
+  }
+
+  .navbar-actions .btn-icon {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 0 !important;
+  }
+
+  .navbar-actions .btn-sm {
+    height: 34px !important;
+    padding: 0 8px !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* Modal responsive */
+  .modal-overlay {
+    padding: 8px !important;
+  }
+
+  /* Formularios e inputs en móvil */
+  .form-control,
+  input[type="text"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px !important;
+    /* Evita zoom forzado en Safari iOS */
+  }
+
+  /* Grid en móvil a 1 columna */
+  .grid-mobile-1col {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* ==========================================================================
+   MOBILE FIRST & IPHONE 12 PRO (390px) GLOBAL ADAPTATIONS
+   ========================================================================== */
+@media (max-width: 768px) {
+  .desktop-only-action {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+
+  /* Escala tipográfica móvil ajustada */
+  h1 {
+    font-size: 1.45rem !important;
+    line-height: 1.25 !important;
+    letter-spacing: -0.3px !important;
+  }
+
+  h2 {
+    font-size: 1.2rem !important;
+    line-height: 1.3 !important;
+  }
+
+  h3 {
+    font-size: 1.05rem !important;
+    line-height: 1.3 !important;
+  }
+
+  p {
+    font-size: 0.86rem !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Reducción de márgenes y paddings en móvil */
+  .camplink-container {
+    padding: 12px 10px 24px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .camper-card {
+    padding: 14px 12px !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 14px !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  /* Navbar compacto para iPhone */
+  .navbar-inner {
+    min-height: 52px !important;
+    padding: 0 4px !important;
+  }
+
+  .navbar-brand {
+    gap: 4px !important;
+  }
+
+  .navbar-brand span:last-child {
+    font-size: 1.15rem !important;
+  }
+
+  .navbar-brand-icon {
+    font-size: 1.3rem !important;
+  }
+
+  .navbar-actions {
+    gap: 4px !important;
+  }
+
+  .navbar-actions .btn-icon {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+  }
+
+  .navbar-actions .btn-sm {
+    height: 32px !important;
+    padding: 0 8px !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* Botones y formularios móviles */
+  .btn {
+    font-size: 0.82rem !important;
+    padding: 6px 12px !important;
+    white-space: nowrap !important;
+  }
+
+  .btn-sm {
+    font-size: 0.76rem !important;
+    padding: 4px 8px !important;
+  }
+
+  /* Etapas e itinerarios en móvil */
+  .etapa-card-mobile {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .etapa-actions-mobile {
+    width: 100% !important;
+    justify-content: flex-end !important;
+    border-top: 1px dashed var(--border-color) !important;
+    padding-top: 6px !important;
+    margin-top: 4px !important;
+  }
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE RULES (OCULTAR NAVBAR SUPERIOR DE PC EN MÓVIL)
+   ========================================================================== */
+@media (max-width: 768px) {
+
+  header.camplink-navbar,
+  .camplink-navbar,
+  .desktop-only-navbar {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    overflow: hidden !important;
+  }
+
+  .camper-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  header.camplink-navbar,
+  .camplink-navbar,
+  .desktop-only-navbar {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    overflow: hidden !important;
+  }
+
+  .navbar-brand-logo {
+    height: 44px !important;
+    width: 44px !important;
+    margin: 0 !important;
+  }
+
+  /* Tarjeta de Explorador en Móvil */
+  .camper-card {
+    padding: 16px 14px !important;
+    border-radius: var(--radius-lg) !important;
+    margin-bottom: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .camper-card-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+
+  .camper-card img {
+    border-radius: var(--radius-md) !important;
+  }
+}
+
+
+
+/* Menú móvil desplegable con fondo opaco y cristal esmerilado */
+.mobile-nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  width: 100%;
+  background: var(--bg-surface) !important;
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+  border-bottom: 2px solid var(--border-color);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  z-index: 1005;
+  padding: 16px 16px 24px;
+  box-sizing: border-box;
+  animation: slideDown 0.25s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* Floating Panels & Dropdowns: High Opacity & Crisp Contrast */
+.notif-dropdown-panel {
+  z-index: 3500 !important;
+  background: var(--bg-surface) !important;
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  opacity: 0.99 !important;
+}
+
+[data-theme='oscuro'] .notif-dropdown-panel,
+[data-theme='puesta_de_sol'] .notif-dropdown-panel {
+  z-index: 3500 !important;
+  background: #121c16 !important;
+  background-color: #121c16 !important;
+}
+
+[data-theme='claro'] .notif-dropdown-panel {
+  z-index: 3500 !important;
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+}
+
+/* Notificaciones: Panel en móvil posicionado directamente debajo del botón flotante */
+@media (max-width: 768px) {
+  .notif-dropdown-panel {
+    position: absolute !important;
+    top: calc(100% + 10px) !important;
+    right: 0 !important;
+    left: auto !important;
+    width: 340px !important;
+    max-width: calc(100vw - 24px) !important;
+    z-index: 99999 !important;
+  }
+}
+
+.mobile-nav-dropdown {
+  background: var(--bg-surface) !important;
+  background-color: var(--bg-surface) !important;
+  opacity: 0.99 !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme='oscuro'] .mobile-nav-dropdown,
+[data-theme='puesta_de_sol'] .mobile-nav-dropdown {
+  background: #111e16 !important;
+  background-color: #111e16 !important;
+}
+
+[data-theme='claro'] .mobile-nav-dropdown {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+}
+
+.camper-explorer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-color: var(--accent-forest) !important;
+}
+
+/* ==========================================================================
+   NAVBAR ESCRITORIO: SIMETRÍA VERTICAL Y DISTRIBUCIÓN IZQUIERDA / DERECHA PERFECTA
+   ========================================================================== */
+@media (min-width: 769px) {
+
+  header.camplink-navbar,
+  .camplink-navbar {
+    z-index: 2500 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  header.camplink-navbar .camplink-container,
+  .camplink-navbar .camplink-container {
+    width: 100% !important;
+    max-width: 1240px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  header.camplink-navbar .navbar-inner,
+  .camplink-navbar .navbar-inner,
+  .navbar-inner {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .navbar-actions {
+    display: flex !important;
+    align-items: center !important;
+    margin-left: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+
+  header.camplink-navbar .camplink-container,
+  .camplink-navbar .camplink-container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+/* ==========================================================================
+   BOTÓN RADAR EN NAV MÓVIL Y ESCRITORIO + TUTORIAL MODAL
+   ========================================================================== */
+.nav-radar-btn {
+  transition: all 0.25s ease;
+}
+
+.nav-radar-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+}
+
+@media (max-width: 580px) {
+  .nav-radar-label {
+    display: none !important;
+  }
+
+  .nav-radar-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+}
+
+.tutorial-modal-overlay {
+  animation: fadeInModal 0.25s ease forwards;
+}
+
+.tutorial-modal-card {
+  animation: scaleInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInModal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleInModal {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ==========================================================================
+   BARRA DE NAVEGACIÓN INFERIOR MÓVIL, CONTROLES SUPERIORES FLOTANTES Y RADAR
+   ========================================================================== */
+
+.mobile-bottom-nav,
+.mobile-floating-radar,
+.mobile-top-floating-bar {
+  display: none;
+}
+
+.mapa-leyenda-flotante {
+  bottom: 24px;
+  left: 14px;
+}
+
+@media (max-width: 768px) {
+
+  /* Ocultar barra superior fija de PC */
+  .desktop-only-navbar {
+    display: none !important;
+  }
+
+  /* Reserva de espacio inferior en el body/contenido para no tapar contenido */
+  body {
+    padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* CONTROLES FLOTANTES SUPERIORES (TEMA + IDIOMA A LA IZQ, NOTIFICACIONES A LA DCHA) */
+  .mobile-top-floating-bar {
+    display: flex !important;
+    position: fixed !important;
+    top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    padding: 0 16px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    pointer-events: none !important;
+    z-index: 3000 !important;
+    box-sizing: border-box !important;
+    transition: opacity 0.25s ease, top 0.25s ease !important;
+  }
+
+  /* Si hay aviso de check-in activo en móvil, la barra flotante se posiciona por debajo del aviso */
+  .mobile-top-floating-bar.con-aviso-checkin {
+    top: calc(122px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Al hacer scroll hacia abajo, reducimos opacidad a 0.5 */
+  .mobile-top-floating-bar.scrolled {
+    opacity: 0.5 !important;
+  }
+
+  .mobile-top-floating-bar.scrolled:hover,
+  .mobile-top-floating-bar.scrolled:focus-within,
+  .mobile-top-floating-bar.scrolled:active {
+    opacity: 1 !important;
+  }
+
+  /* Espacio superior en móvil para vistas que no sean inicio/landing para que los botones flotantes no solapen la página */
+  .app-main-content.con-top-offset-movil {
+    padding-top: calc(70px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Posicionamiento de la leyenda en móvil sobre la barra inferior */
+  .mapa-leyenda-flotante {
+    bottom: 74px !important;
+    left: 2px !important;
+  }
+
+  .mobile-top-floating-left,
+  .mobile-top-floating-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-top-floating-left .btn-icon,
+  .mobile-top-floating-right .btn-icon {
+    background: var(--bg-surface-elevated) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1.5px solid var(--border-color) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  /* El botón de notificaciones en móvil tendrá el mismo tamaño que el de radar (48px) */
+  .mobile-top-floating-right .notif-bell-btn {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+  }
+
+  /* BARRA INFERIOR MÓVIL */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100% !important;
+    height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    background: var(--bg-surface-elevated) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid var(--border-color) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12) !important;
+    z-index: 9999 !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 6px 4px;
+    flex: 1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    border-radius: 10px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-bottom-nav-item svg {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.2s ease;
+  }
+
+  .mobile-bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  .mobile-bottom-nav-item.active {
+    color: var(--accent-forest);
+    font-weight: 700;
+  }
+
+  .mobile-bottom-nav-item.active svg {
+    stroke: var(--accent-forest);
+    transform: translateY(-2px) scale(1.1);
+  }
+
+  .mobile-bottom-nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    width: 16px;
+    height: 3px;
+    border-radius: 99px;
+    background: var(--accent-forest);
+  }
+
+  /* LOGO INICIO DESTACADO Y ELEVADO EN EL CENTRO */
+  .mobile-bottom-nav-home {
+    overflow: visible !important;
+    position: relative !important;
+  }
+
+  .mobile-home-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-surface-elevated);
+    border: 2.5px solid var(--accent-forest);
+    box-shadow: 0 4px 14px rgba(35, 83, 52, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -18px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+  }
+
+  .mobile-home-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .mobile-bottom-nav-item.mobile-bottom-nav-home.active .mobile-home-icon-wrap {
+    border-color: var(--accent-gold);
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 6px 20px rgba(242, 169, 0, 0.5);
+  }
+
+  .mobile-bottom-nav-item.mobile-bottom-nav-home.active::after {
+    display: none !important;
+  }
+
+  /* BOTÓN FLOTANTE RADAR EN MÓVIL (EN EL AIRE SOBRE EL ICONO DE PERFIL) */
+  .mobile-floating-radar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 12px !important;
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #10B981, #059669) !important;
+    color: #ffffff !important;
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5) !important;
+    cursor: pointer !important;
+    z-index: 10000 !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .mobile-floating-radar:hover {
+    transform: scale(1.08) !important;
+    box-shadow: 0 12px 28px rgba(16, 185, 129, 0.65) !important;
+  }
+
+  .mobile-floating-radar:active {
+    transform: scale(0.94) !important;
+  }
+}

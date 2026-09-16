@@ -1,0 +1,346 @@
+/* OrganizarViaje: mejoras móvil — botones de viaje no se cortan */
+@media (max-width: 600px) {
+
+  /* La cabecera del viaje apila en columna en móvil */
+  .viaje-card-header-actions {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* El contenedor principal de OrganizarViaje permite scroll vertical sin límite */
+  .camplink-container {
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  /* Botones en cabecera de viaje se encogen correctamente */
+  .viaje-card-header-actions button {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  /* Botón eliminación (botón icono) siempre visible */
+  .viaje-card-header-actions .btn-icon {
+    flex-shrink: 0;
+  }
+}
+
+/* ==========================================================================
+   ESTILOS RESPONSIVE PARA LA TARJETA DE ORGANIZAR VIAJE
+   ========================================================================== */
+.btn-archivar-flotante {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1.5px solid #F59E0B;
+  color: #F59E0B;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  z-index: 10;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-archivar-flotante:hover {
+  background: #F59E0B;
+  color: #FFF;
+}
+
+.viaje-header-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* ESTO CENTRA LOS BOTONES Y EL ICONO VERTICALMENTE */
+  gap: 16px;
+  width: 100%;
+  min-height: 85px;
+  /* Evita que el botón archivar pise a los botones de abajo */
+}
+
+.viaje-info-principal {
+  display: flex;
+  align-items: center;
+  /* ESTO CENTRA EL ICONO DEL MAPA VERTICALMENTE CON EL TEXTO */
+  gap: 10px;
+  flex: 1;
+}
+
+.viaje-titulo-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  /* ALINEA EL TÍTULO A LA IZQUIERDA EN PC */
+}
+
+.viaje-datos-secundarios {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* ALINEA LAS FECHAS Y KM A LA IZQUIERDA */
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.viaje-dato-linea {
+  display: flex;
+  align-items: center;
+  row-gap: 4px;
+  column-gap: 10px;
+  flex-wrap: wrap;
+}
+
+.viaje-botones-accion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* --- VISTA MÓVIL --- */
+@media (max-width: 768px) {
+  .viaje-card-responsive {
+    padding: 16px 12px !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .btn-archivar-flotante {
+    position: relative;
+    top: 0;
+    right: 0;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 16px;
+    order: -1;
+  }
+
+  .viaje-header-layout {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .viaje-info-principal {
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .viaje-titulo-container {
+    justify-content: center;
+    /* CENTRA EL TÍTULO EN MÓVIL */
+  }
+
+  .viaje-datos-secundarios {
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .viaje-dato-linea {
+    justify-content: center;
+  }
+
+  .viaje-botones-accion {
+    justify-content: center;
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* ==========================================================================
+   CORRECCIONES MÓVIL & PC: LAYOUT DE PARADAS Y ALINEACIÓN DE PAPELERA
+   ========================================================================== */
+
+/* Papelera del viaje principal */
+.hide-on-pc {
+  display: none !important;
+}
+
+.btn-eliminar-viaje {
+  width: 34px;
+  height: 34px;
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Nuevo layout estructurado para las paradas del itinerario (Línea Horizontal en PC) */
+.etapa-card-nuevo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  transition: background 0.2s;
+}
+
+.etapa-card-nuevo.etapa-gas {
+  background: rgba(217, 119, 6, 0.08);
+  border-color: #D97706;
+}
+
+.etapa-drag {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.etapa-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.etapa-icono {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-forest);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.etapa-gas .etapa-icono {
+  background: #D97706;
+}
+
+.etapa-detalles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.etapa-titulo-km {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.etapa-acciones {
+  display: flex;
+  align-items: center;
+  ;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.etapa-btn-borrar-inline {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.etapa-btn-borrar-inline:hover {
+  background: #EF4444;
+  color: #fff;
+}
+
+/* Comportamiento específico en móvil */
+@media (max-width: 768px) {
+  .hide-on-pc {
+    display: flex !important;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .viaje-info-principal {
+    width: 100%;
+    margin-bottom: 0 !important;
+  }
+
+  .viaje-icono-mobile-row {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .btn-eliminar-viaje.hide-on-pc {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+  }
+
+  /* CORRECCIÓN IPHONE: Forzar el salto de línea en las paradas */
+  .etapa-card-nuevo {
+    flex-wrap: wrap;
+    padding: 14px 12px;
+    gap: 12px;
+    position: relative;
+  }
+
+  .etapa-info {
+    order: 1;
+    flex: 0 0 100% !important;
+    /* <--- LA CLAVE: Obliga a ocupar toda la fila y salta de línea */
+    width: 100%;
+    padding-right: 36px;
+    /* Deja espacio a la derecha para no pisar la X roja */
+    align-items: flex-start;
+    /* Sube el número redondo a la altura de la primera línea de texto */
+  }
+
+  .etapa-drag {
+    order: 2;
+    flex-shrink: 0;
+  }
+
+  .etapa-acciones {
+    order: 3;
+    flex: 1;
+    justify-content: space-evenly;
+  }
+
+  /* La X se ancla de forma absoluta arriba a la derecha */
+  .etapa-btn-borrar-inline {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+  }
+}

@@ -267,7 +267,7 @@ function MonitorZoom({ onZoomChange }) {
   return null;
 }
 
-export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCambiarALista }) {
+export default function DescubreMapa({ alSeleccionarLugar, alCambiarALista }) {
   const { usuario } = useAuth();
   const [lugares, setLugares] = useState([]);
   const [leyendaAbierta, setLeyendaAbierta] = useState(false);
@@ -391,7 +391,7 @@ export default function DescubreMapa({ alSeleccionarLugar, alHacerCheckin, alCam
     apto_autocaravanas_grandes: false,
     permitido_sacar_toldo: false,
 
-    // ⭐ Puntuación
+    // Puntuación
     puntuacion_minima: 0,
   });
 
